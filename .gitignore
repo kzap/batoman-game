@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Vite
+.vite/
+
+# Environment
+.env
+.env.local
+
+# Editor
+.vscode/
+*.swp
