@@ -1,0 +1,18 @@
+{
+  "name": "batoman-game",
+  "version": "0.1.0",
+  "description": "BatoMan — Filipino-inspired side-scrolling platformer built with Phaser 3.90",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "vite": "^5.4.0"
+  }
+}
