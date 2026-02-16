@@ -1,0 +1,91 @@
+{
+  "level": 1,
+  "name": "Tondo Sublevel Docks",
+  "description": "Waterfront slum — fishing boats, smog, patrol drones, dock-worker cyborgs",
+  "assets": [
+    {
+      "key": "level-1-background",
+      "file": "background.png",
+      "type": "image",
+      "dimensions": { "width": 1408, "height": 736 },
+      "use": "parallax far layer (scrollFactor 0.05)"
+    },
+    {
+      "key": "level-1-midground",
+      "file": "midground.png",
+      "type": "image",
+      "dimensions": { "width": 1408, "height": 768 },
+      "use": "parallax mid layer (scrollFactor 0.25)"
+    },
+    {
+      "key": "level-1-foreground",
+      "file": "foreground.png",
+      "type": "image",
+      "dimensions": { "width": 1408, "height": 736 },
+      "use": "parallax near layer (scrollFactor 0.60)"
+    },
+    {
+      "key": "level-1-tileset",
+      "file": "tileset.png",
+      "type": "tileset",
+      "dimensions": { "width": 2816, "height": 1536 },
+      "tileSize": 32,
+      "use": "Tiled tileset for platforms, floor, and hazard tiles"
+    },
+    {
+      "key": "bgm-level1",
+      "file": "music.mp3",
+      "type": "audio",
+      "use": "background music, loops at volume 0.6"
+    },
+    {
+      "key": null,
+      "file": "concept-art-batoman-building.png",
+      "type": "concept-art",
+      "use": "reference only — not loaded at runtime"
+    },
+    {
+      "key": null,
+      "file": "concept-art-boss.png",
+      "type": "concept-art",
+      "use": "reference only — not loaded at runtime"
+    },
+    {
+      "key": null,
+      "file": "concept-art-docks.png",
+      "type": "concept-art",
+      "use": "reference only — not loaded at runtime"
+    },
+    {
+      "key": null,
+      "file": "concept-art-mami-house.png",
+      "type": "concept-art",
+      "use": "reference only — not loaded at runtime"
+    },
+    {
+      "key": null,
+      "file": "concept-art-mobs.png",
+      "type": "concept-art",
+      "use": "reference only — not loaded at runtime"
+    }
+  ],
+  "characterRefs": [
+    {
+      "key": "drone",
+      "file": "characters/drone-sprites.png",
+      "note": "defined in root assets.json — load from characters/ directory"
+    },
+    {
+      "key": "patroller",
+      "file": "characters/patroller-sprites.png",
+      "note": "defined in root assets.json — load from characters/ directory"
+    }
+  ],
+  "missing": [
+    {
+      "file": "level-1.json",
+      "type": "tilemap",
+      "description": "Tiled JSON export — layers: background-deco, platforms, hazards, foreground-deco, spawns"
+    }
+  ]
+}

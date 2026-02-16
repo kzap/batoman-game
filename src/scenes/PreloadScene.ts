@@ -10,19 +10,26 @@ export class PreloadScene extends Phaser.Scene {
     this.createLoadingBar();
 
     // Backgrounds & parallax layers
-    this.load.image('level-1-background', 'assets/level-1-background.png');
-    this.load.image('level-1-midground', 'assets/level-1.png');
-    this.load.image('level-1-foreground', 'assets/level-1-foreground.png');
+    this.load.image('level-1-background', 'assets/level-1/background.png');
+    this.load.image('level-1-midground',  'assets/level-1/midground.png');
+    this.load.image('level-1-foreground', 'assets/level-1/foreground.png');
     this.load.image('level-select', 'assets/level-select.png');
 
+    // Tilesets
+    this.load.image('level-1-tileset', 'assets/level-1/tileset.png');
+
     // Music
-    this.load.audio('bgm-level1', 'assets/level-1-music.mp3');
+    this.load.audio('bgm-level1', 'assets/level-1/music.mp3');
 
     // Player spritesheet — 8 columns × 4 rows, each frame 176×184px
-    this.load.spritesheet('batoman', 'assets/batoman-sprites.png', {
+    this.load.spritesheet('batoman', 'assets/characters/batoman-sprites.png', {
       frameWidth: 176,
       frameHeight: 184,
     });
+
+    // Level 1 enemy spritesheets — frame size TBD, verify against actual sprite art
+    this.load.spritesheet('drone',     'assets/characters/drone-sprites.png',     { frameWidth: 128, frameHeight: 128 });
+    this.load.spritesheet('patroller', 'assets/characters/patroller-sprites.png', { frameWidth: 128, frameHeight: 128 });
 
     // TODO: add tilemaps as levels are built in Tiled
     // this.load.tilemapTiledJSON('level1', 'assets/tilemaps/level1.json');

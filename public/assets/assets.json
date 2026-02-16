@@ -1,0 +1,131 @@
+{
+  "description": "BatoMan — master asset catalog. Each level has its own assets.json.",
+  "global": [
+    {
+      "key": "level-select",
+      "file": "level-select.png",
+      "type": "image",
+      "dimensions": { "width": 1408, "height": 768 },
+      "use": "MenuScene background"
+    },
+    {
+      "key": null,
+      "file": "level-2-music.mp3",
+      "type": "audio",
+      "use": "placeholder — will move to level-2/ when Level 2 is built"
+    }
+  ],
+  "characters": [
+    {
+      "key": "batoman",
+      "file": "characters/batoman-sprites.png",
+      "type": "spritesheet",
+      "dimensions": { "width": 1408, "height": 736 },
+      "frameSize": { "width": 176, "height": 184 },
+      "grid": { "columns": 8, "rows": 4 },
+      "use": "Player — all animation states"
+    },
+    {
+      "key": "drone",
+      "file": "characters/drone-sprites.png",
+      "type": "spritesheet",
+      "dimensions": { "width": 2816, "height": 1536 },
+      "frameSize": { "width": 128, "height": 128, "note": "placeholder — verify against actual sprite art" },
+      "grid": { "columns": 22, "rows": 12 },
+      "use": "Level 1 enemy — flying patrol drone",
+      "levels": [1]
+    },
+    {
+      "key": "patroller",
+      "file": "characters/patroller-sprites.png",
+      "type": "spritesheet",
+      "dimensions": { "width": 2816, "height": 1536 },
+      "frameSize": { "width": 128, "height": 128, "note": "placeholder — verify against actual sprite art" },
+      "grid": { "columns": 22, "rows": 12 },
+      "use": "Level 1 enemy — dock-worker cyborg patroller",
+      "levels": [1]
+    },
+    {
+      "key": "tikbalang",
+      "file": "characters/tikbalang-sprites.png",
+      "type": "spritesheet",
+      "dimensions": { "width": 2816, "height": 1536 },
+      "frameSize": { "width": 128, "height": 128, "note": "placeholder — verify against actual sprite art" },
+      "grid": { "columns": 22, "rows": 12 },
+      "use": "Level 6 boss — Tikbalang-X fast quadruped",
+      "levels": [6]
+    }
+  ],
+  "levels": [
+    {
+      "id": 1,
+      "name": "Tondo Sublevel Docks",
+      "directory": "level-1/",
+      "manifest": "level-1/assets.json",
+      "status": "in-progress"
+    },
+    {
+      "id": 2,
+      "name": "Divisoria Grid Market",
+      "directory": "level-2/",
+      "manifest": "level-2/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 3,
+      "name": "Quiapo Underground Chapel",
+      "directory": "level-3/",
+      "manifest": "level-3/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 4,
+      "name": "NSA Tower Exterior",
+      "directory": "level-4/",
+      "manifest": "level-4/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 5,
+      "name": "Skyway Traffic",
+      "directory": "level-5/",
+      "manifest": "level-5/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 6,
+      "name": "Abandoned Rooftop Garden",
+      "directory": "level-6/",
+      "manifest": "level-6/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 7,
+      "name": "Laboratoryo Zero Entrance",
+      "directory": "level-7/",
+      "manifest": "level-7/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 8,
+      "name": "The Floodgates",
+      "directory": "level-8/",
+      "manifest": "level-8/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 9,
+      "name": "Arcology Atrium",
+      "directory": "level-9/",
+      "manifest": "level-9/assets.json",
+      "status": "not-started"
+    },
+    {
+      "id": 10,
+      "name": "Destroyed City Block",
+      "directory": "level-10/",
+      "manifest": "level-10/assets.json",
+      "status": "not-started"
+    }
+  ]
+}

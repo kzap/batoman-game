@@ -12,6 +12,82 @@ description: Expert Phaser 3.90 game development skill for the BatoMan side-scro
 - Assets live in `public/assets/` (images, tilemaps, audio)
 - Source in `src/`
 
+## Project Bootstrap Checklist
+
+**Before writing any level code or game objects**, verify these docs exist in `docs/`.
+If any are missing, create them first — in this order:
+
+| # | File | Purpose | Key inputs |
+|---|------|---------|-----------|
+| 1 | `docs/STORY.md` | World bible — setting, hero, villain, tone | Brief from user |
+| 2 | `docs/PRD.md` | Product requirements — levels, enemies, mechanics, HUD | STORY.md |
+| 3 | `docs/ART.md` | Art design — palette, sprites, per-level environments, VFX | STORY.md + PRD.md |
+| 4 | `docs/TDD.md` | Technical design — scene graph, physics, FSMs, object pool, milestones | PRD.md + codebase |
+
+### How to create missing docs
+
+- **STORY.md** — Ask user for the game concept; write narrative, hero/villain profiles, tone, world inspirations
+- **PRD.md** — Derive core loop, movement table, combat table, levels table, obstacles, enemies, bosses, powerups, HUD, win/lose conditions from STORY.md
+- **ART.md** — Define pixel art spec, global color palette, all animation states per character, per-level environment palettes, VFX guidelines from STORY.md + PRD.md
+- **TDD.md** — Map full project file tree, scene flow, physics layers, FSM state tables, object pool sizes, level config schema, performance budget, milestones from PRD.md + existing src/ audit
+
+---
+
+## Required Art Assets
+
+Art assets must exist in `public/assets/` **before** implementing a level.
+Assets can be generated with AI tools (e.g. **Gemini**, image gen pipelines) or drawn manually.
+
+### Asset Manifest
+
+```
+public/assets/
+├── images/
+│   ├── batoman.png              # Player spritesheet — 8×4 grid, 176×184 px per frame
+│   ├── plasma-burst.png         # Projectile spritesheet (rapid shot)
+│   ├── nova-blast.png           # Projectile spritesheet (charged AoE)
+│   ├── hud-heart.png            # Full and empty heart (2-frame strip)
+│   └── enemies/
+│       ├── patrol-drone.png     # Level 1 enemy
+│       ├── dock-cyborg.png      # Level 1 enemy
+│       └── <level>-<enemy>.png  # Pattern for future enemies
+├── tilemaps/
+│   └── level-<N>.json           # Tiled JSON export per level
+├── tilesets/
+│   └── level-<N>-tileset.png    # 32×32 px tile sheet for Tiled
+├── backgrounds/
+│   ├── level-<N>-bg-far.png     # Parallax layer 0 (scroll 0.05)
+│   ├── level-<N>-bg-mid.png     # Parallax layer 1 (scroll 0.25)
+│   └── level-<N>-bg-near.png    # Parallax layer 2 (scroll 0.60)
+├── bosses/
+│   └── <boss-key>.png           # Boss spritesheet (96–192 px per frame)
+└── audio/
+    ├── bgm-level-<N>.mp3        # Per-level BGM
+    └── sfx/                     # Sound effects (plasma, jump, hit, etc.)
+```
+
+### Asset generation checklist (per new level)
+
+Before implementing Level N, confirm each line is checked:
+
+- [ ] `level-N-tileset.png` exists (32×32 tiles, matching ART.md palette for that level)
+- [ ] `level-N.json` Tiled map exported with layers: `background-deco`, `platforms`, `hazards`, `foreground-deco`, `spawns`
+- [ ] `level-N-bg-far/mid/near.png` parallax backgrounds exist
+- [ ] All enemy sprites for Level N exist in `images/enemies/`
+- [ ] If Level N has a boss: boss spritesheet exists in `bosses/`
+- [ ] BGM track exists in `audio/`
+
+### If assets are missing
+
+Do not implement the level with placeholder primitives (colored rectangles) unless the user explicitly asks for a prototype pass. Instead:
+
+1. List exactly which assets are missing (file names, dimensions, frame counts)
+2. Describe what each asset should look like (reference ART.md for palette, mood, dimensions)
+3. Prompt the user to generate them — e.g. via Gemini image generation or manual creation
+4. Once assets are dropped into `public/assets/`, proceed with level implementation
+
+---
+
 ## Project Architecture
 
 ```
