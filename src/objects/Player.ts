@@ -48,7 +48,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setGravityY(0);
     body.setMaxVelocityX(280);
     body.setMaxVelocityY(800);
-    body.setSize(60, 100);
+    body.setSize(60, 112);
     body.setOffset(58, 60);
     body.setCollideWorldBounds(true);
 
@@ -161,11 +161,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const dir = left ? -1 : 1;
       this.setVelocityX(RUN_SPEED * 1.5 * dir);
       this.setFlipX(dir < 0);
-      body.setSize(60, 60);
+      body.setSize(60, 72);
       body.setOffset(58, 100);
       return;
     } else {
-      body.setSize(60, 100);
+      body.setSize(60, 112);
       body.setOffset(58, 60);
     }
 

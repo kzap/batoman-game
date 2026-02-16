@@ -31,8 +31,8 @@ export class PreloadScene extends Phaser.Scene {
     });
 
     // Level 1 enemy spritesheets — frame size TBD, verify against actual sprite art
-    this.load.spritesheet('drone',     'assets/characters/drone-sprites.png',     { frameWidth: 128, frameHeight: 128 });
-    this.load.spritesheet('patroller', 'assets/characters/patroller-sprites.png', { frameWidth: 128, frameHeight: 128 });
+    this.load.spritesheet('drone',     'assets/characters/drone-sprites.png',     { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet('patroller', 'assets/characters/patroller-sprites.png', { frameWidth: 256, frameHeight: 256 });
   }
 
   create() {
