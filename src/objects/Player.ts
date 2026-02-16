@@ -46,6 +46,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setOffset(58, 60);
 
     this.setDepth(10);
+    this.setScale(2);
     this.play('batoman-idle');
 
     this.setupInput(scene);

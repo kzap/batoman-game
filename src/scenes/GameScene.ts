@@ -30,6 +30,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, this.WORLD_HEIGHT);
 
     this.createAnimations();
+    this.createPlaceholderTextures();
     this.createBackground();
     this.createPlatforms();
     this.createPlayer();
@@ -129,6 +130,18 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  // ─── Placeholder Textures ────────────────────────────────────────────────
+
+  private createPlaceholderTextures() {
+    if (!this.textures.exists('enemy-placeholder')) {
+      const gfx = this.make.graphics({ x: 0, y: 0 }, false);
+      gfx.fillStyle(0xff2244);
+      gfx.fillRect(0, 0, 32, 32);
+      gfx.generateTexture('enemy-placeholder', 32, 32);
+      gfx.destroy();
+    }
+  }
+
   // ─── Background ───────────────────────────────────────────────────────────
 
   private createBackground() {
@@ -173,14 +186,33 @@ export class GameScene extends Phaser.Scene {
   private createPlatforms() {
     this.platforms = this.physics.add.staticGroup();
 
-    // Ground — full width of world
+    // Ground — full width of world, bright enough to see against dark backgrounds
+    const groundGlow = this.add.rectangle(
+      this.WORLD_WIDTH / 2,
+      this.WORLD_HEIGHT - 24,
+      this.WORLD_WIDTH,
+      52,
+      0x00eeff,
+      0.15
+    );
+    groundGlow.setDepth(3);
     const ground = this.add.rectangle(
       this.WORLD_WIDTH / 2,
       this.WORLD_HEIGHT - 24,
       this.WORLD_WIDTH,
       48,
-      0x223344
+      0x1a3a4a
     );
+    ground.setDepth(4);
+    // Bright top edge for ground
+    const groundEdge = this.add.rectangle(
+      this.WORLD_WIDTH / 2,
+      this.WORLD_HEIGHT - 48,
+      this.WORLD_WIDTH,
+      2,
+      0x00eeff
+    );
+    groundEdge.setDepth(4);
     this.physics.add.existing(ground, true);
     this.platforms.add(ground);
 
@@ -196,7 +228,15 @@ export class GameScene extends Phaser.Scene {
     ];
 
     for (const p of platformData) {
-      const plat = this.add.rectangle(p.x, p.y, p.w, p.h, 0x00eeff, 0.8);
+      // Glow behind platform
+      const glow = this.add.rectangle(p.x, p.y, p.w + 8, p.h + 8, 0x00eeff, 0.2);
+      glow.setDepth(3);
+      // Main platform body
+      const plat = this.add.rectangle(p.x, p.y, p.w, p.h, 0x00eeff);
+      plat.setDepth(4);
+      // Dark inner fill for contrast
+      const inner = this.add.rectangle(p.x, p.y, p.w - 4, p.h - 4, 0x0a2a3a);
+      inner.setDepth(4);
       this.physics.add.existing(plat, true);
       this.platforms.add(plat);
     }
