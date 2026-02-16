@@ -9,14 +9,18 @@ export class PreloadScene extends Phaser.Scene {
   preload() {
     this.createLoadingBar();
 
-    // Backgrounds
+    // Backgrounds & parallax layers
     this.load.image('level-1-background', 'assets/level-1-background.png');
+    this.load.image('level-1-midground', 'assets/level-1.png');
+    this.load.image('level-1-foreground', 'assets/level-1-foreground.png');
     this.load.image('level-select', 'assets/level-select.png');
 
-    // TODO: add spritesheets, tilemaps, and audio as assets become available
+    // Music
+    this.load.audio('bgm-level1', 'assets/level-1-music.mp3');
+
+    // TODO: add spritesheets and tilemaps as assets become available
     // this.load.spritesheet('batoman', 'assets/images/batoman.png', { frameWidth: 32, frameHeight: 48 });
     // this.load.tilemapTiledJSON('level1', 'assets/tilemaps/level1.json');
-    // this.load.audio('bgm-level1', 'assets/audio/bgm-level1.mp3');
   }
 
   create() {

@@ -9,8 +9,13 @@ export class GameScene extends Phaser.Scene {
   private projectiles!: Phaser.Physics.Arcade.Group;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
 
-  // Parallax background layers
-  private bgFar!: Phaser.GameObjects.Image;
+  // Parallax background layers (TileSprite for infinite horizontal scroll)
+  private bgFar!: Phaser.GameObjects.TileSprite;
+  private bgMid!: Phaser.GameObjects.TileSprite;
+  private bgNear!: Phaser.GameObjects.TileSprite;
+
+  // Music
+  private bgm!: Phaser.Sound.BaseSound;
 
   // World dimensions (expand as levels grow)
   private readonly WORLD_WIDTH = GAME_WIDTH * 3;
@@ -31,6 +36,7 @@ export class GameScene extends Phaser.Scene {
     this.createProjectiles();
     this.setupCollisions();
     this.setupCamera();
+    this.startMusic();
 
     // Launch HUD overlay
     this.scene.launch('UIScene', { gameScene: this });
@@ -50,19 +56,40 @@ export class GameScene extends Phaser.Scene {
   // ─── Background ───────────────────────────────────────────────────────────
 
   private createBackground() {
-    // Static far background — scrolls at 0 (fixed to camera via setScrollFactor)
+    // All layers use TileSprite so they tile infinitely horizontally.
+    // setScrollFactor(0) pins them to the camera — we manually drive
+    // tilePositionX in updateParallax() to create the depth illusion.
+    //
+    // Scroll rates:  far=0.05  mid=0.25  near=0.6
+    // (lower = further away / slower)
+
+    // Layer 1 — far background (sky / city horizon)
     this.bgFar = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'level-1-background')
+      .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'level-1-background')
+      .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(0);
 
-    // Scale to fill viewport
-    this.bgFar.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    // Layer 2 — midground (city structures)
+    this.bgMid = this.add
+      .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'level-1-midground')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(1);
+
+    // Layer 3 — near foreground (close elements, mist, pipes)
+    this.bgNear = this.add
+      .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'level-1-foreground')
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(2);
   }
 
   private updateParallax() {
-    // When additional parallax layers are added, update tilePositionX here:
-    // this.bgMid.tilePositionX = this.cameras.main.scrollX * 0.4;
+    const scrollX = this.cameras.main.scrollX;
+    this.bgFar.tilePositionX  = scrollX * 0.05;
+    this.bgMid.tilePositionX  = scrollX * 0.25;
+    this.bgNear.tilePositionX = scrollX * 0.6;
   }
 
   // ─── Platforms ────────────────────────────────────────────────────────────
@@ -213,6 +240,21 @@ export class GameScene extends Phaser.Scene {
   private setupCamera() {
     this.cameras.main.setBounds(0, 0, this.WORLD_WIDTH, this.WORLD_HEIGHT);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+  }
+
+  // ─── Music ────────────────────────────────────────────────────────────────
+
+  private startMusic() {
+    // Stop any existing instance (e.g. if scene restarts)
+    if (this.bgm) this.bgm.stop();
+
+    this.bgm = this.sound.add('bgm-level1', { loop: true, volume: 0.6 });
+    this.bgm.play();
+
+    // Clean up when scene shuts down (back to menu, game over, etc.)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.bgm?.stop();
+    });
   }
 
   // ─── Public accessors (for UIScene) ───────────────────────────────────────
