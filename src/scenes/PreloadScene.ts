@@ -18,6 +18,9 @@ export class PreloadScene extends Phaser.Scene {
     // Tilesets
     this.load.image('level-1-tileset', 'assets/level-1/tileset.png');
 
+    // Tilemaps
+    this.load.tilemapTiledJSON('level1', 'assets/level-1/level-1.json');
+
     // Music
     this.load.audio('bgm-level1', 'assets/level-1/music.mp3');
 
@@ -30,13 +33,49 @@ export class PreloadScene extends Phaser.Scene {
     // Level 1 enemy spritesheets — frame size TBD, verify against actual sprite art
     this.load.spritesheet('drone',     'assets/characters/drone-sprites.png',     { frameWidth: 128, frameHeight: 128 });
     this.load.spritesheet('patroller', 'assets/characters/patroller-sprites.png', { frameWidth: 128, frameHeight: 128 });
-
-    // TODO: add tilemaps as levels are built in Tiled
-    // this.load.tilemapTiledJSON('level1', 'assets/tilemaps/level1.json');
   }
 
   create() {
+    this.createProjectileTextures();
     this.scene.start('MenuScene');
+  }
+
+  // Create procedural textures for projectiles so firing never crashes.
+  // Replace with real PNG assets when available.
+  private createProjectileTextures() {
+    if (!this.textures.exists('plasma-burst')) {
+      const gfx = this.make.graphics({ x: 0, y: 0 }, false);
+      // Cyan elongated bolt
+      gfx.fillStyle(0x00eeff, 1);
+      gfx.fillRect(0, 3, 16, 6);
+      gfx.fillStyle(0xffffff, 1);
+      gfx.fillRect(2, 5, 6, 2);
+      gfx.generateTexture('plasma-burst', 16, 12);
+      gfx.destroy();
+    }
+
+    if (!this.textures.exists('nova-blast')) {
+      const gfx = this.make.graphics({ x: 0, y: 0 }, false);
+      // Larger orange-yellow orb
+      gfx.fillStyle(0xff8800, 1);
+      gfx.fillCircle(12, 12, 10);
+      gfx.fillStyle(0xffdd00, 1);
+      gfx.fillCircle(12, 12, 6);
+      gfx.fillStyle(0xffffff, 1);
+      gfx.fillCircle(10, 10, 3);
+      gfx.generateTexture('nova-blast', 24, 24);
+      gfx.destroy();
+    }
+
+    if (!this.textures.exists('checkpoint')) {
+      const gfx = this.make.graphics({ x: 0, y: 0 }, false);
+      gfx.fillStyle(0x00ff88, 1);
+      gfx.fillRect(0, 0, 16, 48);
+      gfx.fillStyle(0x00ffaa, 0.6);
+      gfx.fillRect(2, 2, 12, 12);
+      gfx.generateTexture('checkpoint', 16, 48);
+      gfx.destroy();
+    }
   }
 
   private createLoadingBar() {
@@ -46,15 +85,12 @@ export class PreloadScene extends Phaser.Scene {
     const barWidth = 400;
     const barHeight = 20;
 
-    // Background bar
     const bg = this.add.graphics();
     bg.fillStyle(0x222244, 1);
     bg.fillRect(cx - barWidth / 2 - 2, cy - barHeight / 2 - 2, barWidth + 4, barHeight + 4);
 
-    // Fill bar
     const bar = this.add.graphics();
 
-    // Title text
     this.add.text(cx, cy - 50, 'BATOMAN', {
       fontFamily: 'monospace',
       fontSize: '32px',

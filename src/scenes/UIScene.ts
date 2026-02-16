@@ -10,6 +10,7 @@ export class UIScene extends Phaser.Scene {
   private gameScene!: GameScene;
   private healthHearts: Phaser.GameObjects.Text[] = [];
   private scoreText!: Phaser.GameObjects.Text;
+  private livesText!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -23,9 +24,9 @@ export class UIScene extends Phaser.Scene {
     const player = this.gameScene.getPlayer();
 
     this.createHealthBar(player.maxHealth);
+    this.createLivesDisplay(player.lives);
     this.createScoreDisplay();
 
-    // Listen for updates from GameScene events
     this.gameScene.events.on('health-changed', (health: number) => {
       this.updateHealthBar(health, player.maxHealth);
     }, this);
@@ -34,18 +35,20 @@ export class UIScene extends Phaser.Scene {
       this.updateScore(score);
     }, this);
 
-    // Clean up listeners when this scene stops
+    this.gameScene.events.on('lives-changed', (lives: number) => {
+      this.updateLives(lives);
+    }, this);
+
     this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.gameScene.events.off('health-changed');
       this.gameScene.events.off('score-changed');
+      this.gameScene.events.off('lives-changed');
     });
   }
 
   private createHealthBar(maxHealth: number) {
     this.add.text(PADDING, PADDING, 'HP', {
-      fontFamily: 'monospace',
-      fontSize: '13px',
-      color: '#8888aa',
+      fontFamily: 'monospace', fontSize: '13px', color: '#8888aa',
     }).setScrollFactor(0).setDepth(100);
 
     this.healthHearts = [];
@@ -66,11 +69,25 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
+  private createLivesDisplay(lives: number) {
+    this.add.text(PADDING, PADDING + 28, 'LIVES', {
+      fontFamily: 'monospace', fontSize: '13px', color: '#8888aa',
+    }).setScrollFactor(0).setDepth(100);
+
+    this.livesText = this.add.text(PADDING + 42, PADDING + 26, `${lives}`, {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ffcc00',
+    }).setScrollFactor(0).setDepth(100);
+  }
+
+  private updateLives(lives: number) {
+    this.livesText.setText(`${lives}`);
+    if (lives <= 1) this.livesText.setColor('#ff4466');
+    else            this.livesText.setColor('#ffcc00');
+  }
+
   private createScoreDisplay() {
-    this.scoreText = this.add.text(GAME_WIDTH - PADDING, PADDING, 'SCORE  0', {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#00eeff',
+    this.scoreText = this.add.text(GAME_WIDTH - PADDING, PADDING, 'SCORE  000000', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#00eeff',
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
   }
 

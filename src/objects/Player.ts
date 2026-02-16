@@ -3,76 +3,80 @@ import Phaser from 'phaser';
 export class Player extends Phaser.Physics.Arcade.Sprite {
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasdKeys!: { up: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
+  private wasdKeys!: { up: Phaser.Input.Keyboard.Key; left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key; down: Phaser.Input.Keyboard.Key };
   private fireKey!: Phaser.Input.Keyboard.Key;
 
-  // State
+  // Stats
   private _health = 3;
-  private _score = 0;
   private _maxHealth = 3;
+  private _lives = 3;
+  private _score = 0;
 
   // Jump / coyote time
   private coyoteTimer = 0;
   private readonly COYOTE_LIMIT = 100;
+
   // Plasma buster / charge
   private chargeTimer = 0;
   private readonly CHARGE_THRESHOLD = 800;
   private isCharging = false;
   private fireRateTimer = 0;
-  private readonly BURST_FIRE_RATE = 200; // ms between bursts
+  private readonly BURST_FIRE_RATE = 200;
+
+  // Hurt stun
+  private hurtTimer = 0;
+  private readonly HURT_STUN = 300;
 
   // Animation state
   private isShooting = false;
+  private isHurt = false;
 
   // Projectile group (set by GameScene)
   private projectiles!: Phaser.Physics.Arcade.Group;
 
-  // Event emitter for HUD updates
+  // HUD callbacks
   private onHealthChange?: (health: number) => void;
-  private onScoreChange?: (score: number) => void;
+  private onScoreChange?:  (score: number)  => void;
+  private onLivesChange?:  (lives: number)  => void;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'batoman');
-
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setGravityY(0); // uses world gravity
+    body.setGravityY(0);
     body.setMaxVelocityX(280);
     body.setMaxVelocityY(800);
-    // Trim physics hitbox to the visible character inside the 176×184 frame
     body.setSize(60, 100);
     body.setOffset(58, 60);
 
     this.setDepth(10);
     this.setScale(2);
     this.play('batoman-idle');
-
     this.setupInput(scene);
   }
 
   private setupInput(scene: Phaser.Scene) {
     this.cursors = scene.input.keyboard!.createCursorKeys();
     this.wasdKeys = {
-      up: scene.input.keyboard!.addKey('W'),
-      left: scene.input.keyboard!.addKey('A'),
+      up:    scene.input.keyboard!.addKey('W'),
+      left:  scene.input.keyboard!.addKey('A'),
       right: scene.input.keyboard!.addKey('D'),
+      down:  scene.input.keyboard!.addKey('S'),
     };
     this.fireKey = scene.input.keyboard!.addKey('Z');
   }
 
-  /** Called by GameScene — provides the projectile group to fire into */
-  setProjectileGroup(group: Phaser.Physics.Arcade.Group) {
-    this.projectiles = group;
-  }
+  setProjectileGroup(group: Phaser.Physics.Arcade.Group)         { this.projectiles = group; }
+  setOnHealthChange(cb: (health: number) => void)                { this.onHealthChange = cb; }
+  setOnScoreChange(cb: (score: number)   => void)                { this.onScoreChange  = cb; }
+  setOnLivesChange(cb: (lives: number)   => void)                { this.onLivesChange  = cb; }
 
-  setOnHealthChange(cb: (health: number) => void) { this.onHealthChange = cb; }
-  setOnScoreChange(cb: (score: number) => void) { this.onScoreChange = cb; }
-
-  get health() { return this._health; }
+  get health()    { return this._health; }
   get maxHealth() { return this._maxHealth; }
-  get score() { return this._score; }
+  get lives()     { return this._lives; }
+  get score()     { return this._score; }
 
   addScore(amount: number) {
     this._score += amount;
@@ -80,78 +84,153 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeDamage(amount = 1) {
+    // Ignore damage while hurt-stunned or already dead
+    if (this.hurtTimer > 0 || this._health <= 0) return;
+
     this._health = Math.max(0, this._health - amount);
     this.onHealthChange?.(this._health);
-    // Flash red on hit
+
+    this.isHurt = true;
+    this.hurtTimer = this.HURT_STUN;
+    this.play('batoman-hurt', true);
+
+    // Invincibility flash
     this.scene.tweens.add({
       targets: this,
-      alpha: 0.2,
+      alpha: 0.3,
       duration: 80,
       yoyo: true,
-      repeat: 3,
+      repeat: 5,
+      onComplete: () => { this.setAlpha(1); },
     });
+
     if (this._health <= 0) {
-      this.emit('died');
+      this.onDie();
     }
   }
 
+  private onDie() {
+    this.play('batoman-death', true);
+    this._lives -= 1;
+    this.onLivesChange?.(this._lives);
+    this.emit('died');
+  }
+
+  /** Called by GameScene to respawn player at a position (after lives > 0) */
+  respawn(x: number, y: number) {
+    this.setPosition(x, y);
+    this._health = this._maxHealth;
+    this.hurtTimer = 0;
+    this.isHurt = false;
+    this.isShooting = false;
+    this.setAlpha(1);
+    this.setVelocity(0, 0);
+    this.play('batoman-idle', true);
+    this.onHealthChange?.(this._health);
+  }
+
   update(delta: number) {
-    this.handleMovement();
+    // Decrement stun timer
+    if (this.hurtTimer > 0) {
+      this.hurtTimer -= delta;
+      if (this.hurtTimer <= 0) {
+        this.hurtTimer = 0;
+        this.isHurt = false;
+      }
+    }
+
+    if (this._health <= 0) return; // dead — no further input
+
+    this.handleMovement(delta);
     this.handleJump(delta);
     this.handleFire(delta);
     this.updateAnimation();
   }
 
-  private handleMovement() {
-    const left = this.cursors.left.isDown || this.wasdKeys.left.isDown;
+  private handleMovement(delta: number) {
+    if (this.isHurt) return; // stun — no horizontal control
+
+    const left  = this.cursors.left.isDown  || this.wasdKeys.left.isDown;
     const right = this.cursors.right.isDown || this.wasdKeys.right.isDown;
+    const body  = this.body as Phaser.Physics.Arcade.Body;
+
+    // Salakot dash: down + direction
+    const down  = this.cursors.down.isDown || this.wasdKeys.down.isDown;
+    if (down && body.blocked.down && (left || right)) {
+      const dir = left ? -1 : 1;
+      this.setVelocityX(RUN_SPEED * 1.5 * dir);
+      this.setFlipX(dir < 0);
+      body.setSize(60, 60);
+      body.setOffset(58, 100);
+      return;
+    } else {
+      body.setSize(60, 100);
+      body.setOffset(58, 60);
+    }
 
     if (left) {
-      this.setVelocityX(-220);
+      this.setVelocityX(-RUN_SPEED);
       this.setFlipX(true);
     } else if (right) {
-      this.setVelocityX(220);
+      this.setVelocityX(RUN_SPEED);
       this.setFlipX(false);
     } else {
-      // Decelerate
-      const body = this.body as Phaser.Physics.Arcade.Body;
-      body.setVelocityX(body.velocity.x * 0.75);
-      if (Math.abs(body.velocity.x) < 5) body.setVelocityX(0);
+      // Smooth deceleration
+      const vx = body.velocity.x;
+      body.setVelocityX(vx * DECEL_FACTOR);
+      if (Math.abs(vx) < STOP_THRESHOLD) body.setVelocityX(0);
     }
+
+    // Suppress delta warning — delta used indirectly via timer
+    void delta;
   }
 
   private handleJump(delta: number) {
     const body = this.body as Phaser.Physics.Arcade.Body;
     const onGround = body.blocked.down;
     const jumpPressed =
-      Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
-      Phaser.Input.Keyboard.JustDown(this.wasdKeys.up) ||
+      Phaser.Input.Keyboard.JustDown(this.cursors.up)    ||
+      Phaser.Input.Keyboard.JustDown(this.wasdKeys.up)   ||
       Phaser.Input.Keyboard.JustDown(this.cursors.space);
     const jumpReleased =
-      Phaser.Input.Keyboard.JustUp(this.cursors.up) ||
-      Phaser.Input.Keyboard.JustUp(this.wasdKeys.up) ||
+      Phaser.Input.Keyboard.JustUp(this.cursors.up)    ||
+      Phaser.Input.Keyboard.JustUp(this.wasdKeys.up)   ||
       Phaser.Input.Keyboard.JustUp(this.cursors.space);
 
-    // Update coyote timer
     if (onGround) {
       this.coyoteTimer = this.COYOTE_LIMIT;
     } else {
       this.coyoteTimer -= delta;
     }
 
-    if (jumpPressed && this.coyoteTimer > 0) {
-      this.setVelocityY(-580);
+    if (jumpPressed && this.coyoteTimer > 0 && !this.isHurt) {
+      this.setVelocityY(JUMP_VELOCITY);
       this.coyoteTimer = 0;
+      // TODO: play sfx-jump when audio assets are available
     }
 
-    // Variable jump height: cut upward velocity on early release
-    if (jumpReleased && body.velocity.y < -200) {
-      this.setVelocityY(-200);
+    if (jumpReleased && body.velocity.y < JUMP_CUT_VEL) {
+      this.setVelocityY(JUMP_CUT_VEL);
+    }
+
+    // Wall kick
+    if (jumpPressed && !body.blocked.down) {
+      if (body.blocked.left) {
+        this.setVelocityX(RUN_SPEED);
+        this.setVelocityY(JUMP_VELOCITY * 0.9);
+        this.setFlipX(false);
+        this.coyoteTimer = 0;
+      } else if (body.blocked.right) {
+        this.setVelocityX(-RUN_SPEED);
+        this.setVelocityY(JUMP_VELOCITY * 0.9);
+        this.setFlipX(true);
+        this.coyoteTimer = 0;
+      }
     }
   }
 
   private handleFire(delta: number) {
-    if (!this.projectiles) return;
+    if (!this.projectiles || this.isHurt) return;
 
     this.fireRateTimer = Math.max(0, this.fireRateTimer - delta);
 
@@ -162,7 +241,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     if (this.fireKey.isDown && this.isCharging) {
       this.chargeTimer += delta;
-      // TODO: show charge VFX when chargeTimer > CHARGE_THRESHOLD * 0.7
     }
 
     if (Phaser.Input.Keyboard.JustUp(this.fireKey) && this.isCharging) {
@@ -172,9 +250,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.firePlasmaBurst();
       }
       this.chargeTimer = 0;
-      this.isCharging = false;
+      this.isCharging  = false;
       this.fireRateTimer = this.BURST_FIRE_RATE;
       this.playShootAnim();
+      // TODO: play sfx-shoot when audio assets are available
     }
   }
 
@@ -189,75 +268,59 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private firePlasmaBurst() {
     if (this.fireRateTimer > 0) return;
     const dir = this.flipX ? -1 : 1;
-    const offsetX = dir * 20;
-
     const bullet = this.projectiles.create(
-      this.x + offsetX,
-      this.y,
-      'plasma-burst'
+      this.x + dir * 20, this.y, 'plasma-burst'
     ) as Phaser.Physics.Arcade.Image;
-
     if (bullet) {
       bullet.setVelocityX(dir * 600);
       bullet.setDepth(9);
-      // Auto-destroy when off camera bounds
       bullet.setData('type', 'burst');
     }
   }
 
   private fireNovaBlast() {
     const dir = this.flipX ? -1 : 1;
-    const offsetX = dir * 20;
-
     const blast = this.projectiles.create(
-      this.x + offsetX,
-      this.y,
-      'nova-blast'
+      this.x + dir * 20, this.y, 'nova-blast'
     ) as Phaser.Physics.Arcade.Image;
-
     if (blast) {
       blast.setVelocityX(dir * 380);
       blast.setDepth(9);
-      blast.setData('type', 'nova');
       blast.setScale(1.5);
+      blast.setData('type', 'nova');
     }
   }
 
   private updateAnimation() {
-    // Shooting animation has highest priority — don't interrupt it
-    if (this.isShooting) return;
+    if (this.isShooting || this.isHurt || this._health <= 0) return;
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     const onGround = body.blocked.down;
-    const speedX = Math.abs(body.velocity.x);
+    const speedX   = Math.abs(body.velocity.x);
 
-    // Charging: show charge loop while holding fire key
     if (this.isCharging && this.chargeTimer >= this.CHARGE_THRESHOLD * 0.5) {
       this.playAnim('batoman-charge');
       return;
     }
 
-    // Airborne
     if (!onGround) {
-      const key = body.velocity.y < 0 ? 'batoman-jump' : 'batoman-fall';
-      this.playAnim(key);
+      this.playAnim(body.velocity.y < 0 ? 'batoman-jump' : 'batoman-fall');
       return;
     }
 
-    // Grounded
-    if (speedX > 60) {
-      this.playAnim('batoman-run');
-    } else if (speedX > 5) {
-      this.playAnim('batoman-walk');
-    } else {
-      this.playAnim('batoman-idle');
-    }
+    if (speedX > 60)      this.playAnim('batoman-run');
+    else if (speedX > 5)  this.playAnim('batoman-walk');
+    else                  this.playAnim('batoman-idle');
   }
 
-  /** Play animation only if it isn't already playing (avoids restart flicker) */
   private playAnim(key: string) {
-    if (this.anims.currentAnim?.key !== key) {
-      this.play(key, true);
-    }
+    if (this.anims.currentAnim?.key !== key) this.play(key, true);
   }
 }
+
+// Movement constants — matches TDD Section 6.2
+const RUN_SPEED     = 220;
+const DECEL_FACTOR  = 0.75;
+const STOP_THRESHOLD = 5;
+const JUMP_VELOCITY = -580;
+const JUMP_CUT_VEL  = -200;

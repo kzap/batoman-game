@@ -17,3 +17,13 @@ dist/
 # Editor
 .vscode/
 *.swp
+
+# tsc emit artifacts (src/ should stay TS-only; tsc is run for type-check only)
+src/**/*.js
+src/**/*.js.map
+
+# Playwright MCP
+.playwright-mcp/
+
+# Test screenshots
+test-*.png
