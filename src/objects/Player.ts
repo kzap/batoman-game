@@ -21,6 +21,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private fireRateTimer = 0;
   private readonly BURST_FIRE_RATE = 200; // ms between bursts
 
+  // Animation state
+  private isShooting = false;
+
   // Projectile group (set by GameScene)
   private projectiles!: Phaser.Physics.Arcade.Group;
 
@@ -38,8 +41,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setGravityY(0); // uses world gravity
     body.setMaxVelocityX(280);
     body.setMaxVelocityY(800);
+    // Trim physics hitbox to the visible character inside the 176×184 frame
+    body.setSize(60, 100);
+    body.setOffset(58, 60);
 
     this.setDepth(10);
+    this.play('batoman-idle');
 
     this.setupInput(scene);
   }
@@ -166,7 +173,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.chargeTimer = 0;
       this.isCharging = false;
       this.fireRateTimer = this.BURST_FIRE_RATE;
+      this.playShootAnim();
     }
+  }
+
+  private playShootAnim() {
+    this.isShooting = true;
+    this.play('batoman-shoot', true);
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE_KEY + 'batoman-shoot', () => {
+      this.isShooting = false;
+    });
   }
 
   private firePlasmaBurst() {
@@ -207,20 +223,40 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private updateAnimation() {
+    // Shooting animation has highest priority — don't interrupt it
+    if (this.isShooting) return;
+
     const body = this.body as Phaser.Physics.Arcade.Body;
     const onGround = body.blocked.down;
-    const moving = Math.abs(body.velocity.x) > 10;
+    const speedX = Math.abs(body.velocity.x);
 
-    // Only play animations if the spritesheet is loaded
-    if (!this.scene.textures.exists('batoman')) return;
+    // Charging: show charge loop while holding fire key
+    if (this.isCharging && this.chargeTimer >= this.CHARGE_THRESHOLD * 0.5) {
+      this.playAnim('batoman-charge');
+      return;
+    }
 
+    // Airborne
     if (!onGround) {
       const key = body.velocity.y < 0 ? 'batoman-jump' : 'batoman-fall';
-      if (this.anims.currentAnim?.key !== key) this.play(key, true);
-    } else if (moving) {
-      if (this.anims.currentAnim?.key !== 'batoman-run') this.play('batoman-run', true);
+      this.playAnim(key);
+      return;
+    }
+
+    // Grounded
+    if (speedX > 60) {
+      this.playAnim('batoman-run');
+    } else if (speedX > 5) {
+      this.playAnim('batoman-walk');
     } else {
-      if (this.anims.currentAnim?.key !== 'batoman-idle') this.play('batoman-idle', true);
+      this.playAnim('batoman-idle');
+    }
+  }
+
+  /** Play animation only if it isn't already playing (avoids restart flicker) */
+  private playAnim(key: string) {
+    if (this.anims.currentAnim?.key !== key) {
+      this.play(key, true);
     }
   }
 }

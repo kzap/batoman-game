@@ -18,8 +18,13 @@ export class PreloadScene extends Phaser.Scene {
     // Music
     this.load.audio('bgm-level1', 'assets/level-1-music.mp3');
 
-    // TODO: add spritesheets and tilemaps as assets become available
-    // this.load.spritesheet('batoman', 'assets/images/batoman.png', { frameWidth: 32, frameHeight: 48 });
+    // Player spritesheet — 8 columns × 4 rows, each frame 176×184px
+    this.load.spritesheet('batoman', 'assets/batoman-sprites.png', {
+      frameWidth: 176,
+      frameHeight: 184,
+    });
+
+    // TODO: add tilemaps as levels are built in Tiled
     // this.load.tilemapTiledJSON('level1', 'assets/tilemaps/level1.json');
   }
 

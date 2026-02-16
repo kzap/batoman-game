@@ -29,6 +29,7 @@ export class GameScene extends Phaser.Scene {
     // Set world bounds
     this.physics.world.setBounds(0, 0, this.WORLD_WIDTH, this.WORLD_HEIGHT);
 
+    this.createAnimations();
     this.createBackground();
     this.createPlatforms();
     this.createPlayer();
@@ -51,6 +52,81 @@ export class GameScene extends Phaser.Scene {
 
     this.cleanupProjectiles();
     this.updateParallax();
+  }
+
+  // ─── Animations ───────────────────────────────────────────────────────────
+
+  private createAnimations() {
+    // Spritesheet layout — 8 cols × 4 rows, 176×184px per frame
+    // Row 0 (frames  0– 7): idle & walk
+    // Row 1 (frames  8–15): run
+    // Row 2 (frames 16–23): shoot / charge
+    // Row 3 (frames 24–31): jump, fall, hurt, death
+
+    const anim = this.anims;
+
+    anim.create({
+      key: 'batoman-idle',
+      frames: anim.generateFrameNumbers('batoman', { start: 0, end: 3 }),
+      frameRate: 6,
+      repeat: -1,
+    });
+
+    anim.create({
+      key: 'batoman-walk',
+      frames: anim.generateFrameNumbers('batoman', { start: 4, end: 7 }),
+      frameRate: 10,
+      repeat: -1,
+    });
+
+    anim.create({
+      key: 'batoman-run',
+      frames: anim.generateFrameNumbers('batoman', { start: 8, end: 15 }),
+      frameRate: 14,
+      repeat: -1,
+    });
+
+    anim.create({
+      key: 'batoman-shoot',
+      frames: anim.generateFrameNumbers('batoman', { start: 16, end: 19 }),
+      frameRate: 14,
+      repeat: 0,
+    });
+
+    anim.create({
+      key: 'batoman-charge',
+      frames: anim.generateFrameNumbers('batoman', { start: 20, end: 23 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+
+    anim.create({
+      key: 'batoman-jump',
+      frames: anim.generateFrameNumbers('batoman', { start: 24, end: 25 }),
+      frameRate: 8,
+      repeat: 0,
+    });
+
+    anim.create({
+      key: 'batoman-fall',
+      frames: anim.generateFrameNumbers('batoman', { start: 26, end: 27 }),
+      frameRate: 8,
+      repeat: 0,
+    });
+
+    anim.create({
+      key: 'batoman-hurt',
+      frames: anim.generateFrameNumbers('batoman', { start: 28, end: 29 }),
+      frameRate: 12,
+      repeat: 0,
+    });
+
+    anim.create({
+      key: 'batoman-death',
+      frames: anim.generateFrameNumbers('batoman', { start: 30, end: 31 }),
+      frameRate: 8,
+      repeat: 0,
+    });
   }
 
   // ─── Background ───────────────────────────────────────────────────────────
