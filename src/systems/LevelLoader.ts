@@ -35,13 +35,14 @@ export class LevelLoader {
     const bgDecoLayer = map.createLayer('background-deco', tileset);
     bgDecoLayer?.setDepth(3);
 
-    // Solid platforms — collision enabled via custom tile property
+    // Solid platforms — collision on all placed tiles (GID 1+)
     const platformLayer = map.createLayer('platforms', tileset);
     if (!platformLayer) {
       throw new Error(`Layer "platforms" not found in map "${config.tilemapKey}"`);
     }
     platformLayer.setDepth(4);
-    platformLayer.setCollisionByProperty({ collides: true });
+    // Use setCollisionBetween for reliable collision on all non-empty tiles
+    platformLayer.setCollisionBetween(1, 99999);
 
     // Hazard tiles — spikes, death zones
     const hazardLayer = map.createLayer('hazards', tileset);

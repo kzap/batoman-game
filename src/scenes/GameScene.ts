@@ -40,8 +40,9 @@ export class GameScene extends Phaser.Scene {
 
     this.createAnimations();
     this.createBackground();
-    this.loadLevel();
-    this.createPlayer();
+    this.loadLevel();        // builds tilemap layers + enemies group; no player deps yet
+    this.createPlayer();     // player must exist before spawnObjects registers overlaps
+    this.spawnObjects(this.loadedLevel.spawns);
     this.createProjectiles();
     this.setupCollisions();
     this.setupCamera();
@@ -64,6 +65,9 @@ export class GameScene extends Phaser.Scene {
   // ─── Animations ───────────────────────────────────────────────────────────
 
   private createAnimations() {
+    // Guard: animations are global; skip if already created (e.g. scene restart)
+    if (this.anims.exists('batoman-idle')) return;
+
     const anim = this.anims;
 
     // Player
@@ -77,8 +81,7 @@ export class GameScene extends Phaser.Scene {
     anim.create({ key: 'batoman-hurt',   frames: anim.generateFrameNumbers('batoman', { start: 28, end: 29 }), frameRate: 12, repeat: 0  });
     anim.create({ key: 'batoman-death',  frames: anim.generateFrameNumbers('batoman', { start: 30, end: 31 }), frameRate: 8,  repeat: 0  });
 
-    // Enemies — TODO: verify frame ranges once frame size is confirmed
-    // Using first 4 frames of row 0 for idle loop (128×128 grid = 22 cols × 12 rows)
+    // Enemies — using first 4 frames of row 0 for idle loop
     anim.create({ key: 'patroller-idle', frames: anim.generateFrameNumbers('patroller', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
     anim.create({ key: 'drone-idle',     frames: anim.generateFrameNumbers('drone',     { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
   }
@@ -110,8 +113,8 @@ export class GameScene extends Phaser.Scene {
 
     this.physics.world.setBounds(0, 0, this.loadedLevel.worldWidth, this.loadedLevel.worldHeight);
 
+    // Enemies group created here; spawnObjects() called separately after createPlayer()
     this.enemies = this.physics.add.group({ classType: Enemy });
-    this.spawnObjects(this.loadedLevel.spawns);
   }
 
   private spawnObjects(spawns: SpawnData[]) {
