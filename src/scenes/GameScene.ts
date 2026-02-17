@@ -10,6 +10,7 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
   private enemies!: Phaser.Physics.Arcade.Group;
   private projectiles!: Phaser.Physics.Arcade.Group;
+  private debugKey!: Phaser.Input.Keyboard.Key;
 
   // Parallax layers
   private bgFar!: Phaser.GameObjects.TileSprite;
@@ -47,6 +48,7 @@ export class GameScene extends Phaser.Scene {
     this.setupCollisions();
     this.setupCamera();
     this.startMusic();
+    this.setupDebugToggle();
 
     this.scene.launch('UIScene', { gameScene: this });
   }
@@ -71,7 +73,7 @@ export class GameScene extends Phaser.Scene {
     const anim = this.anims;
 
     // Player
-    anim.create({ key: 'batoman-idle',   frames: anim.generateFrameNumbers('batoman', { start: 0,  end: 3  }), frameRate: 6,  repeat: -1 });
+    anim.create({ key: 'batoman-idle',   frames: anim.generateFrameNumbers('batoman', { start: 1,  end: 2  }), frameRate: 6,  repeat: -1 });
     anim.create({ key: 'batoman-walk',   frames: anim.generateFrameNumbers('batoman', { start: 4,  end: 7  }), frameRate: 10, repeat: -1 });
     anim.create({ key: 'batoman-run',    frames: anim.generateFrameNumbers('batoman', { start: 8,  end: 15 }), frameRate: 14, repeat: -1 });
     anim.create({ key: 'batoman-shoot',  frames: anim.generateFrameNumbers('batoman', { start: 16, end: 19 }), frameRate: 14, repeat: 0  });
@@ -82,8 +84,8 @@ export class GameScene extends Phaser.Scene {
     anim.create({ key: 'batoman-death',  frames: anim.generateFrameNumbers('batoman', { start: 30, end: 31 }), frameRate: 8,  repeat: 0  });
 
     // Enemies — using first 4 frames of row 0 for idle loop
-    anim.create({ key: 'patroller-idle', frames: anim.generateFrameNumbers('patroller', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
-    anim.create({ key: 'drone-idle',     frames: anim.generateFrameNumbers('drone',     { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+    anim.create({ key: 'patroller-idle', frames: anim.generateFrameNumbers('patroller', { start: 1, end: 4 }), frameRate: 8, repeat: -1 });
+    anim.create({ key: 'drone-idle',     frames: anim.generateFrameNumbers('drone',     { start: 1, end: 4 }), frameRate: 8, repeat: -1 });
   }
 
   // ─── Background ───────────────────────────────────────────────────────────
@@ -136,7 +138,9 @@ export class GameScene extends Phaser.Scene {
   private spawnEnemy(spawn: SpawnData) {
     const enemyType = (spawn.properties['enemyType'] as EnemyType) ?? 'patroller';
     const patrolDist = (spawn.properties['patrolDistance'] as number) ?? 120;
-    const enemy = new Enemy(this, spawn.x, spawn.y, {
+    // spawn.y from Tiled is the floor surface; offset up by half display height (64px)
+    // so body.bottom starts above the floor tile and physics settles the enemy on it
+    const enemy = new Enemy(this, spawn.x, spawn.y - 64, {
       type:           enemyType,
       health:         2,
       speed:          70,
@@ -275,6 +279,23 @@ export class GameScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.bgm?.stop();
+    });
+  }
+
+  // ─── Debug ────────────────────────────────────────────────────────────────
+
+  private setupDebugToggle() {
+    // Press ` (backtick) to toggle physics hitbox visualisation
+    this.debugKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.BACKTICK);
+    this.debugKey.on('down', () => {
+      const world = this.physics.world;
+      if (world.drawDebug) {
+        world.drawDebug = false;
+        world.debugGraphic?.clear();
+      } else {
+        world.createDebugGraphic();
+        world.drawDebug = true;
+      }
     });
   }
 

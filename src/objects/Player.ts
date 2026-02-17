@@ -25,7 +25,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   // Hurt stun
   private hurtTimer = 0;
-  private readonly HURT_STUN = 300;
+  private readonly HURT_STUN = 1000;
 
   // Animation state
   private isShooting = false;
@@ -48,8 +48,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setGravityY(0);
     body.setMaxVelocityX(280);
     body.setMaxVelocityY(800);
-    body.setSize(60, 112);
-    body.setOffset(58, 60);
+    body.setSize(40, 119);
+    body.setOffset(68, 35);
     body.setCollideWorldBounds(true);
 
     this.setDepth(10);
@@ -95,7 +95,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.hurtTimer = this.HURT_STUN;
     this.play('batoman-hurt', true);
 
-    // Invincibility flash
+    // Invincibility flash — kill any previous flash tween first
+    this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this,
       alpha: 0.3,
@@ -161,12 +162,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const dir = left ? -1 : 1;
       this.setVelocityX(RUN_SPEED * 1.5 * dir);
       this.setFlipX(dir < 0);
-      body.setSize(60, 72);
-      body.setOffset(58, 100);
+      body.setSize(40, 60);
+      body.setOffset(68, 94);
       return;
     } else {
-      body.setSize(60, 112);
-      body.setOffset(58, 60);
+      body.setSize(40, 119);
+      body.setOffset(68, 35);
     }
 
     if (left) {

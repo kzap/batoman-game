@@ -26,6 +26,6 @@ export const LEVELS: LevelConfig[] = [
     musicKey: 'bgm-level1',
     bossType: undefined,
     startX: 100,
-    startY: 680,
+    startY: 500,
   },
 ];

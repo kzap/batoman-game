@@ -64,7 +64,7 @@ export class LevelLoader {
       platformLayer,
       hazardLayer: hazardLayer ?? null,
       spawns,
-      worldWidth: map.widthInPixels,
+      worldWidth:  map.widthInPixels,
       worldHeight: map.heightInPixels,
     };
   }

@@ -33,6 +33,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const texture = ENEMY_TEXTURES[type];
     super(scene, x, y, texture);
 
+    // setScale BEFORE physics so the body initialises at the correct display size
+    this.setScale(0.5);  // 256×256 frame → 128×128 on screen
+
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
@@ -46,10 +49,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
+    // Explicit hitbox: body is 80×98 display px, covering character content (display y 30–128)
+    // setSize in texture px: 80/0.5=160 wide, 98/0.5=196 tall
+    // setOffset in texture px (gets ×0.5 in world): center x=48 → 24px from center, top y=60 → 30px from top
+    body.setSize(160, 196);
+    body.setOffset(48, 60);
 
-    // Scale down to match the gameplay visual size
-    // TODO: verify once actual frame size is confirmed in assets.json
-    this.setScale(0.5);
     this.setDepth(8);
 
     this.playIdleAnim();
