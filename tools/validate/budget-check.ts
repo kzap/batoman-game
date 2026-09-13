@@ -1,4 +1,4 @@
-import { BUDGET, type Budget } from '../config';
+import { BUDGET, forbiddenServedPathReason, type Budget } from '../config';
 import { AUDIO_EXT, CODE_EXT, IMAGE_EXT, Report, SOURCEMAP_EXT, fmtBytes, type FileEntry } from './lib';
 
 /**
@@ -28,12 +28,8 @@ export function checkBudget(files: FileEntry[], budget: Budget = BUDGET): Report
     if (AUDIO_EXT.test(f.rel) && f.size > budget.singleAudio) {
       report.error(`${f.rel} is ${fmtBytes(f.size)}; audio limit is ${fmtBytes(budget.singleAudio)}`);
     }
-    for (const pat of budget.forbiddenPathPatterns) {
-      if (pat.test(f.rel)) {
-        report.error(`${f.rel} matches forbidden pattern ${pat}; raw art must not ship`);
-        break;
-      }
-    }
+    const reason = forbiddenServedPathReason(f.rel);
+    if (reason) report.error(`${f.rel}: ${reason}`);
   }
 
   return report;

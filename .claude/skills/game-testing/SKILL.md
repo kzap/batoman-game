@@ -12,7 +12,8 @@ Two routes. Prefer the test suite for anything repeatable; use Playwright MCP fo
 ```bash
 npm run test          # unit tests over src/core and src/game (headless, no browser)
 npm run test:replay   # recorded-input replays against the headless sim
-npm run test:e2e      # Playwright against the production build (runs `vite build` first if dist/ is stale)
+npm run build         # required before e2e: e2e serves dist/ as-is and does not rebuild
+npm run test:e2e      # Playwright against the production build in dist/
 npm run ci            # everything, in CI order
 ```
 

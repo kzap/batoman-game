@@ -12,6 +12,7 @@ import {
   Scene,
   WebGLRenderer,
 } from 'three';
+import type { Vec2 } from '@core/math/vec2';
 
 /** Palette anchors from docs/ART.md. */
 export const PALETTE = {
@@ -64,6 +65,7 @@ export class Stage {
   readonly camera: PerspectiveCamera;
   private readonly canvas: HTMLCanvasElement;
   private readonly maxPixelRatio: number;
+  private marker: Mesh | null = null;
 
   constructor(opts: StageOptions) {
     this.canvas = opts.canvas;
@@ -128,10 +130,11 @@ export class Stage {
 
   /**
    * Grey-box reference scene: ground slab at Z=0, a couple of platform blocks,
-   * and backdrop planes at the standard layer depths. Exists so Phase 0 has
-   * something visible that proves depth layering and lighting work.
+   * backdrop planes at the standard layer depths, and a marker the sim drives.
+   * Exists so Phase 0 has something visible that proves depth layering,
+   * lighting, and the sim -> render path work.
    */
-  addReferenceScene(): { marker: Mesh } {
+  addReferenceScene(): void {
     const solid = new MeshStandardMaterial({ color: PALETTE.concreteGrey, roughness: 0.9 });
     const rust = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.8 });
 
@@ -147,26 +150,35 @@ export class Stage {
     stepB.position.set(4, 2.5, LAYER_Z.gameplay);
     this.scene.add(stepB);
 
-    const backdrops: Array<[number, number, number]> = [
-      [LAYER_Z.nearStructures, 0x3a2f4d, 40],
-      [LAYER_Z.midStructures, 0x2a1f3d, 90],
-      [LAYER_Z.farStructures, 0x1a1530, 180],
-      [LAYER_Z.farSky, 0x0d0d1a, 420],
+    interface Backdrop {
+      z: number;
+      color: number;
+      /** Plane width in world units; sized so it fills the view at its depth. */
+      width: number;
+    }
+    const backdrops: Backdrop[] = [
+      { z: LAYER_Z.nearStructures, color: 0x3a2f4d, width: 40 },
+      { z: LAYER_Z.midStructures, color: PALETTE.smogPurple, width: 90 },
+      { z: LAYER_Z.farStructures, color: 0x1a1530, width: 180 },
+      { z: LAYER_Z.farSky, color: PALETTE.deepShadow, width: 420 },
     ];
-    for (const [z, color, width] of backdrops) {
+    for (const { z, color, width } of backdrops) {
       // Backdrops are unlit: only fog affects them, so Z=0 lighting stays readable.
       const plane = new Mesh(new PlaneGeometry(width, width * 0.5), new MeshBasicMaterial({ color }));
       plane.position.set(0, width * 0.15, z);
       this.scene.add(plane);
     }
 
-    const marker = new Mesh(
+    this.marker = new Mesh(
       new BoxGeometry(0.6, 1.2, 0.6),
       new MeshStandardMaterial({ color: PALETTE.neonCyan, emissive: PALETTE.neonCyan, emissiveIntensity: 0.6 }),
     );
-    marker.position.set(0, 1.5, LAYER_Z.gameplay);
-    this.scene.add(marker);
+    this.marker.position.set(0, 1.5, LAYER_Z.gameplay);
+    this.scene.add(this.marker);
+  }
 
-    return { marker };
+  /** Place the reference marker on the gameplay plane. No-op before addReferenceScene(). */
+  setMarker(p: Vec2): void {
+    this.marker?.position.set(p.x, p.y, LAYER_Z.gameplay);
   }
 }

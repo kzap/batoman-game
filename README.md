@@ -13,7 +13,7 @@ playable. See [PLAN.md](PLAN.md) for the phase plan and current status.
 
 ## Running locally
 
-Requirements: Node.js 20+.
+Requirements: Node.js 20.19+ or 22.12+.
 
 ```bash
 npm install
@@ -26,14 +26,14 @@ npm run dev                        # http://localhost:5173
 | Command | What it does |
 |---|---|
 | `npm run dev` | Vite dev server with HMR |
-| `npm run build` | Typecheck, production build to `dist/`, payload budget check |
+| `npm run build` | Typecheck, content validation, production build to `dist/`, payload budget check |
 | `npm run preview` | Serve `dist/` on port 4173 |
 | `npm run lint` | ESLint (also enforces layer boundaries) |
 | `npm run typecheck` | `tsc --noEmit` for `src/` and `tools/` |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:replay` | Headless sim replay tests |
-| `npm run test:e2e` | Playwright against the production build |
-| `npm run validate` | Content checks: no raw art in `public/`, manifest parses |
+| `npm run test:e2e` | Playwright against `dist/` (run `npm run build` first) |
+| `npm run validate` | Content checks: no raw art or unpipelined images in `public/`, manifest parses |
 | `npm run ci` | Everything above in CI order |
 
 ---
@@ -85,7 +85,7 @@ Conventions that matter most:
 
 | | |
 |---|---|
-| Renderer | Three.js 0.186 + postprocessing |
+| Renderer | Three.js 0.186 (postprocessing from Phase 4) |
 | Sim | Deterministic fixed-step (120 Hz), hand-rolled Actor/Solid AABB physics |
 | Language | TypeScript 5.9, strict |
 | Bundler | Vite 7 |

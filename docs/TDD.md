@@ -8,21 +8,22 @@ Status: skeleton. Sections are filled in by the phase that implements them. Anyt
 | Package | Version | Role |
 |---|---|---|
 | `three` | 0.186 | Renderer, scene graph, loaders |
-| `postprocessing` | 6.39 | Bloom, vignette, DOF |
+| `postprocessing` | 6.39 (added in Phase 4) | Bloom, vignette, DOF |
 | `vite` | 7 | Dev server, bundler |
 | `typescript` | 5.9 (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) | |
 | `vitest` | 5 | Unit and replay tests |
 | `@playwright/test` | 1.63 | E2E against the production build |
-| `sharp` | 0.35 | Offline asset tooling |
+| `sharp` | 0.35 (added in Phase 1) | Offline asset tooling |
 
-Node 20+ (`engines`). Path aliases `@core`, `@game`, `@render`, `@app`, `@content` are defined in
-`tsconfig.json`, `vite.config.ts`, and `vitest.config.ts`.
+Node 20.19+ or 22.12+ (`engines`; Vite 7 requirement). Path aliases `@core`, `@game`, `@render`, `@app`, `@content` are defined in
+`tsconfig.json` and `vite.config.ts`; `vitest.config.ts` inherits them via `mergeConfig`.
 
 ## 2. Layers `[implemented: Phase 0]`
 
 `core <- game <- render/app`. ESLint (`eslint.config.js`) forbids `core` and `game` from importing `three`,
-`postprocessing`, `@render/*`, `@app/*`, and from touching `window`, `document`,
-`requestAnimationFrame`, or `performance`.
+`postprocessing`, or anything under `render/` or `app/` (aliased or relative); from touching browser globals
+(`window`, `document`, `navigator`, storage, timers, `performance`, `globalThis`); and from calling
+`Math.random`, `Date.now`, `performance.now`, or `new Date`.
 
 ## 3. Time `[implemented: Phase 0]`
 
@@ -46,8 +47,10 @@ Billboards, diorama layers, prop instancing, and the post stack arrive in Phases
 
 ## 6. App `[implemented: Phase 0]`
 
-`App` (`src/app/app.ts`) runs the `requestAnimationFrame` loop: advance clock, step world N times, keep
-the last two snapshots, present with interpolation. `window.__batoman` exposes `TestHooks` for e2e tests.
+`installHooks()` (`src/app/app.ts`) publishes `window.__batoman` and global error capture before anything
+else runs, so a WebGL boot failure is recorded in `errors`. `App` runs the `requestAnimationFrame` loop:
+advance clock, step world N times, keep the last two snapshots, present with interpolation via
+`Stage.setMarker`.
 
 ## 7. Asset pipeline `[Phase 1]`
 
@@ -59,9 +62,13 @@ Level JSON schema and the in-browser editor.
 
 ## 9. Validation and budgets `[implemented: Phase 0]`
 
-`npm run validate` (`tools/validate/index.ts`) checks `public/` for forbidden raw-art paths and parses
-`src/content/manifest.json`. `npm run budget` (`tools/validate/budget.ts`) runs after `vite build` and
-fails on any breach of `BUDGET` in `tools/config.ts`:
+`npm run build` = typecheck, `validate`, `vite build`, `budget`.
+
+`npm run validate` (`tools/validate/index.ts`) walks `public/` and fails on any path
+`forbiddenServedPathReason` (`tools/config.ts`) rejects: raw-art name patterns (`concept-art`,
+`-sprites.png`, `art-source`, `.psd`) and any raster image outside `assets/atlases/` or `assets/ui/`. It also
+parses `src/content/manifest.json`. `npm run budget` (`tools/validate/budget.ts`) applies the same path rule
+to `dist/` and fails on any breach of `BUDGET`:
 
 | Budget | Ceiling |
 |---|---|
@@ -78,5 +85,5 @@ fails on any breach of `BUDGET` in `tools/config.ts`:
 | Replay | Vitest project `replay` | `tests/replay/**` | headless `World` |
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
-CI (`.github/workflows/ci.yml`): lint, typecheck, unit, replay, validate, build+budget, then e2e on the
-uploaded `dist/` artefact.
+CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + validate + budget), then e2e on the
+uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.

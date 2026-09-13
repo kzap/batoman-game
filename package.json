@@ -5,24 +5,22 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "dev": "vite",
-    "build": "npm run typecheck && vite build && npm run budget",
+    "build": "npm run typecheck && npm run validate && vite build && npm run budget",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tools/tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --project unit",
     "test:replay": "vitest run --project replay",
     "test:e2e": "playwright test",
-    "test:all": "npm run test && npm run test:replay && npm run test:e2e",
     "validate": "tsx tools/validate/index.ts",
     "budget": "tsx tools/validate/budget.ts",
-    "ci": "npm run lint && npm run typecheck && npm run test && npm run test:replay && npm run validate && npm run build && npm run test:e2e"
+    "ci": "npm run lint && npm run test && npm run test:replay && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "postprocessing": "6.39.5",
     "three": "0.186.0"
   },
   "devDependencies": {
@@ -31,7 +29,6 @@
     "@types/node": "^22.19.0",
     "@types/three": "0.186.0",
     "eslint": "^9.39.0",
-    "sharp": "0.35.4",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.46.0",

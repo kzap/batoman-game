@@ -20,7 +20,8 @@ export interface WorldSnapshot {
 /**
  * Phase 0 placeholder world: a single marker moving on a fixed circuit so the
  * clock -> sim -> snapshot -> renderer path is exercised end to end.
- * Replaced by the real Actor/Solid world in Phase 2.
+ * Replaced by the real Actor/Solid world in Phase 2, at which point `step`
+ * gains an `InputFrame` parameter.
  */
 export class World {
   readonly events = new EventBus<WorldEvents>();
@@ -37,9 +38,5 @@ export class World {
       tick: this.tick,
       marker: { x: Math.cos(t) * 3, y: 1.5 + Math.sin(t * 2) * 0.5 },
     };
-  }
-
-  get currentTick(): number {
-    return this.tick;
   }
 }

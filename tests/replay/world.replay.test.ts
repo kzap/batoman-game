@@ -3,8 +3,9 @@ import { World } from '@game/world';
 
 /**
  * Replay tests drive the headless sim with a fixed input script and assert the
- * final state. Phase 0 has no input yet; this establishes the harness and the
- * determinism guarantee that later replays depend on.
+ * final state. Phase 0 has no input and the placeholder World is a pure
+ * function of its tick count, so these only establish the harness shape.
+ * Phase 2 replaces them with recorded-input runs against real level geometry.
  */
 describe('World replay', () => {
   const run = (ticks: number) => {

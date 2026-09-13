@@ -4,7 +4,6 @@ import { join, relative } from 'node:path';
 export interface FileEntry {
   /** Path relative to the walk root, POSIX separators. */
   rel: string;
-  abs: string;
   size: number;
 }
 
@@ -22,7 +21,7 @@ export function walk(root: string): FileEntry[] {
       const abs = join(dir, name);
       const st = statSync(abs);
       if (st.isDirectory()) visit(abs);
-      else out.push({ rel: relative(root, abs).split('\\').join('/'), abs, size: st.size });
+      else out.push({ rel: relative(root, abs).split('\\').join('/'), size: st.size });
     }
   };
   visit(root);
@@ -42,14 +41,10 @@ export const fmtBytes = (n: number): string => {
 
 export class Report {
   readonly errors: string[] = [];
-  readonly warnings: string[] = [];
   readonly notes: string[] = [];
 
   error(msg: string): void {
     this.errors.push(msg);
-  }
-  warn(msg: string): void {
-    this.warnings.push(msg);
   }
   note(msg: string): void {
     this.notes.push(msg);
@@ -63,9 +58,8 @@ export class Report {
   print(title: string): number {
     console.log(`\n== ${title} ==`);
     for (const n of this.notes) console.log(`   ${n}`);
-    for (const w of this.warnings) console.warn(`!  ${w}`);
     for (const e of this.errors) console.error(`X  ${e}`);
-    console.log(this.ok ? `OK (${this.warnings.length} warnings)` : `FAILED (${this.errors.length} errors)`);
+    console.log(this.ok ? 'OK' : `FAILED (${this.errors.length} errors)`);
     return this.ok ? 0 : 1;
   }
 }

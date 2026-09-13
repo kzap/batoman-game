@@ -26,9 +26,9 @@ describe('FixedClock', () => {
     expect(step.dropped).toBe(true);
     expect(step.alpha).toBeGreaterThanOrEqual(0);
     expect(step.alpha).toBeLessThan(1);
-    // The backlog was discarded: the next normal frame is not still catching up.
+    // The backlog was discarded: one normal frame yields exactly one tick.
     const next = clock.advance(SIM_DT);
-    expect(next.ticks).toBeLessThanOrEqual(2);
+    expect(next.ticks).toBe(1);
     expect(next.dropped).toBe(false);
   });
 

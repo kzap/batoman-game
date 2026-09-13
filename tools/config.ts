@@ -7,8 +7,6 @@ export interface Budget {
   readonly singleImage: number;
   /** Any single audio file. */
   readonly singleAudio: number;
-  /** Files in public/ that must never ship: raw art, concept art, source sheets. */
-  readonly forbiddenPathPatterns: readonly RegExp[];
 }
 
 /**
@@ -20,7 +18,6 @@ export const BUDGET: Budget = {
   code: 900 * 1024,
   singleImage: 1.5 * 1024 * 1024,
   singleAudio: 6 * 1024 * 1024,
-  forbiddenPathPatterns: [/concept-art/i, /-sprites\.png$/i, /art-source/i, /\.psd$/i],
 };
 
 /** Directories the pipeline owns. Relative to repo root. */
@@ -31,3 +28,32 @@ export const PATHS = {
   atlases: 'public/assets/atlases',
   content: 'src/content',
 } as const;
+
+/** Path fragments that identify raw or source art. Never allowed in a served tree. */
+const FORBIDDEN_NAME_PATTERNS: readonly RegExp[] = [/concept-art/i, /-sprites\.png$/i, /art-source/i, /\.psd$/i];
+
+/**
+ * Served-tree directories (relative to the asset root, POSIX separators) that may
+ * contain raster images. Everything else is assumed to be raw art that bypassed
+ * the pipeline. `assets/atlases/` is written by tools/pack; `assets/ui/` is for
+ * hand-made HUD graphics.
+ */
+const ALLOWED_IMAGE_DIRS: readonly string[] = ['assets/atlases/', 'assets/ui/'];
+
+const RASTER_EXT = /\.(png|webp|avif|jpe?g|gif|bmp|tiff?)$/i;
+
+/**
+ * Decide whether a path in a served tree (public/ or dist/) is allowed.
+ * Returns a reason string when forbidden, or null when fine.
+ * Shared by content validation and the post-build budget check so the two
+ * cannot drift.
+ */
+export function forbiddenServedPathReason(rel: string): string | null {
+  for (const pat of FORBIDDEN_NAME_PATTERNS) {
+    if (pat.test(rel)) return `matches raw-art pattern ${pat}`;
+  }
+  if (RASTER_EXT.test(rel) && !ALLOWED_IMAGE_DIRS.some((d) => rel.startsWith(d))) {
+    return `raster image outside ${ALLOWED_IMAGE_DIRS.join(' or ')}; images must come from the asset pipeline`;
+  }
+  return null;
+}

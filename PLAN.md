@@ -81,7 +81,8 @@ One PR per phase. If a phase grows too large to review, split into `phase/N.1`, 
 - Fresh `src/` skeleton with `FixedClock`, `EventBus`, `Vec2`/`AABB`, a placeholder `World`, a Three.js
   `Stage` rendering a grey-box reference scene with layered backdrops, and an `App` loop exposing
   `window.__batoman` test hooks.
-- `tools/validate` (content) and `tools/validate/budget.ts` (payload) wired into `npm run build`.
+- `tools/validate` (content: no raw art or unpipelined images in `public/`) and `tools/validate/budget.ts`
+  (payload) both wired into `npm run build`.
 - Vitest unit + replay projects; Playwright e2e smoke against the production build.
 - GitHub Actions CI on PRs to `v2`/`main`.
 - Raw art moved to `art-source/`; v1 code, root scripts, `fix_sprites.py`, and the `phaser-dev` skill

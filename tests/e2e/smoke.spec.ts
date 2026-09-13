@@ -1,17 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { TestHooks } from '../../src/app/app';
 
-interface Hooks {
-  version: string;
-  ready: boolean;
-  frames: number;
-  simTicks: number;
-  droppedFrames: number;
-  lastFrameMs: number;
-  errors: string[];
+declare global {
+  interface Window {
+    __batoman?: TestHooks;
+  }
 }
 
-const hooks = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __batoman?: Hooks }).__batoman ?? null);
+const readHooks = (page: Page) => page.evaluate(() => window.__batoman ?? null);
+
+const waitForFrames = (page: Page, n: number) =>
+  page.waitForFunction((min) => (window.__batoman?.frames ?? 0) > min, n);
 
 test.describe('smoke', () => {
   test('boots, renders frames, and runs the sim without errors', async ({ page }) => {
@@ -22,12 +21,10 @@ test.describe('smoke', () => {
     page.on('pageerror', (err) => consoleErrors.push(err.message));
 
     await page.goto('/');
-    await page.waitForFunction(() => (window as unknown as { __batoman?: Hooks }).__batoman?.ready === true);
+    await page.waitForFunction(() => window.__batoman?.ready === true);
+    await waitForFrames(page, 30);
 
-    // Let the loop run for a moment.
-    await page.waitForFunction(() => ((window as unknown as { __batoman?: Hooks }).__batoman?.frames ?? 0) > 30);
-
-    const h = await hooks(page);
+    const h = await readHooks(page);
     expect(h).not.toBeNull();
     expect(h!.frames).toBeGreaterThan(30);
     expect(h!.simTicks).toBeGreaterThan(30);
@@ -43,7 +40,7 @@ test.describe('smoke', () => {
 
   test('draws non-background pixels (renderer actually produced an image)', async ({ page }) => {
     await page.goto('/');
-    await page.waitForFunction(() => ((window as unknown as { __batoman?: Hooks }).__batoman?.frames ?? 0) > 10);
+    await waitForFrames(page, 10);
 
     const distinct = await page.evaluate(() => {
       const c = document.getElementById('game-canvas') as HTMLCanvasElement;

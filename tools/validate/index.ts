@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { BUDGET, PATHS } from '../config';
+import { PATHS, forbiddenServedPathReason } from '../config';
 import { Report, walk } from './lib';
 
 /**
  * Validate repository content before build:
- *  - public/ contains no raw art (it would ship to players)
+ *  - public/ contains nothing that must not ship (raw art, images that bypassed the pipeline)
  *  - the content manifest parses
  *  - later phases add atlas + level schema checks here
  */
@@ -14,12 +14,8 @@ export function validateContent(root = '.'): Report {
 
   const pub = walk(join(root, PATHS.public));
   for (const f of pub) {
-    for (const pat of BUDGET.forbiddenPathPatterns) {
-      if (pat.test(f.rel)) {
-        report.error(`public/${f.rel} matches ${pat}; move it to ${PATHS.artSource}/`);
-        break;
-      }
-    }
+    const reason = forbiddenServedPathReason(f.rel);
+    if (reason) report.error(`public/${f.rel}: ${reason}; raw sources belong in ${PATHS.artSource}/`);
   }
   report.note(`public/: ${pub.length} files`);
 
