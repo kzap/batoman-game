@@ -1,102 +1,88 @@
 ---
 name: game-testing
-description: Use this skill to test the BatoMan game running in the browser using Playwright MCP. Use when asked to verify gameplay, check for visual bugs, test controls, or validate that a feature works correctly in the browser.
+description: Use this skill to test the BatoMan game running in the browser using Playwright MCP or the Playwright test suite. Use when asked to verify gameplay, check for visual bugs, test controls, or validate that a feature works correctly in the browser.
 ---
 
-# BatoMan Game Testing — Playwright MCP
+# BatoMan Game Testing
 
-## Prerequisites
+Two routes. Prefer the test suite for anything repeatable; use Playwright MCP for exploratory checks.
 
-The Playwright MCP server must be installed globally:
+## Route A: the test suite (preferred)
+
+```bash
+npm run test          # unit tests over src/core and src/game (headless, no browser)
+npm run test:replay   # recorded-input replays against the headless sim
+npm run test:e2e      # Playwright against the production build (runs `vite build` first if dist/ is stale)
+npm run ci            # everything, in CI order
+```
+
+E2E specs live in `tests/e2e/*.spec.ts`. They run against `vite preview` on port 4173 with software WebGL
+(`--use-angle=swiftshader`) so they behave the same on CI runners.
+
+Add a spec when a bug is found in the browser that the unit/replay layers cannot catch (rendering, input
+plumbing, DOM HUD). Anything about movement, collision, or game rules belongs in `tests/unit` or
+`tests/replay`, not e2e.
+
+## Route B: Playwright MCP (exploratory)
+
+Install once:
 ```bash
 claude mcp add playwright -s user -- npx -y @playwright/mcp@latest
 ```
 
-The game dev server must be running before testing:
+Start the dev server:
 ```bash
-npm run dev   # starts at http://localhost:5173
+npm run dev   # http://localhost:5173
 ```
 
-## Testing Workflow
+### Test hooks
 
-### 1. Launch and verify game loads
-```
-- Navigate to http://localhost:5173
-- Wait for the Phaser canvas to appear
-- Take a screenshot to verify initial state
-```
+The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 
-### 2. Test player movement
-```
-- Press ArrowRight / D — player should move right and play run animation
-- Press ArrowLeft / A — player should move left (sprite flips)
-- Press ArrowUp / W / Space — player should jump
-- Release jump early — player should fall faster (variable jump height)
-- Walk off platform edge — coyote time should allow jump for ~100ms
-```
+| Field | Meaning |
+|---|---|
+| `version` | package.json version |
+| `ready` | true once the render loop has started |
+| `frames` | rendered frames since boot |
+| `simTicks` | fixed-step sim ticks since boot (120 Hz) |
+| `droppedFrames` | frames where the clock discarded time (stall recovery) |
+| `lastFrameMs` | last frame duration |
+| `errors` | uncaught errors and unhandled rejections captured in-page |
 
-### 3. Test plasma buster
-```
-- Press and release Z quickly — fires a plasma burst projectile
-- Hold Z for 800ms+ then release — fires a nova blast (larger, slower)
-- Verify projectiles travel horizontally in the direction player faces
-- Verify projectiles destroy on contact with walls/enemies
-```
+A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` at 60 fps, and
+`droppedFrames` staying near 0 after the first second.
 
-### 4. Test scene transitions
-```
-- On MenuScene: press Start / Enter — should transition to GameScene
-- On death: should show game over state
-- Verify UIScene HUD (health, score) appears over GameScene
-```
+### Workflow
 
-## Playwright MCP Patterns
+1. Navigate to `http://localhost:5173`; wait for `window.__batoman.ready === true`.
+2. Screenshot the initial state.
+3. Drive input with `keyboard.down` / `keyboard.up` (hold durations matter for variable jump and charge).
+4. Screenshot after each action; compare against the expected state.
+5. Read `window.__batoman.errors` and the console; both must be empty.
 
-### Navigate to game
-```
-Use playwright to navigate to http://localhost:5173 and wait for network idle
-```
+Controls (from Phase 2 onward):
 
-### Take a screenshot for visual verification
-```
-Use playwright to take a screenshot
-```
+| Action | Keys |
+|---|---|
+| Move | Arrow keys or A / D |
+| Jump | Up / W / Space (release early for a shorter jump) |
+| Dash | Down + direction |
+| Fire | Z tap; hold 0.8 s and release for charged shot |
+| Debug overlay | backtick |
 
-### Simulate keyboard input
-```
-Use playwright to press ArrowRight
-Use playwright to hold ArrowRight for 2 seconds
-Use playwright to press KeyZ  (fire)
-```
+## Common issues
 
-### Check browser console for errors
-```
-Use playwright to get browser console logs and check for Phaser errors
-```
+| Symptom | Likely cause |
+|---|---|
+| Black canvas, `frames` growing | Camera not looking at Z=0, or scene empty; check `Stage.addReferenceScene` equivalents |
+| Black canvas, `frames` = 0 | WebGL context failed; check console for `THREE.WebGLRenderer` errors |
+| `errors` non-empty | Read the message; uncaught exceptions in the frame loop stop rendering |
+| `droppedFrames` climbing | Sim step too slow or frame loop blocked; profile `World.step` |
+| Motion stutters at steady fps | Render interpolation broken; check `alpha` use in `App.present` |
+| Player passes through geometry | Sim bug: write a replay test that reproduces it before fixing |
+| Sprite feet slide during animation | Atlas pivot wrong; fix the recipe in `tools/recut`, not the renderer |
 
-### Check canvas is rendering
-```
-Use playwright to check that a canvas element exists on the page
-Use playwright to verify the canvas has non-zero dimensions
-```
+## Reporting
 
-## Common Issues to Check
-
-| Symptom | Likely Cause |
-|---------|-------------|
-| Black screen | Asset failed to load — check network tab / console |
-| Player falls through floor | Collider not set or tilemap collision property missing |
-| Player floats | Gravity not set in gameConfig or body not enabled |
-| Animations not playing | Wrong frame range or animation key mismatch |
-| Camera not following | `startFollow` not called or bounds not set |
-| HUD not visible | UIScene not launched as parallel scene |
-| Plasma burst fires backward | `flipX` not applied to projectile velocity |
-
-## Reporting Results
-
-After each test session, report:
-1. What was tested
-2. Any visual screenshots captured
-3. Console errors found
-4. Pass/fail for each feature tested
-5. Suggested fixes for any failures
+After a session report: what was tested, screenshots captured, contents of `__batoman.errors` and the
+console, pass/fail per feature, and for each failure which layer (sim / render / app) owns it.

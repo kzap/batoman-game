@@ -10,20 +10,23 @@ dist/
 # Vite
 .vite/
 
+# Test artifacts
+test-results/
+playwright-report/
+tests/e2e/**/*-actual.png
+tests/e2e/**/*-diff.png
+
+# Generated asset outputs (regenerate with `npm run assets`)
+public/assets/atlases/
+
 # Environment
 .env
 .env.local
 
 # Editor
 .vscode/
+.idea/
 *.swp
 
-# tsc emit artifacts (src/ should stay TS-only; tsc is run for type-check only)
-src/**/*.js
-src/**/*.js.map
-
-# Playwright MCP
+# Playwright MCP scratch
 .playwright-mcp/
-
-# Test screenshots
-test-*.png
