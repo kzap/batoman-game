@@ -207,7 +207,8 @@ export class EntityView {
       const look = ENEMY_LOOK[c.type];
       v.quad.setFrame(v.animator.frameAt(c.pose, tick));
       const pivotY = look.pivot === 'centre' ? y + c.h / 2 : y;
-      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip: c.facing > 0, scale: look.scale });
+      const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
+      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
       const flashing = c.flash > 0 && Math.floor(tick / FLASH_HALF_PERIOD_TICKS) % 2 === 0;
       v.material.color.setHex(flashing ? PALETTE.neonMagenta : look.tint);
       v.material.opacity = c.alpha;

@@ -220,9 +220,10 @@ filtering without mipmaps (mipmap generation on two full-screen layers cost ~10 
 `PLAYER_Z` 0.3, flipped by facing, frame from `PlayerAnimator`, blinking while invulnerable and tinted
 magenta while hurt; a muzzle glow (the `orb` frame) grows with `charge`. Enemies sit at `ENEMY_Z` 0.2 with
 one quad and one material each (alpha for the cloak, magenta flash while `flash > 0`). How a type is drawn
-is one table, `ENEMY_LOOK` in `assets.ts`: sheet, scale, tint, pivot (drones pivot at their centre) and the
-clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look at 1.6x with a
-lilac tint. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
+is one table, `ENEMY_LOOK` in `assets.ts`: sheet, scale, tint, pivot (drones pivot at their centre), the
+way the painted frames face (patroller and tikbalang right, drone left; the view mirrors to the sim's
+facing) and the clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look
+at 1.6x with a lilac tint. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
 `stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
 dropped enemies go to a per-type free list and are reused. The boss core is an additive magenta orb over
 `BossSnapshot.weakPoint`, shown pulsing only while `exposed` (ART: visible during vulnerability windows).

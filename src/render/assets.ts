@@ -22,24 +22,29 @@ export interface GameAssets {
   readonly levelArt: LevelArtAssets | null;
 }
 
-/** How an enemy type is drawn: which sheet, how big, what tint, where its frames pivot, and which clips play its poses. */
+/**
+ * How an enemy type is drawn: which sheet, how big, what tint, where its frames
+ * pivot, which way the painted frames face, and which clips play its poses.
+ */
 export interface EnemyLook {
   readonly atlas: string;
   readonly scale: number;
   readonly tint: number;
   readonly pivot: 'feet' | 'centre';
+  /** Which way the sheet's frames face unflipped; the view mirrors them to match the sim's facing. */
+  readonly faces: 'left' | 'right';
   readonly clips: { readonly idle: string; readonly move: string; readonly shoot: string };
 }
 
-const PATROLLER_LOOK: EnemyLook = { atlas: 'patroller', scale: 1, tint: 0xffffff, pivot: 'feet', clips: { idle: 'idle', move: 'move', shoot: 'shoot' } };
+const PATROLLER_LOOK: EnemyLook = { atlas: 'patroller', scale: 1, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'move', shoot: 'shoot' } };
 
 /** Stealth and the boss reuse the patroller sheet until their own art exists; the boss is a heavy, lilac-tinted 1.6x cut. */
 export const ENEMY_LOOK: Readonly<Record<EnemyType, EnemyLook>> = {
   patroller: PATROLLER_LOOK,
   stealth: PATROLLER_LOOK,
   aswang: { ...PATROLLER_LOOK, scale: 1.6, tint: 0xd8b4ff },
-  drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },
-  tikbalang: { atlas: 'tikbalang', scale: 1, tint: 0xffffff, pivot: 'feet', clips: { idle: 'idle', move: 'run', shoot: 'stomp' } },
+  drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', faces: 'left', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },
+  tikbalang: { atlas: 'tikbalang', scale: 1, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'run', shoot: 'stomp' } },
 };
 
 /** Atlas names a level's enemies need; a boss also needs the drones it summons. */
