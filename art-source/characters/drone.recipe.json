@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "source": "art-source/characters/drone-sprites.png",
+  "name": "drone",
+  "kind": "sheet",
+  "scale": 0.5,
+  "pivot": {
+    "anchor": "center"
+  },
+  "animations": [
+    {
+      "name": "hover",
+      "row": 0,
+      "fps": 8,
+      "loop": true
+    },
+    {
+      "name": "move",
+      "row": 1,
+      "fps": 10,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "shoot",
+      "row": 2,
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "hurt",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1"
+      ],
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "death",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1",
+        "r3f2",
+        "r3f3",
+        "r3f4",
+        "r3f5",
+        "r3f6",
+        "r3f8",
+        "r3f9"
+      ],
+      "fps": 8,
+      "loop": false
+    },
+    {
+      "name": "eye",
+      "row": 4,
+      "frames": [
+        "r4f0"
+      ],
+      "fps": 1,
+      "loop": false
+    },
+    {
+      "name": "projectile",
+      "row": 4,
+      "frames": [
+        "r4f1",
+        "r4f2",
+        "r4f3"
+      ],
+      "fps": 12,
+      "loop": true,
+      "pivot": {
+        "anchor": "center"
+      }
+    }
+  ],
+  "overrides": {
+    "drop": [
+      "r3f7"
+    ]
+  },
+  "notes": "Flying unit: pivots use the frame centre. r3f7 is a debris speck. r4f0 is the eye icon."
+}

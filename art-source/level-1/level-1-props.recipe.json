@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "source": "art-source/level-1/tileset.png",
+  "name": "level-1-props",
+  "kind": "catalogue",
+  "scale": 0.5,
+  "background": [
+    "#939392",
+    "#91928e",
+    "#8e8e8e"
+  ],
+  "props": {
+    "r0f3": "platform_long_a",
+    "r0f2": "platform_long_b",
+    "r0f5": "platform_block_a",
+    "r0f7": "platform_block_b",
+    "r0f4": "platform_block_c",
+    "r0f20": "platform_block_d",
+    "r0f6": "platform_small_a",
+    "r0f8": "platform_small_b",
+    "r0f9": "platform_low_a",
+    "r0f14": "wall_rust_a",
+    "r0f23": "wall_rust_b",
+    "r0f26": "wall_rust_c",
+    "r0f16": "wall_rust_boards",
+    "r0f28": "wall_rust_planks",
+    "r0f11": "wall_planks",
+    "r0f13": "wall_concrete_a",
+    "r0f22": "wall_concrete_b",
+    "r0f24": "wall_concrete_strip",
+    "r0f19": "wall_panel_c",
+    "r0f21": "wall_stack",
+    "r0f10": "grate_a",
+    "r0f27": "grate_b",
+    "r0f25": "grate_c",
+    "r0f18": "can"
+  },
+  "overrides": {
+    "erase": [
+      {
+        "x": 1495,
+        "y": 241,
+        "w": 360,
+        "h": 6
+      },
+      {
+        "x": 1490,
+        "y": 508,
+        "w": 370,
+        "h": 13
+      },
+      {
+        "x": 1604,
+        "y": 508,
+        "w": 34,
+        "h": 200
+      },
+      {
+        "x": 1446,
+        "y": 940,
+        "w": 6,
+        "h": 340
+      },
+      {
+        "x": 2538,
+        "y": 30,
+        "w": 7,
+        "h": 480
+      },
+      {
+        "x": 2220,
+        "y": 358,
+        "w": 320,
+        "h": 8
+      },
+      {
+        "x": 0,
+        "y": 1405,
+        "w": 1930,
+        "h": 131
+      },
+      {
+        "x": 2343,
+        "y": 1408,
+        "w": 473,
+        "h": 128
+      },
+      {
+        "x": 0,
+        "y": 1495,
+        "w": 2816,
+        "h": 41
+      },
+      {
+        "x": 70,
+        "y": 1300,
+        "w": 100,
+        "h": 110
+      },
+      {
+        "x": 1540,
+        "y": 968,
+        "w": 205,
+        "h": 25
+      },
+      {
+        "x": 1735,
+        "y": 880,
+        "w": 10,
+        "h": 250
+      },
+      {
+        "x": 2068,
+        "y": 480,
+        "w": 10,
+        "h": 330
+      },
+      {
+        "x": 1950,
+        "y": 810,
+        "w": 393,
+        "h": 8
+      },
+      {
+        "x": 2343,
+        "y": 815,
+        "w": 8,
+        "h": 365
+      },
+      {
+        "x": 2570,
+        "y": 480,
+        "w": 8,
+        "h": 500
+      },
+      {
+        "x": 2343,
+        "y": 1280,
+        "w": 9,
+        "h": 140
+      },
+      {
+        "x": 2340,
+        "y": 965,
+        "w": 476,
+        "h": 12
+      },
+      {
+        "x": 1096,
+        "y": 1265,
+        "w": 274,
+        "h": 7
+      },
+      {
+        "x": 1962,
+        "y": 880,
+        "w": 6,
+        "h": 290
+      },
+      {
+        "x": 2545,
+        "y": 484,
+        "w": 271,
+        "h": 20
+      },
+      {
+        "x": 1096,
+        "y": 1229,
+        "w": 352,
+        "h": 9
+      },
+      {
+        "x": 1368,
+        "y": 1229,
+        "w": 12,
+        "h": 45
+      },
+      {
+        "x": 1930,
+        "y": 1482,
+        "w": 420,
+        "h": 20
+      },
+      {
+        "x": 2330,
+        "y": 1150,
+        "w": 26,
+        "h": 280
+      },
+      {
+        "x": 2351,
+        "y": 1278,
+        "w": 465,
+        "h": 8
+      },
+      {
+        "x": 1600,
+        "y": 684,
+        "w": 120,
+        "h": 8
+      },
+      {
+        "x": 1600,
+        "y": 700,
+        "w": 8,
+        "h": 340
+      }
+    ],
+    "drop": [
+      "r0f0",
+      "r0f1",
+      "r0f12",
+      "r0f15",
+      "r0f17"
+    ]
+  },
+  "notes": "Opaque grey illustration: explicit background palette plus erase cuts split the wall collage. Fragments and the leftover skyline strip are dropped."
+}

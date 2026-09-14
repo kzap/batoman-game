@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "source": "art-source/characters/tikbalang-sprites.png",
+  "name": "tikbalang",
+  "kind": "sheet",
+  "scale": 0.5,
+  "animations": [
+    {
+      "name": "idle",
+      "row": 0,
+      "fps": 6,
+      "loop": true
+    },
+    {
+      "name": "run",
+      "row": 1,
+      "fps": 12,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "stomp",
+      "row": 2,
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "hurt",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1"
+      ],
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "death",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1",
+        "r3f2",
+        "r3f3",
+        "r3f4",
+        "r3f5",
+        "r3f7",
+        "r3f8"
+      ],
+      "fps": 8,
+      "loop": false
+    },
+    {
+      "name": "projectile",
+      "row": 4,
+      "frames": [
+        "r4f0",
+        "r4f1",
+        "r4f2",
+        "r4f3"
+      ],
+      "fps": 12,
+      "loop": true,
+      "pivot": {
+        "anchor": "center"
+      }
+    }
+  ],
+  "overrides": {
+    "drop": [
+      "r3f6"
+    ]
+  },
+  "notes": "Row 2 rears and stomps (impact dust on the last frame). r3f6 is a stray speck."
+}

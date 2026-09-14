@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "source": "art-source/characters/batoman-sprites.png",
+  "name": "batoman",
+  "kind": "sheet",
+  "notes": "Row names read off the art; v1 never animated this sheet correctly so there is no prior mapping. Row 4 reads as a jump arc (crouch, rise, fall, land); confirm against the design doc when jump is implemented. r2f8 is the charged-shot orb, not a body frame.",
+  "animations": [
+    { "name": "idle", "row": 0, "fps": 6, "loop": true, "stabilize": true },
+    { "name": "run", "row": 1, "fps": 14, "loop": true, "stabilize": true },
+    { "name": "shoot", "row": 2, "frames": ["r2f0", "r2f1", "r2f2", "r2f3", "r2f4", "r2f5"], "fps": 14, "loop": false, "stabilize": true },
+    { "name": "hurt", "row": 2, "frames": ["r2f6", "r2f7"], "fps": 10, "loop": false },
+    { "name": "orb", "row": 2, "frames": ["r2f8"], "fps": 1, "loop": true, "pivot": { "mode": "center", "anchor": "center" } },
+    { "name": "shoot_run", "row": 3, "fps": 14, "loop": true, "stabilize": true },
+    { "name": "jump", "row": 4, "fps": 12, "loop": false, "stabilize": true }
+  ]
+}

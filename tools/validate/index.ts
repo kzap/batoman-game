@@ -1,13 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATHS, forbiddenServedPathReason } from '../config';
+import { validateAssets } from './assets';
 import { Report, walk } from './lib';
 
 /**
  * Validate repository content before build:
  *  - public/ contains nothing that must not ship (raw art, images that bypassed the pipeline)
  *  - the content manifest parses
- *  - later phases add atlas + level schema checks here
+ *  - every recipe/backdrop spec has pipeline output and each atlas JSON matches its image (assets.ts)
+ *  - later phases add level schema checks here
  */
 export function validateContent(root = '.'): Report {
   const report = new Report();
@@ -37,5 +39,11 @@ export function validateContent(root = '.'): Report {
 
 const isMain = process.argv[1]?.endsWith('validate/index.ts') ?? false;
 if (isMain) {
-  process.exit(validateContent().print('content validation'));
+  const content = validateContent().print('content validation');
+  const assets = await validateAssets().catch((e: unknown) => {
+    const r = new Report();
+    r.error(`asset validation crashed: ${(e as Error).message}`);
+    return r;
+  });
+  process.exit(content || assets.print('asset pipeline outputs'));
 }

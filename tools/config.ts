@@ -26,6 +26,7 @@ export const PATHS = {
   public: 'public',
   artSource: 'art-source',
   atlases: 'public/assets/atlases',
+  backdrops: 'public/assets/backdrops',
   content: 'src/content',
 } as const;
 
@@ -35,10 +36,10 @@ const FORBIDDEN_NAME_PATTERNS: readonly RegExp[] = [/concept-art/i, /-sprites\.p
 /**
  * Served-tree directories (relative to the asset root, POSIX separators) that may
  * contain raster images. Everything else is assumed to be raw art that bypassed
- * the pipeline. `assets/atlases/` is written by tools/pack; `assets/ui/` is for
- * hand-made HUD graphics.
+ * the pipeline. `assets/atlases/` and `assets/backdrops/` are written by
+ * tools/pack; `assets/ui/` is for hand-made HUD graphics.
  */
-const ALLOWED_IMAGE_DIRS: readonly string[] = ['assets/atlases/', 'assets/ui/'];
+const ALLOWED_IMAGE_DIRS: readonly string[] = ['assets/atlases/', 'assets/backdrops/', 'assets/ui/'];
 
 const RASTER_EXT = /\.(png|webp|avif|jpe?g|gif|bmp|tiff?)$/i;
 

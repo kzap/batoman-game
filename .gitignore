@@ -18,6 +18,10 @@ tests/e2e/**/*-diff.png
 
 # Generated asset outputs (regenerate with `npm run assets`)
 public/assets/atlases/
+public/assets/backdrops/
+
+# Recut previews (regenerate with `npm run recut <recipe>`)
+art-source/**/*.preview.png
 
 # Environment
 .env

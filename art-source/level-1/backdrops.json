@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "level": "level-1",
+  "layers": {
+    "background": {
+      "source": "background.png"
+    },
+    "midground": {
+      "source": "midground.png"
+    },
+    "foreground": {
+      "source": "foreground.png",
+      "lossless": false,
+      "quality": 90
+    }
+  }
+}

@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>recut review</title>
+<style>
+  :root { color-scheme: dark; --bg: #1b1b1f; --panel: #26262c; --line: #3a3a44; --fg: #ddd; --dim: #8a8a96; --acc: #6cf; --warn: #f96; --err: #f55; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  body { display: grid; grid-template-columns: 1fr 380px; grid-template-rows: 34px 1fr; height: 100vh; }
+  header { grid-column: 1 / 3; display: flex; gap: 12px; align-items: center; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+  header .path { color: var(--acc); }
+  header .status { margin-left: auto; color: var(--dim); }
+  header .status.err { color: var(--err); }
+  header .status.ok { color: #8f8; }
+  header .tool { padding: 2px 8px; border: 1px solid var(--line); border-radius: 3px; color: var(--dim); }
+  header .tool.on { color: #000; background: var(--warn); border-color: var(--warn); }
+  #stage { position: relative; overflow: hidden; }
+  #stage canvas { position: absolute; inset: 0; }
+  #stage.erase { cursor: crosshair; }
+  #stage.pivot { cursor: move; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; display: flex; flex-direction: column; }
+  section { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  h2 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+  button, input, select, textarea { font: inherit; color: var(--fg); background: #1e1e24; border: 1px solid var(--line); border-radius: 3px; padding: 3px 8px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--acc); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.danger:hover { border-color: var(--err); color: var(--err); }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+  .kv { color: var(--dim); }
+  .kv b { color: var(--fg); font-weight: normal; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
+  li .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li.sel { color: var(--acc); }
+  .chip { display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; margin: 1px; }
+  .chip:hover { border-color: var(--acc); }
+  .err { color: var(--err); }
+  textarea { width: 100%; height: 260px; resize: vertical; white-space: pre; tab-size: 2; }
+  #anim { width: 100%; height: 220px; background: #111; border: 1px solid var(--line); border-radius: 3px; display: block; }
+  input[type=range] { flex: 1; padding: 0; }
+  kbd { padding: 0 4px; border: 1px solid var(--line); border-radius: 3px; color: var(--dim); }
+  .help { color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <span>recut review</span>
+  <span class="path" id="path"></span>
+  <span class="kv" id="dims"></span>
+  <span class="tool" id="toolErase" title="E: drag on the sheet to add an erase rectangle">erase</span>
+  <span class="help"><kbd>click</kbd> select <kbd>shift</kbd> multi <kbd>M</kbd> merge <kbd>Del</kbd> drop <kbd>E</kbd> erase <kbd>F</kbd> fit</span>
+  <span class="status" id="status">loading</span>
+</header>
+<div id="stage"><canvas id="c"></canvas></div>
+<aside>
+  <section>
+    <h2>Selection</h2>
+    <div id="selection" class="kv">nothing selected</div>
+  </section>
+  <section>
+    <h2>Overrides</h2>
+    <div id="overrides" class="kv"></div>
+  </section>
+  <section id="animSection">
+    <h2>Animations</h2>
+    <div class="row">
+      <select id="animSelect"></select>
+      <button id="animPlay">pause</button>
+      <button id="animPrev">&lt;</button>
+      <button id="animNext">&gt;</button>
+      <label><input type="checkbox" id="animGhost" checked /> ghost</label>
+    </div>
+    <canvas id="anim" width="356" height="220"></canvas>
+    <div class="row"><input type="range" id="animScrub" min="0" max="0" value="0" /><span id="animInfo" class="kv"></span></div>
+    <div class="row"><input id="animRename" placeholder="rename animation (Enter)" /><input id="animFps" type="number" min="1" max="60" step="1" title="fps" style="width:4.5em" /><label><input type="checkbox" id="animLoop" /> loop</label></div>
+  </section>
+  <section>
+    <h2>Plan</h2>
+    <div id="plan" class="kv"></div>
+  </section>
+  <section>
+    <h2>Recipe JSON</h2>
+    <textarea id="json" spellcheck="false"></textarea>
+    <div class="row"><button id="apply">apply</button><span class="help">edit anything the buttons do not cover, then apply</span></div>
+  </section>
+</aside>
+<script>
+(() => {
+  'use strict';
+  const ROW_COLORS = ['#ff4d4d', '#ffb84d', '#e6ff4d', '#4dff88', '#4dd2ff', '#b84dff', '#ff4dd2'];
+  const $ = (id) => document.getElementById(id);
+  const stage = $('stage'), canvas = $('c'), ctx = canvas.getContext('2d');
+  const statusEl = $('status');
+
+  let S = null;            // ReviewState from the server
+  let sheet = null;        // HTMLImageElement of /sheet.png
+  let sheetKey = '';
+  let view = { s: 1, x: 0, y: 0 };
+  let selected = [];       // frame ids, in click order
+  let selectedErase = -1;  // index into recipe.overrides.erase
+  let tool = 'select';     // 'select' | 'erase'
+  let drag = null;         // { kind: 'pan'|'erase'|'pivot', ... }
+  let hover = null;
+  let checker = null;
+
+  // ---------- server ----------
+  function setStatus(text, cls) { statusEl.textContent = text; statusEl.className = 'status ' + (cls || ''); }
+  async function load() {
+    const r = await fetch('/api/state');
+    apply(await r.json(), 'loaded');
+  }
+  async function post(recipe, what) {
+    setStatus('saving ' + what + '…');
+    const r = await fetch('/api/recipe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(recipe) });
+    const body = await r.json();
+    if (!r.ok) { setStatus(body.error, 'err'); return false; }
+    apply(body, 'saved ' + what);
+    return true;
+  }
+  function apply(state, msg) {
+    S = state;
+    const key = JSON.stringify([S.recipe.background, S.recipe.mask, S.recipe.overrides && S.recipe.overrides.erase]);
+    if (key !== sheetKey) {
+      sheetKey = key;
+      const img = new Image();
+      img.onload = () => { sheet = img; if (!view.fitted) fit(); draw(); drawAnim(); };
+      img.src = '/sheet.png?v=' + Date.now();
+    }
+    const ids = new Set(frames().map((f) => f.id));
+    selected = selected.filter((id) => ids.has(id));
+    const erase = (S.recipe.overrides && S.recipe.overrides.erase) || [];
+    if (selectedErase >= erase.length) selectedErase = -1;
+    $('path').textContent = S.recipePath;
+    $('dims').textContent = S.width + 'x' + S.height + ' ' + S.recipe.kind + ' bg ' + S.background.join(' ');
+    $('json').value = JSON.stringify(S.recipe, null, 2);
+    setStatus(msg + (S.planError ? ' — plan error: ' + S.planError : ''), S.planError ? 'err' : 'ok');
+    renderPanels();
+    draw();
+    setupAnim();
+  }
+
+  // ---------- recipe edits (all immutable copies of S.recipe) ----------
+  function recipeWith(fn) { const r = JSON.parse(JSON.stringify(S.recipe)); fn(r); return r; }
+  function overrides(r) { r.overrides = r.overrides || {}; return r.overrides; }
+  function prune(r) {
+    const o = r.overrides; if (!o) return;
+    for (const k of Object.keys(o)) { const v = o[k]; if ((Array.isArray(v) && v.length === 0) || (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0)) delete o[k]; }
+    if (Object.keys(o).length === 0) delete r.overrides;
+  }
+  function dropSelected() {
+    if (!selected.length) return;
+    post(recipeWith((r) => {
+      const o = overrides(r);
+      o.drop = [...new Set([...(o.drop || []), ...selected])];
+      // A dropped frame must not stay referenced, or the plan fails.
+      if (r.props) for (const id of selected) delete r.props[id];
+      for (const a of r.animations || []) if (a.frames) a.frames = a.frames.filter((id) => !selected.includes(id));
+    }), 'drop ' + selected.join(' '));
+    selected = [];
+  }
+  function restore(id) {
+    post(recipeWith((r) => { const o = overrides(r); o.drop = (o.drop || []).filter((d) => d !== id); prune(r); }), 'restore ' + id);
+  }
+  function mergeSelected() {
+    if (selected.length < 2) return;
+    const group = [...selected];
+    post(recipeWith((r) => { const o = overrides(r); o.merge = [...(o.merge || []).filter((g) => !g.some((id) => group.includes(id))), group]; }), 'merge ' + group.join('+'));
+    selected = [group[0]];
+  }
+  function unmerge(i) {
+    post(recipeWith((r) => { r.overrides.merge.splice(i, 1); prune(r); }), 'unmerge');
+  }
+  function setPivot(id, x, y) {
+    post(recipeWith((r) => { const o = overrides(r); o.pivots = o.pivots || {}; o.pivots[id] = { x, y }; }), 'pivot ' + id);
+  }
+  function resetPivot(id) {
+    post(recipeWith((r) => { delete r.overrides.pivots[id]; prune(r); }), 'reset pivot ' + id);
+  }
+  function addErase(rect) {
+    post(recipeWith((r) => { const o = overrides(r); o.erase = [...(o.erase || []), rect]; }), 'erase');
+  }
+  function removeErase(i) {
+    post(recipeWith((r) => { r.overrides.erase.splice(i, 1); prune(r); }), 'remove erase');
+    selectedErase = -1;
+  }
+  function editAnimation(name, patch) {
+    post(recipeWith((r) => {
+      const a = (r.animations || []).find((x) => x.name === name);
+      if (a) Object.assign(a, patch);
+    }), 'animation ' + name);
+  }
+  function renameProp(id, name) {
+    post(recipeWith((r) => { r.props = r.props || {}; if (name) r.props[id] = name; else delete r.props[id]; }), 'name ' + id);
+  }
+
+  // ---------- geometry ----------
+  function frames() { return S ? S.rows.flat() : []; }
+  function frameById(id) { return frames().find((f) => f.id === id); }
+  function toSheet(px, py) { return { x: (px - view.x) / view.s, y: (py - view.y) / view.s }; }
+  function toScreen(x, y) { return { x: x * view.s + view.x, y: y * view.s + view.y }; }
+  function inBox(b, p) { return p.x >= b.x && p.x < b.x + b.w && p.y >= b.y && p.y < b.y + b.h; }
+  function frameAt(p) {
+    // Smallest frame under the cursor wins so satellites inside big boxes stay clickable.
+    let best = null;
+    for (const f of frames()) if (inBox(f, p) && (!best || f.w * f.h < best.w * best.h)) best = f;
+    return best;
+  }
+  function eraseAt(p) {
+    const erase = (S.recipe.overrides && S.recipe.overrides.erase) || [];
+    return erase.findIndex((r) => inBox(r, p));
+  }
+  function pivotHandleAt(px, py) {
+    for (const id of selected) {
+      const f = frameById(id); if (!f) continue;
+      const s = toScreen(f.x + f.pivot.x, f.y + f.pivot.y);
+      if (Math.hypot(s.x - px, s.y - py) < 9) return f;
+    }
+    return null;
+  }
+  function fit() {
+    if (!S) return;
+    const w = stage.clientWidth, h = stage.clientHeight;
+    view.s = Math.min(w / S.width, h / S.height) * 0.96;
+    view.x = (w - S.width * view.s) / 2;
+    view.y = (h - S.height * view.s) / 2;
+    view.fitted = true;
+  }
+
+  // ---------- drawing ----------
+  function resize() {
+    canvas.width = stage.clientWidth * devicePixelRatio;
+    canvas.height = stage.clientHeight * devicePixelRatio;
+    canvas.style.width = stage.clientWidth + 'px';
+    canvas.style.height = stage.clientHeight + 'px';
+    draw();
+  }
+  function makeChecker() {
+    const c = document.createElement('canvas'); c.width = c.height = 16;
+    const g = c.getContext('2d');
+    g.fillStyle = '#3a3a3a'; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = '#555'; g.fillRect(0, 0, 8, 8); g.fillRect(8, 8, 8, 8);
+    return ctx.createPattern(c, 'repeat');
+  }
+  function draw() {
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    ctx.fillStyle = '#1b1b1f';
+    ctx.fillRect(0, 0, stage.clientWidth, stage.clientHeight);
+    if (!S) return;
+    checker = checker || makeChecker();
+    ctx.save();
+    ctx.translate(view.x, view.y);
+    ctx.scale(view.s, view.s);
+    ctx.fillStyle = checker;
+    ctx.save(); ctx.scale(1 / view.s, 1 / view.s); ctx.fillRect(0, 0, S.width * view.s, S.height * view.s); ctx.restore();
+    ctx.imageSmoothingEnabled = view.s < 1;
+    if (sheet) ctx.drawImage(sheet, 0, 0);
+    const lw = 1 / view.s;
+    ctx.lineWidth = lw;
+
+    for (const d of S.dropped) {
+      ctx.strokeStyle = d.reason === 'watermark' ? '#f0f' : d.reason === 'override' ? '#777' : '#f00';
+      ctx.setLineDash(d.reason === 'noise' ? [] : [3 * lw, 3 * lw]);
+      ctx.strokeRect(d.x - 1, d.y - 1, d.w + 2, d.h + 2);
+    }
+    ctx.setLineDash([]);
+
+    const fontPx = Math.max(10, 11 / view.s);
+    ctx.font = fontPx + 'px ui-monospace, Menlo, monospace';
+    for (const f of frames()) {
+      const color = ROW_COLORS[f.row % ROW_COLORS.length];
+      const isSel = selected.includes(f.id);
+      ctx.strokeStyle = isSel ? '#fff' : color;
+      ctx.lineWidth = (isSel ? 2.5 : hover === f.id ? 2 : 1) * lw;
+      ctx.strokeRect(f.x, f.y, f.w, f.h);
+      if (view.s > 0.35 || isSel) {
+        ctx.setLineDash([3 * lw, 3 * lw]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lw;
+        for (const s of f.satellites) ctx.strokeRect(s.x, s.y, s.w, s.h);
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = color;
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3 * lw;
+      ctx.lineJoin = 'round';
+      const label = f.id + (nameOf(f.id) ? ' ' + nameOf(f.id) : '');
+      ctx.strokeText(label, f.x + 2 / view.s, f.y + fontPx);
+      ctx.fillText(label, f.x + 2 / view.s, f.y + fontPx);
+      // pivot
+      const px = f.x + f.pivot.x, py = f.y + f.pivot.y, r = 7 / view.s;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5 * lw;
+      ctx.beginPath(); ctx.moveTo(px, py - r); ctx.lineTo(px, py + r); ctx.moveTo(px - r, py); ctx.lineTo(px + r, py); ctx.stroke();
+      ctx.fillStyle = isSel ? '#fff' : color;
+      ctx.beginPath(); ctx.arc(px, py, (isSel ? 4 : 2.5) / view.s, 0, Math.PI * 2); ctx.fill();
+    }
+
+    const erase = (S.recipe.overrides && S.recipe.overrides.erase) || [];
+    erase.forEach((e, i) => {
+      ctx.fillStyle = i === selectedErase ? 'rgba(255,150,80,0.55)' : 'rgba(255,150,80,0.3)';
+      ctx.fillRect(e.x, e.y, e.w, e.h);
+      ctx.strokeStyle = '#f96'; ctx.lineWidth = lw; ctx.strokeRect(e.x, e.y, e.w, e.h);
+      ctx.fillStyle = '#f96'; ctx.fillText('erase ' + i, e.x + 2 / view.s, e.y - 3 / view.s);
+    });
+    if (drag && drag.kind === 'erase') {
+      const r = dragRect(drag);
+      ctx.fillStyle = 'rgba(255,150,80,0.4)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = '#fc9'; ctx.strokeRect(r.x, r.y, r.w, r.h);
+    }
+    ctx.restore();
+  }
+  function nameOf(id) {
+    if (!S.plan) return '';
+    const names = S.plan.frames.filter((f) => f.id === id).map((f) => f.name);
+    return names[0] || '';
+  }
+  function dragRect(d) {
+    const a = d.from, b = d.to;
+    const x = Math.floor(Math.min(a.x, b.x)), y = Math.floor(Math.min(a.y, b.y));
+    return { x: Math.max(0, x), y: Math.max(0, y), w: Math.max(1, Math.ceil(Math.abs(a.x - b.x))), h: Math.max(1, Math.ceil(Math.abs(a.y - b.y))) };
+  }
+
+  // ---------- input ----------
+  stage.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const k = Math.exp(-e.deltaY * 0.0015);
+    const p = toSheet(e.offsetX, e.offsetY);
+    view.s = Math.min(24, Math.max(0.05, view.s * k));
+    view.x = e.offsetX - p.x * view.s;
+    view.y = e.offsetY - p.y * view.s;
+    draw();
+  }, { passive: false });
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!S) return;
+    canvas.setPointerCapture(e.pointerId);
+    const p = toSheet(e.offsetX, e.offsetY);
+    const handle = pivotHandleAt(e.offsetX, e.offsetY);
+    if (e.button === 0 && handle) { drag = { kind: 'pivot', frame: handle, to: p }; stage.className = 'pivot'; return; }
+    if (e.button === 0 && tool === 'erase') { drag = { kind: 'erase', from: p, to: p }; return; }
+    drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false, shift: e.shiftKey, p };
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!S) return;
+    const p = toSheet(e.offsetX, e.offsetY);
+    if (!drag) {
+      const f = frameAt(p); const id = f ? f.id : null;
+      stage.className = pivotHandleAt(e.offsetX, e.offsetY) ? 'pivot' : tool;
+      if (id !== hover) { hover = id; draw(); }
+      return;
+    }
+    if (drag.kind === 'pan') {
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (Math.hypot(dx, dy) > 3) drag.moved = true;
+      view.x = drag.vx + dx; view.y = drag.vy + dy;
+    } else {
+      drag.to = p;
+    }
+    draw();
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!drag) return;
+    const d = drag; drag = null; stage.className = tool;
+    if (d.kind === 'pan' && !d.moved) {
+      const f = frameAt(d.p);
+      const ei = eraseAt(d.p);
+      if (f) {
+        selectedErase = -1;
+        if (d.shift) selected = selected.includes(f.id) ? selected.filter((id) => id !== f.id) : [...selected, f.id];
+        else selected = [f.id];
+      } else if (ei >= 0) { selectedErase = ei; selected = []; }
+      else { selected = []; selectedErase = -1; }
+      renderPanels(); draw();
+    } else if (d.kind === 'erase') {
+      const r = dragRect(d);
+      if (r.w >= 2 && r.h >= 2) addErase(r); else draw();
+    } else if (d.kind === 'pivot') {
+      const f = d.frame;
+      setPivot(f.id, Math.round(d.to.x - f.x), Math.round(d.to.y - f.y));
+    }
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.key === 'e' || e.key === 'E') { tool = tool === 'erase' ? 'select' : 'erase'; $('toolErase').className = 'tool' + (tool === 'erase' ? ' on' : ''); stage.className = tool; }
+    else if (e.key === 'Escape') { selected = []; selectedErase = -1; tool = 'select'; $('toolErase').className = 'tool'; stage.className = ''; renderPanels(); draw(); }
+    else if (e.key === 'f' || e.key === 'F') { fit(); draw(); }
+    else if (e.key === 'm' || e.key === 'M') mergeSelected();
+    else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedErase >= 0) removeErase(selectedErase); else dropSelected(); }
+    else return;
+    e.preventDefault();
+  });
+  $('toolErase').addEventListener('click', () => { tool = tool === 'erase' ? 'select' : 'erase'; $('toolErase').className = 'tool' + (tool === 'erase' ? ' on' : ''); stage.className = tool; });
+  window.addEventListener('resize', resize);
+
+  // ---------- panels ----------
+  function el(tag, attrs, ...children) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) { if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'class') n.className = v; else n[k] = v; }
+    for (const c of children) n.append(c);
+    return n;
+  }
+  function renderPanels() {
+    const sel = $('selection'); sel.replaceChildren();
+    if (selectedErase >= 0) {
+      const r = S.recipe.overrides.erase[selectedErase];
+      sel.append(el('div', {}, 'erase ' + selectedErase + ': ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h), el('div', { class: 'row' }, el('button', { class: 'danger', onclick: () => removeErase(selectedErase) }, 'remove (Del)')));
+    } else if (!selected.length) {
+      sel.textContent = 'nothing selected';
+    } else {
+      for (const id of selected) {
+        const f = frameById(id); if (!f) continue;
+        const ov = S.recipe.overrides && S.recipe.overrides.pivots && S.recipe.overrides.pivots[id];
+        const line = el('div', {}, el('b', {}, id), ' ' + f.w + 'x' + f.h + ' @ ' + f.x + ',' + f.y + ' pivot ' + f.pivot.x.toFixed(1) + ',' + f.pivot.y.toFixed(1) + (ov ? ' (override)' : '') + (f.satellites.length ? ' +' + f.satellites.length + ' sat' : ''));
+        sel.append(line);
+        const anims = S.plan ? S.plan.animations.filter((a) => a.frames.some((n) => S.plan.frames.find((pf) => pf.name === n && pf.id === id))).map((a) => a.name) : [];
+        if (S.recipe.kind === 'catalogue') {
+          const input = el('input', { value: (S.recipe.props || {})[id] || '', placeholder: 'prop name (empty = skip)' });
+          input.addEventListener('keydown', (e) => { if (e.key === 'Enter') renameProp(id, input.value.trim()); });
+          sel.append(el('div', { class: 'row' }, input, el('button', { onclick: () => renameProp(id, input.value.trim()) }, 'name')));
+        } else {
+          sel.append(el('div', {}, anims.length ? 'in: ' + anims.join(', ') : el('span', { class: 'err' }, 'in no animation')));
+        }
+        if (ov) sel.append(el('div', { class: 'row' }, el('button', { onclick: () => resetPivot(id) }, 'reset pivot')));
+      }
+      sel.append(el('div', { class: 'row' },
+        el('button', { class: 'danger', onclick: dropSelected }, 'drop (Del)'),
+        el('button', { disabled: selected.length < 2, onclick: mergeSelected }, 'merge ' + selected.length + ' (M)'),
+      ));
+      sel.append(el('div', { class: 'help' }, 'drag the pivot cross to override it'));
+    }
+
+    const ovEl = $('overrides'); ovEl.replaceChildren();
+    const o = S.recipe.overrides || {};
+    const list = el('ul');
+    for (const id of o.drop || []) list.append(el('li', {}, el('span', { class: 'grow' }, 'drop ' + id), el('button', { onclick: () => restore(id) }, 'restore')));
+    (o.merge || []).forEach((g, i) => list.append(el('li', {}, el('span', { class: 'grow', onclick: () => { selected = [...g]; draw(); renderPanels(); } }, 'merge ' + g.join('+')), el('button', { onclick: () => unmerge(i) }, 'undo'))));
+    (o.erase || []).forEach((r, i) => list.append(el('li', { class: i === selectedErase ? 'sel' : '' }, el('span', { class: 'grow', onclick: () => { selectedErase = i; selected = []; draw(); renderPanels(); } }, 'erase ' + i + ' ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h), el('button', { onclick: () => removeErase(i) }, 'remove'))));
+    for (const [id, p] of Object.entries(o.pivots || {})) list.append(el('li', {}, el('span', { class: 'grow' }, 'pivot ' + id + ' ' + p.x + ',' + p.y), el('button', { onclick: () => resetPivot(id) }, 'reset')));
+    ovEl.append(list.childElementCount ? list : 'none');
+
+    const planEl = $('plan'); planEl.replaceChildren();
+    if (S.planError) planEl.append(el('div', { class: 'err' }, S.planError));
+    if (S.plan) {
+      planEl.append(el('div', {}, S.plan.frames.length + ' frames, ' + S.plan.animations.length + ' animations, ' + S.rows.map((r) => r.length).join('/') + ' per row'));
+      if (S.plan.unused.length) {
+        const wrap = el('div', {}, el('span', { class: 'err' }, 'unused: '));
+        for (const id of S.plan.unused) wrap.append(el('span', { class: 'chip', onclick: () => { selected = [id]; centerOn(id); renderPanels(); draw(); } }, id));
+        planEl.append(wrap);
+      }
+    }
+  }
+  function centerOn(id) {
+    const f = frameById(id); if (!f) return;
+    view.x = stage.clientWidth / 2 - (f.x + f.w / 2) * view.s;
+    view.y = stage.clientHeight / 2 - (f.y + f.h / 2) * view.s;
+  }
+  $('apply').addEventListener('click', () => {
+    let r;
+    try { r = JSON.parse($('json').value); } catch (e) { setStatus('JSON: ' + e.message, 'err'); return; }
+    post(r, 'recipe');
+  });
+
+  // ---------- animation preview ----------
+  const ac = $('anim'), actx = ac.getContext('2d');
+  let anim = { name: null, i: 0, playing: true, last: 0 };
+  function currentAnim() { return S && S.plan ? S.plan.animations.find((a) => a.name === anim.name) : null; }
+  function setupAnim() {
+    const sec = $('animSection');
+    if (S.recipe.kind !== 'sheet' || !S.plan) { sec.style.display = 'none'; return; }
+    sec.style.display = '';
+    const sel = $('animSelect');
+    const names = S.plan.animations.map((a) => a.name);
+    if (!names.includes(anim.name)) { anim.name = names[0] || null; anim.i = 0; }
+    sel.replaceChildren(...names.map((n) => el('option', { value: n, selected: n === anim.name }, n)));
+    const a = currentAnim();
+    $('animRename').value = a ? a.name : '';
+    $('animFps').value = a ? a.fps : '';
+    $('animLoop').checked = !!(a && a.loop);
+    $('animScrub').max = a ? Math.max(0, a.frames.length - 1) : 0;
+    drawAnim();
+  }
+  function drawAnim() {
+    actx.fillStyle = '#111'; actx.fillRect(0, 0, ac.width, ac.height);
+    const a = currentAnim(); if (!a || !sheet || !a.frames.length) return;
+    const pf = a.frames.map((n) => S.plan.frames.find((f) => f.name === n));
+    let maxW = 1, maxH = 1;
+    for (const f of pf) { maxW = Math.max(maxW, f.w); maxH = Math.max(maxH, f.h); }
+    const s = Math.min(ac.width / (maxW * 1.3), ac.height / (maxH * 1.25));
+    const ox = ac.width / 2, oy = ac.height * 0.9;
+    actx.strokeStyle = '#333'; actx.beginPath(); actx.moveTo(0, oy); actx.lineTo(ac.width, oy); actx.moveTo(ox, 0); actx.lineTo(ox, ac.height); actx.stroke();
+    anim.i = Math.min(anim.i, pf.length - 1);
+    const drawFrame = (f, alpha) => {
+      actx.globalAlpha = alpha;
+      actx.imageSmoothingEnabled = s < 1;
+      actx.drawImage(sheet, f.x, f.y, f.w, f.h, ox - f.pivot.x * s, oy - f.pivot.y * s, f.w * s, f.h * s);
+      actx.globalAlpha = 1;
+    };
+    if ($('animGhost').checked && pf.length > 1) drawFrame(pf[(anim.i + pf.length - 1) % pf.length], 0.3);
+    drawFrame(pf[anim.i], 1);
+    actx.fillStyle = '#6cf'; actx.beginPath(); actx.arc(ox, oy, 3, 0, Math.PI * 2); actx.fill();
+    $('animScrub').value = anim.i;
+    $('animInfo').textContent = a.name + ' ' + (anim.i + 1) + '/' + pf.length + ' @' + a.fps + 'fps ' + pf[anim.i].id;
+  }
+  function tick(t) {
+    const a = currentAnim();
+    if (a && anim.playing && t - anim.last > 1000 / a.fps) {
+      anim.last = t;
+      anim.i = a.loop || anim.i < a.frames.length - 1 ? (anim.i + 1) % a.frames.length : anim.i;
+      drawAnim();
+    }
+    requestAnimationFrame(tick);
+  }
+  $('animSelect').addEventListener('change', (e) => { anim.name = e.target.value; anim.i = 0; setupAnim(); });
+  $('animRename').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const a = currentAnim(); const name = e.target.value.trim();
+    if (a && name && name !== a.name) { editAnimation(a.name, { name }); anim.name = name; }
+  });
+  $('animFps').addEventListener('change', (e) => { const a = currentAnim(); const fps = Number(e.target.value); if (a && fps > 0) editAnimation(a.name, { fps }); });
+  $('animLoop').addEventListener('change', (e) => { const a = currentAnim(); if (a) editAnimation(a.name, { loop: e.target.checked }); });
+  $('animPlay').addEventListener('click', (e) => { anim.playing = !anim.playing; e.target.textContent = anim.playing ? 'pause' : 'play'; });
+  $('animPrev').addEventListener('click', () => { const a = currentAnim(); if (a) { anim.playing = false; $('animPlay').textContent = 'play'; anim.i = (anim.i + a.frames.length - 1) % a.frames.length; drawAnim(); } });
+  $('animNext').addEventListener('click', () => { const a = currentAnim(); if (a) { anim.playing = false; $('animPlay').textContent = 'play'; anim.i = (anim.i + 1) % a.frames.length; drawAnim(); } });
+  $('animScrub').addEventListener('input', (e) => { anim.playing = false; $('animPlay').textContent = 'play'; anim.i = Number(e.target.value); drawAnim(); });
+  $('animGhost').addEventListener('change', drawAnim);
+  requestAnimationFrame(tick);
+
+  resize();
+  load().catch((e) => setStatus(String(e), 'err'));
+})();
+</script>
+</body>
+</html>

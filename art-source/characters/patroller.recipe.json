@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "source": "art-source/characters/patroller-sprites.png",
+  "name": "patroller",
+  "kind": "sheet",
+  "scale": 0.5,
+  "animations": [
+    {
+      "name": "idle",
+      "row": 0,
+      "fps": 6,
+      "loop": true
+    },
+    {
+      "name": "move",
+      "row": 1,
+      "fps": 10,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "shoot",
+      "row": 2,
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "hurt",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f2"
+      ],
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "death",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f2",
+        "r3f3",
+        "r3f4",
+        "r3f5",
+        "r3f6",
+        "r3f7",
+        "r3f8"
+      ],
+      "fps": 8,
+      "loop": false
+    },
+    {
+      "name": "still",
+      "row": 4,
+      "frames": [
+        "r4f0"
+      ],
+      "fps": 1,
+      "loop": false
+    },
+    {
+      "name": "projectile",
+      "row": 4,
+      "frames": [
+        "r4f1",
+        "r4f2",
+        "r4f3"
+      ],
+      "fps": 12,
+      "loop": true,
+      "pivot": {
+        "anchor": "center"
+      }
+    }
+  ],
+  "overrides": {
+    "drop": [
+      "r3f1"
+    ]
+  },
+  "notes": "Row 3 is hit -> collapse -> wreck; r3f1 is a stray spark. Row 4: single still pose then the plasma bolt."
+}
