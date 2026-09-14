@@ -120,7 +120,8 @@
         }
       ],
       "speed": 96,
-      "pause": 30
+      "pause": 30,
+      "prop": "platform_low_a"
     }
   ],
   "hazards": [
@@ -186,5 +187,371 @@
       "y": 64,
       "patrolDistance": 120
     }
-  ]
+  ],
+  "art": {
+    "props": "level-1-props",
+    "backdrops": {
+      "far": "sky",
+      "mid": "town"
+    },
+    "decor": [
+      {
+        "prop": "platform_low_a",
+        "x": 955,
+        "y": 403,
+        "w": 117
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 1061,
+        "y": 394,
+        "w": 95
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 1167,
+        "y": 403,
+        "w": 117
+      },
+      {
+        "prop": "platform_block_d",
+        "x": 1269,
+        "y": 391,
+        "w": 87
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 3189,
+        "y": 407,
+        "w": 105
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 3284,
+        "y": 400,
+        "w": 86
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 3380,
+        "y": 407,
+        "w": 105
+      },
+      {
+        "prop": "platform_block_d",
+        "x": 3472,
+        "y": 396,
+        "w": 79
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 3564,
+        "y": 407,
+        "w": 105
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 1823,
+        "y": 368,
+        "w": 125
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 1936,
+        "y": 359,
+        "w": 102
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 2050,
+        "y": 368,
+        "w": 125
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 601,
+        "y": 340,
+        "w": 114
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 705,
+        "y": 332,
+        "w": 93
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 808,
+        "y": 340,
+        "w": 113
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 2673,
+        "y": 346,
+        "w": 98
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 2762,
+        "y": 339,
+        "w": 80
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 2851,
+        "y": 346,
+        "w": 98
+      },
+      {
+        "prop": "platform_block_d",
+        "x": 2937,
+        "y": 336,
+        "w": 74
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 3023,
+        "y": 346,
+        "w": 98
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 1407,
+        "y": 304,
+        "w": 125
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 1520,
+        "y": 295,
+        "w": 102
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 1634,
+        "y": 304,
+        "w": 125
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 3740,
+        "y": 306,
+        "w": 119
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 3848,
+        "y": 297,
+        "w": 97
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 3956,
+        "y": 306,
+        "w": 119
+      },
+      {
+        "prop": "platform_block_d",
+        "x": 4060,
+        "y": 293,
+        "w": 90
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 4165,
+        "y": 306,
+        "w": 119
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 217,
+        "y": 276,
+        "w": 114
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 321,
+        "y": 268,
+        "w": 93
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 424,
+        "y": 276,
+        "w": 113
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 2235,
+        "y": 275,
+        "w": 117
+      },
+      {
+        "prop": "platform_block_c",
+        "x": 2341,
+        "y": 266,
+        "w": 95
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 2447,
+        "y": 275,
+        "w": 117
+      },
+      {
+        "prop": "platform_block_d",
+        "x": 2549,
+        "y": 263,
+        "w": 87
+      },
+      {
+        "prop": "platform_long_a",
+        "x": 228,
+        "y": -5,
+        "w": 455
+      },
+      {
+        "prop": "platform_long_b",
+        "x": 596,
+        "y": -5,
+        "w": 282
+      },
+      {
+        "prop": "platform_long_a",
+        "x": 965,
+        "y": -5,
+        "w": 455
+      },
+      {
+        "prop": "platform_block_a",
+        "x": 1236,
+        "y": 7,
+        "w": 88
+      },
+      {
+        "prop": "platform_long_a",
+        "x": 1602,
+        "y": -5,
+        "w": 451
+      },
+      {
+        "prop": "platform_long_b",
+        "x": 1967,
+        "y": -4,
+        "w": 279
+      },
+      {
+        "prop": "platform_block_a",
+        "x": 2149,
+        "y": 8,
+        "w": 86
+      },
+      {
+        "prop": "platform_block_b",
+        "x": 2235,
+        "y": 8,
+        "w": 86
+      },
+      {
+        "prop": "platform_block_d",
+        "x": 2319,
+        "y": 10,
+        "w": 82
+      },
+      {
+        "prop": "platform_small_a",
+        "x": 2380,
+        "y": 29,
+        "w": 40
+      },
+      {
+        "prop": "platform_long_a",
+        "x": 2885,
+        "y": -6,
+        "w": 457
+      },
+      {
+        "prop": "platform_long_b",
+        "x": 3255,
+        "y": -5,
+        "w": 283
+      },
+      {
+        "prop": "platform_long_a",
+        "x": 3625,
+        "y": -6,
+        "w": 457
+      },
+      {
+        "prop": "platform_long_b",
+        "x": 3995,
+        "y": -5,
+        "w": 283
+      },
+      {
+        "prop": "platform_block_a",
+        "x": 4180,
+        "y": 7,
+        "w": 88
+      },
+      {
+        "prop": "platform_block_b",
+        "x": 2016,
+        "y": 64,
+        "w": 64,
+        "h": 64
+      },
+      {
+        "prop": "platform_low_a",
+        "x": 1680,
+        "y": 76,
+        "w": 160,
+        "h": 28
+      },
+      {
+        "prop": "can",
+        "x": 330,
+        "y": 64
+      },
+      {
+        "prop": "can",
+        "x": 1150,
+        "y": 64
+      },
+      {
+        "prop": "can",
+        "x": 1900,
+        "y": 64
+      },
+      {
+        "prop": "can",
+        "x": 2950,
+        "y": 64
+      },
+      {
+        "prop": "can",
+        "x": 3750,
+        "y": 64
+      },
+      {
+        "prop": "wall_rust_c",
+        "x": 1100,
+        "y": 60,
+        "layer": "wall"
+      },
+      {
+        "prop": "wall_concrete_strip",
+        "x": 2900,
+        "y": 60,
+        "layer": "wall"
+      },
+      {
+        "prop": "wall_rust_c",
+        "x": 3800,
+        "y": 60,
+        "layer": "wall"
+      }
+    ]
+  }
 }

@@ -1,5 +1,7 @@
+import sharp from 'sharp';
+import type { Sharp } from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { parseBackdrops } from '../backdrops.js';
+import { eraseRects, fadeEdges, parseBackdrops } from '../backdrops.js';
 import { packAtlas, type PackInput, type Placement } from '../packer.js';
 
 function overlaps(a: Placement, b: Placement, padding: number): boolean {
@@ -49,5 +51,72 @@ describe('parseBackdrops', () => {
     expect(() => parseBackdrops({ ...good, layers: { bg: {} } }, 'spec')).toThrow(/source is required/);
     expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', quality: 0 } } }, 'spec')).toThrow(/quality/);
     expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', scale: 1.5 } } }, 'spec')).toThrow(/scale/);
+    expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', edgeFade: 0.6 } } }, 'spec')).toThrow(/edgeFade/);
+    expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', erase: [{ x: 0, y: 0, w: 0, h: 4, mode: 'fill' }] } } }, 'spec')).toThrow(/erase\[0\]/);
+    expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', erase: [{ x: 0, y: 0, w: 4, h: 4, mode: 'blur' }] } } }, 'spec')).toThrow(/mode/);
+  });
+
+  it('accepts edgeFade and erase', () => {
+    const spec = { ...good, layers: { bg: { source: 'x.png', edgeFade: 0.05, erase: [{ x: 1, y: 2, w: 3, h: 4, mode: 'clear' }] } } };
+    expect(parseBackdrops(spec, 'spec')).toBe(spec);
+  });
+});
+
+/** Raw RGBA of a small image for pixel assertions. */
+const pixels = async (img: Sharp): Promise<{ at: (x: number, y: number) => number[]; width: number }> => {
+  const { data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { width: info.width, at: (x, y) => Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4)) };
+};
+
+describe('eraseRects', () => {
+  // 8 x 4 opaque red with a white 2 x 2 "watermark" at (3, 1).
+  const source = (): Sharp =>
+    sharp({ create: { width: 8, height: 4, channels: 4, background: { r: 200, g: 0, b: 0, alpha: 1 } } }).composite([
+      { input: { create: { width: 2, height: 2, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } } }, left: 3, top: 1 },
+    ]);
+
+  it('clear makes the rect transparent and leaves the rest alone', async () => {
+    const p = await pixels(await eraseRects(source(), [{ x: 3, y: 1, w: 2, h: 2, mode: 'clear' }]));
+    expect(p.at(3, 1)[3]).toBe(0);
+    expect(p.at(4, 2)[3]).toBe(0);
+    expect(p.at(2, 1)).toEqual([200, 0, 0, 255]);
+    expect(p.at(5, 2)).toEqual([200, 0, 0, 255]);
+  });
+
+  it('fill recolours the rect with the mean colour of its border', async () => {
+    const p = await pixels(await eraseRects(source(), [{ x: 3, y: 1, w: 2, h: 2, mode: 'fill' }]));
+    expect(p.at(3, 1)).toEqual([200, 0, 0, 255]);
+    expect(p.at(4, 2)).toEqual([200, 0, 0, 255]);
+  });
+
+  it('fill ignores transparent border pixels and keeps the alpha of what it recolours', async () => {
+    // Left half transparent, right half red; white mark straddling the boundary.
+    const img = sharp({ create: { width: 8, height: 4, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite([
+      { input: { create: { width: 4, height: 4, channels: 4, background: { r: 200, g: 0, b: 0, alpha: 1 } } }, left: 4, top: 0 },
+      { input: { create: { width: 2, height: 2, channels: 4, background: { r: 255, g: 255, b: 255, alpha: 1 } } }, left: 3, top: 1 },
+    ]);
+    const p = await pixels(await eraseRects(img, [{ x: 3, y: 1, w: 2, h: 2, mode: 'fill' }]));
+    expect(p.at(3, 1)).toEqual([200, 0, 0, 255]); // the mark is now wall-coloured, still opaque
+    expect(p.at(4, 1)).toEqual([200, 0, 0, 255]);
+    expect(p.at(2, 1)[3]).toBe(0); // untouched transparent neighbour
+  });
+
+  it('clips rects to the image', async () => {
+    const p = await pixels(await eraseRects(source(), [{ x: 6, y: 3, w: 10, h: 10, mode: 'clear' }]));
+    expect(p.at(7, 3)[3]).toBe(0);
+    expect(p.width).toBe(8);
+  });
+});
+
+describe('fadeEdges', () => {
+  it('ramps alpha from 0 at the edges to full past the fade width, symmetrically', async () => {
+    const img = sharp({ create: { width: 20, height: 2, channels: 4, background: { r: 10, g: 20, b: 30, alpha: 1 } } });
+    const p = await pixels(await fadeEdges(img, 0.25)); // 5 px ramp each side
+    expect(p.at(0, 0)[3]).toBe(0);
+    expect(p.at(19, 0)[3]).toBe(0);
+    expect(p.at(2, 1)[3]).toBe(102); // 2/5 of 255
+    expect(p.at(17, 1)[3]).toBe(102);
+    expect(p.at(5, 0)[3]).toBe(255);
+    expect(p.at(10, 0)).toEqual([10, 20, 30, 255]);
   });
 });

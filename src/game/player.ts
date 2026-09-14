@@ -45,6 +45,8 @@ export class Player {
   private dashCooldown = 0;
   private canDash = true;
   private fireCooldown = 0;
+  /** Ticks the shooting pose is still shown after a shot. Presentation only; never gates input. */
+  private shootTicks = 0;
   /** Ticks left of falling through a one-way platform after down + jump. */
   private dropTicks = 0;
 
@@ -63,6 +65,11 @@ export class Player {
   /** Dash grants i-frames; the health system also adds its own after a hit. */
   get invulnerable(): boolean {
     return this.dashing;
+  }
+
+  /** True briefly after each shot so the renderer can show the firing arm. */
+  get shooting(): boolean {
+    return this.shootTicks > 0;
   }
 
   get pose(): PlayerPose {
@@ -107,6 +114,7 @@ export class Player {
     this.dashCooldown = 0;
     this.canDash = true;
     this.fireCooldown = 0;
+    this.shootTicks = 0;
     this.dropTicks = 0;
     this.hurtStun = 0;
     this.dead = false;
@@ -134,6 +142,7 @@ export class Player {
     if (this.wallLock > 0) this.wallLock--;
     if (this.dashCooldown > 0) this.dashCooldown--;
     if (this.fireCooldown > 0) this.fireCooldown--;
+    if (this.shootTicks > 0) this.shootTicks--;
     if (this.hurtStun > 0) this.hurtStun--;
 
     // Sense the surroundings before deciding anything.
@@ -185,6 +194,7 @@ export class Player {
     // Fire on press, not on hold; cooldown limits the rate.
     if (controllable && input.pressed('fire') && this.fireCooldown === 0 && !this.sliding) {
       this.fireCooldown = PLAYER.fireCooldownTicks;
+      this.shootTicks = PLAYER.shootPoseTicks;
       actions.fired = true;
     }
 

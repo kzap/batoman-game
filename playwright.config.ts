@@ -6,6 +6,8 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 30_000,
   fullyParallel: false,
+  // One browser at a time: the frame-time budget test measures a software renderer and a second worker halves its fps.
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {

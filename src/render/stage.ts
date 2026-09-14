@@ -1,4 +1,5 @@
 import { AmbientLight, Color, DirectionalLight, Fog, Mesh, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
+import { PostStack, type PostOptions } from './post';
 
 /** Palette anchors from docs/ART.md. */
 export const PALETTE = {
@@ -9,6 +10,7 @@ export const PALETTE = {
   neonCyan: 0x00e5ff,
   neonMagenta: 0xff2d78,
   warmAmber: 0xffaa33,
+  bioTeal: 0x00ffcc,
 } as const;
 
 /**
@@ -39,6 +41,8 @@ export interface StageOptions {
   canvas: HTMLCanvasElement;
   /** Cap on devicePixelRatio to bound fill cost on retina displays. */
   maxPixelRatio?: number;
+  /** Post-processing switches; `null` renders straight to the canvas. */
+  post?: PostOptions | null;
 }
 
 /**
@@ -50,6 +54,7 @@ export class Stage {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
   readonly camera: PerspectiveCamera;
+  private readonly post: PostStack | null;
   private readonly canvas: HTMLCanvasElement;
   private readonly maxPixelRatio: number;
 
@@ -59,7 +64,8 @@ export class Stage {
 
     this.renderer = new WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      // The post stack renders into its own buffers, so MSAA on the canvas would be paid for and discarded.
+      antialias: opts.post === null,
       powerPreference: 'high-performance',
       // Lets tests and screenshot tooling read the framebuffer after present.
       preserveDrawingBuffer: true,
@@ -72,12 +78,13 @@ export class Stage {
 
     this.scene.fog = new Fog(PALETTE.smogPurple, 40, 220);
     this.buildLights();
+    this.post = opts.post === null ? null : new PostStack(this.renderer, this.scene, this.camera, opts.post ?? {});
     this.resize();
   }
 
+  /** Only lit materials (grey boxes, crushers) see these; the painted art is unlit. */
   private buildLights(): void {
-    // Grey-box level of ambient so untextured faces read; Phase 4 lowers it once art carries the contrast.
-    this.scene.add(new AmbientLight(0x8a8aa0, 1.4));
+    this.scene.add(new AmbientLight(0x8a8aa0, 1.1));
 
     const key = new DirectionalLight(PALETTE.warmAmber, 2.2);
     key.position.set(-6, 10, 12);
@@ -94,12 +101,15 @@ export class Stage {
     const h = this.canvas.clientHeight || 1;
     this.renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, this.maxPixelRatio));
     this.renderer.setSize(w, h, false);
+    this.post?.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
   }
 
-  render(): void {
-    this.renderer.render(this.scene, this.camera);
+  /** `deltaSeconds` since the last frame drives time-based effects (grain). */
+  render(deltaSeconds: number): void {
+    if (this.post) this.post.render(deltaSeconds);
+    else this.renderer.render(this.scene, this.camera);
   }
 
   dispose(): void {
@@ -111,6 +121,7 @@ export class Stage {
         else m.dispose();
       }
     });
+    this.post?.dispose();
     this.renderer.dispose();
   }
 

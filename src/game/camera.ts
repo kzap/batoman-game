@@ -25,6 +25,18 @@ export interface CameraSnapshot {
  * smoothing, level bounds, and a decaying random shake driven by the world's
  * seeded RNG. Lives in game/ so replays reproduce the framing exactly.
  */
+/** Range of camera centres that keep the view inside a level; a level smaller than the view is centred. */
+export function cameraBounds(levelW: number, levelH: number): { minX: number; maxX: number; minY: number; maxY: number } {
+  const halfW = CAMERA.viewW / 2;
+  const halfH = CAMERA.viewH / 2;
+  return {
+    minX: levelW <= CAMERA.viewW ? levelW / 2 : halfW,
+    maxX: levelW <= CAMERA.viewW ? levelW / 2 : levelW - halfW,
+    minY: levelH <= CAMERA.viewH ? levelH / 2 : halfH,
+    maxY: levelH <= CAMERA.viewH ? levelH / 2 : levelH - halfH,
+  };
+}
+
 export class CameraController {
   x: number;
   y: number;
@@ -93,12 +105,8 @@ export class CameraController {
   }
 
   private clampToBounds(x: number, y: number): { x: number; y: number } {
-    const halfW = CAMERA.viewW / 2;
-    const halfH = CAMERA.viewH / 2;
-    return {
-      x: this.levelW <= CAMERA.viewW ? this.levelW / 2 : clamp(x, halfW, this.levelW - halfW),
-      y: this.levelH <= CAMERA.viewH ? this.levelH / 2 : clamp(y, halfH, this.levelH - halfH),
-    };
+    const b = cameraBounds(this.levelW, this.levelH);
+    return { x: clamp(x, b.minX, b.maxX), y: clamp(y, b.minY, b.maxY) };
   }
 
   snapshot(): CameraSnapshot {

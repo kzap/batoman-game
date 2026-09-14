@@ -2,16 +2,16 @@
   "version": 1,
   "level": "level-1",
   "layers": {
-    "background": {
-      "source": "background.png"
+    "sky": {
+      "source": "background.png",
+      "erase": [{ "x": 1316, "y": 646, "w": 72, "h": 72, "mode": "fill" }]
     },
-    "midground": {
-      "source": "midground.png"
-    },
-    "foreground": {
+    "town": {
       "source": "foreground.png",
       "lossless": false,
-      "quality": 90
+      "quality": 90,
+      "edgeFade": 0.05,
+      "erase": [{ "x": 1325, "y": 655, "w": 54, "h": 54, "mode": "fill" }]
     }
   }
 }

@@ -1,6 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { levelProblems } from '../../src/content/level';
+import type { AtlasJson } from '../../src/content/atlas';
+import { levelProblems, type LevelJson } from '../../src/content/level';
+import { levelArtReferenceProblems } from '../../src/content/level-art';
 import { PATHS, forbiddenServedPathReason } from '../config';
 import { validateAssets } from './assets';
 import { Report, walk } from './lib';
@@ -11,6 +13,7 @@ import { Report, walk } from './lib';
  *  - the content manifest parses
  *  - every recipe/backdrop spec has pipeline output and each atlas JSON matches its image (assets.ts)
  *  - every manifest level exists and passes levelProblems (src/content/level.ts)
+ *  - every prop and backdrop a level's art block names exists in the built assets
  */
 export function validateContent(root = '.'): Report {
   const report = new Report();
@@ -57,7 +60,26 @@ function checkLevelEntry(entry: unknown, root: string, report: Report): void {
   const problems = levelProblems(json);
   for (const p of problems) report.error(`level ${id}: ${p}`);
   if (problems.length === 0 && (json as { id: string }).id !== id) report.error(`level ${file}: id "${(json as { id: string }).id}" does not match manifest id "${id}"`);
-  if (problems.length === 0) report.note(`level ${id}: ${(json as { solids: unknown[] }).solids.length} solids`);
+  if (problems.length) return;
+  const level = json as LevelJson;
+  report.note(`level ${id}: ${level.solids.length} solids`);
+  if (level.art) for (const p of levelArtReferences(level, root)) report.error(`level ${id}: ${p}`);
+}
+
+/** Resolve a level's art block against the atlas JSON and backdrop files on disk. */
+function levelArtReferences(level: LevelJson, root: string): string[] {
+  const art = level.art!;
+  const atlasPath = join(root, PATHS.atlases, `${art.props}.json`);
+  if (!existsSync(atlasPath)) return [`art.props atlas ${art.props} has not been built (${atlasPath})`];
+  const atlas = JSON.parse(readFileSync(atlasPath, 'utf8')) as AtlasJson;
+  const dir = join(root, PATHS.backdrops, level.id);
+  const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -'.webp'.length)) : [];
+  return levelArtReferenceProblems(
+    art,
+    level.movingSolids.map((m) => m.prop),
+    new Set(Object.keys(atlas.frames)),
+    new Set(files),
+  );
 }
 
 const isMain = process.argv[1]?.endsWith('validate/index.ts') ?? false;
