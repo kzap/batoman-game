@@ -55,6 +55,11 @@ with no screen, it is game.
 - Characters are alpha-tested billboards driven by atlas frames with per-frame pivots. Never scale a
   billboard to "fix" alignment; fix the pivot in the recut recipe.
 - Interpolate: position = lerp(previous, current, alpha). Never move a mesh from inside a tick.
+- Dynamic entities are mirrored by id in `EntityView` (`src/render/entity-view.ts`): create on first
+  sight, remove when the id leaves the snapshot. Static level geometry is `LevelView`. Sim pixels become
+  stage units through `src/render/units.ts` (32 px per unit); do not hard-code the factor elsewhere.
+- Camera framing is simulated (`src/game/camera.ts`) and comes through the snapshot; the renderer only
+  lerps it and adds shake. Do not add camera logic to `render/` or `app/`.
 - Dispose geometries, materials, and textures when removing objects. `Stage.dispose()` is the pattern.
 - `preserveDrawingBuffer: true` is intentional (tests read pixels).
 

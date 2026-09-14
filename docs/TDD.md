@@ -32,7 +32,7 @@ At most `MAX_TICKS_PER_FRAME = 8` ticks run per frame; excess time is discarded 
 The remainder fraction `alpha` in `[0, 1)` drives render interpolation. Negative, NaN, and infinite frame
 durations count as zero.
 
-## 4. Sim `[implemented: Phase 2]`
+## 4. Sim `[implemented: Phase 2-3]`
 
 Units are integer sim pixels with Y up; 32 px tiles; the player is 24 x 48 (24 x 24 crouched). The renderer
 maps pixels to stage units; nothing in `core/` or `game/` knows about Three.js.
@@ -87,27 +87,69 @@ gameover for audio and effects.
 The seeded `Rng` (`src/core/sim/rng.ts`, mulberry32) lives on the World for later systems; nothing in
 Phase 2 consumes randomness.
 
-### 4.4 Input (`src/core/sim/input.ts`, `src/app/keyboard.ts`)
+### 4.4 Camera (`src/game/camera.ts`, tuning `CAMERA`)
+
+The camera is simulated so replays frame identically. Per tick: look-ahead eases toward `lookAhead` px in
+the facing direction while running (`lookAheadEase` of the remaining distance per tick); the target is the
+player centre plus look-ahead, `focusAboveFeet` above the feet. A deadzone (`deadzoneX`, `deadzoneY`)
+absorbs small motion; only the excess pulls the camera, by `followX`/`followY` of the remaining distance per
+tick (fixed fractions, no `exp`, so replays are exact). While airborne the upward deadzone widens to
+`airDeadzoneUp`, so jumps do not bob the view but falls are followed. The centre is clamped to the level
+so the design view (`viewW x viewH`) never shows outside it; levels smaller than the view are centred.
+`shake(amplitude, ticks)` draws per-tick offsets from the world RNG with linearly decaying amplitude; a
+weaker shake never replaces a stronger one in progress. Hurt and death shake the camera; respawn snaps it.
+
+### 4.5 Input (`src/core/sim/input.ts`, `src/app/keyboard.ts`)
 
 `InputFrame` is seven booleans; `InputEdges` derives presses and releases from consecutive frames so a
 replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
 a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
 
-## 5. Renderer `[partial: Phase 0]`
+## 5. Renderer `[partial: Phase 3]`
 
-`Stage` (`src/render/stage.ts`) owns the `WebGLRenderer`, `Scene`, `PerspectiveCamera` (FOV 30, distance
-22, looking at Z=0), fog, and a key/rim light pair. `LAYER_Z` fixes the Z depths for backdrop, gameplay,
-and foreground layers. Backdrops are `MeshBasicMaterial` (unlit). `preserveDrawingBuffer` is on so tests
-can read pixels.
+`Stage` (`src/render/stage.ts`) owns the `WebGLRenderer`, `Scene`, `PerspectiveCamera` (`LENS`: FOV 30,
+distance 22, looking at Z=0), fog, and ambient + key/rim lights (ambient is high for grey-box readability;
+Phase 4 lowers it). `LAYER_Z` fixes the Z depths for backdrop,
+gameplay, and foreground layers. `setCamera(x, y)` places the camera over a point on the gameplay plane.
+`preserveDrawingBuffer` is on so tests can read pixels.
 
-Billboards, diorama layers, prop instancing, and the post stack arrive in Phases 3-4.
+Units: `src/render/units.ts`, 32 sim pixels per stage unit. At Z=0 the view is about 21 x 11.8 units
+(672 x 378 px), so the 48 px player is 1.5 units, roughly 13% of the screen height.
 
-## 6. App `[implemented: Phase 0]`
+`LevelView` (`level-view.ts`) builds grey-box meshes straight from the level JSON: solids (grey boxes,
+depth 2, set slightly behind Z=0), one-way platforms (rust), spikes (magenta), crushers (red), and
+translucent planes for death zones (red), checkpoints (cyan), the exit (green) and enemy spawns (amber).
+Backdrop planes are sized to the level plus a margin per depth so the camera never sees past them.
+
+`EntityView` (`entity-view.ts`) mirrors dynamic entities by id: one mesh per player, projectile and moving
+solid, created when an id appears and removed when it disappears. `present(prev, cur, alpha)` lerps
+positions between the two latest snapshots; the player mesh is scaled from the body's `w x h` so crouching
+shows, blinks while invulnerable and turns magenta while hurt. Collider outlines (`setOutlines`) are
+`LineSegments` children so the parent's scale sizes them; the debug overlay toggles them.
+
+Camera framing comes from the sim (`CameraController`, section 4.4); the app lerps the centre between
+snapshots and adds the current tick's shake offset unlerped.
+
+Billboards, atlas-driven animation, diorama layers, prop instancing, and the post stack arrive in Phase 4.
+
+## 6. App `[implemented: Phase 3]`
 
 `installHooks()` (`src/app/app.ts`) publishes `window.__batoman` and global error capture before anything
-else runs, so a WebGL boot failure is recorded in `errors`. `App` runs the `requestAnimationFrame` loop:
-advance clock, step world N times, keep the last two snapshots, present with interpolation via
-`Stage.setMarker`.
+else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
+`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `status`, and `replay(fixture)`,
+which restarts the level and feeds a recorded input sequence instead of the keyboard.
+
+`App` runs the `requestAnimationFrame` loop: advance clock, step the world N times with the next input
+(replay source if active, otherwise `Keyboard.frame()`), keep the last two snapshots, present with
+interpolation, update the debug overlay and HUD. After `complete` or `gameover` the world is frozen (ticks
+stop); a fresh jump press restarts it. On a respawn the previous snapshot is replaced by the current one so
+neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key pressed and released inside one frame so a tap
+still reaches one tick.
+
+`DebugOverlay` (`debug.ts`, backtick): fps and ticks/s over 500 ms windows, frame time, dropped frames,
+entity count, tick, status, player position/size/pose/facing/hp, camera centre and shake. Toggling it also
+shows collider outlines on dynamic entities (player, projectiles, movers); static colliders are the grey-box
+meshes themselves, drawn at their exact collision rectangles. `Hud` (`hud.ts`) is the grey-box placeholder: hearts, lives, end-of-run banner.
 
 ## 7. Asset pipeline `[implemented: Phase 1]`
 
@@ -216,7 +258,7 @@ platform), a one-way platform, a two-tile block, spikes, and a checkpoint. The i
 ### 8.1 Replays (`tests/replay/`)
 
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
-(`harness.ts`). Fixtures are recorded by scripted policies (`bots.ts`) that read the live world; only the
+(`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by scripted policies (`bots.ts`) that read the live world; only the
 inputs are saved, and `expect` pins status, tick count, lives, hp and final x. `npm run replay:record`
 re-records; commit the diff with the tuning change that caused it. `level-1-clear.json` completes Level 1
 in 2514 ticks (21 s) without damage.
@@ -238,13 +280,21 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Single image | 1.5 MB |
 | Single audio | 6 MB |
 
-## 10. Testing `[implemented: Phase 0]`
+## 10. Testing `[implemented: Phase 0-3]`
 
 | Layer | Tool | Location | Runs against |
 |---|---|---|---|
 | Unit | Vitest project `unit` | `tests/unit/**`, `tools/**/*.test.ts` | `core`, `game`, `tools` (segmenter stages run on synthetic sheets from `tools/recut/__tests__/fixtures.ts`) |
 | Replay | Vitest project `replay` | `tests/replay/**` | headless `World` on real level JSON |
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
+
+E2E specs: `smoke.spec.ts` (boot, pixels drawn, keyboard drives the sim) and `greybox.spec.ts`: a
+frame-time budget (at least 30 fps and 110 ticks/s over 3 s of running, at most 2 dropped frames, under
+software GL), baseline screenshots written to `e2e-screenshots/` (gitignored; CI uploads them on every run)
+with the debug overlay and HUD asserted, and a scripted traversal that feeds `level-1-clear.json` through
+`window.__batoman.replay` and requires the browser build to finish on the same tick, hp and x as the
+headless replay. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL output is
+not stable enough across machines to gate on.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
 uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.

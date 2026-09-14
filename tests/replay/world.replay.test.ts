@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { World } from '@game/world';
 import { NO_INPUT } from '@core/sim/input';
-import { PLAYER } from '@game/tuning';
+import { CAMERA, PLAYER } from '@game/tuning';
 import { clearLevel1 } from './bots';
 import { FIXTURE_DIR, loadLevel, record, replay, toFixture, type ReplayFixture } from './harness';
 
@@ -152,6 +152,32 @@ describe('World rules', () => {
     w.player.body.place(level.exit.x, 64);
     w.step();
     expect(w.snapshot().status).toBe('complete');
+  });
+
+  it('freezes after completion or game over until restarted', () => {
+    const w = new World(level, 1);
+    w.player.body.place(level.exit.x, 64);
+    w.step();
+    const tick = w.snapshot().tick;
+    expect(w.snapshot().status).toBe('complete');
+    for (let i = 0; i < 10; i++) w.step({ ...NO_INPUT, right: true });
+    expect(w.snapshot().tick).toBe(tick);
+    expect(w.snapshot().player.x).toBe(w.snapshot().player.x);
+  });
+
+  it('follows the player with the camera and snaps on respawn', () => {
+    const w = new World(level, 1);
+    const cam0 = w.snapshot().camera;
+    for (let i = 0; i < 240; i++) w.step({ ...NO_INPUT, right: true });
+    const cam1 = w.snapshot().camera;
+    expect(cam1.x).toBeGreaterThan(cam0.x);
+    expect(Math.abs(cam1.x - w.snapshot().player.x)).toBeLessThan(CAMERA.lookAhead + CAMERA.deadzoneX + 12); // leading, within look-ahead
+    w.player.body.place(1300, 60);
+    let respawned = false;
+    w.events.on('respawn', () => (respawned = true));
+    for (let i = 0; i < 400 && !respawned; i++) w.step();
+    expect(respawned).toBe(true);
+    expect(w.snapshot().camera.x).toBe(cam0.x); // back at the spawn framing in one step, not eased
   });
 
   it('projectiles travel, then vanish at range or on a solid', () => {
