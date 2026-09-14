@@ -1,7 +1,10 @@
-import { FixedClock } from '@core/sim/clock';
 import { lerp } from '@core/math/vec2';
+import { FixedClock } from '@core/sim/clock';
 import { World, type WorldSnapshot } from '@game/world';
 import { Stage } from '@render/stage';
+import level1 from '@content/levels/level-1.json';
+import { parseLevel } from '@content/level';
+import { Keyboard } from './keyboard';
 
 /**
  * Hooks exposed on `window.__batoman` for Playwright and the game-testing skill.
@@ -14,6 +17,9 @@ export interface TestHooks {
   simTicks: number;
   droppedFrames: number;
   lastFrameMs: number;
+  /** Latest sim snapshot fields tests care about; updated every frame. */
+  player: { x: number; y: number; pose: string; hp: number };
+  status: string;
   readonly errors: string[];
 }
 
@@ -36,6 +42,8 @@ export function installHooks(): TestHooks {
     simTicks: 0,
     droppedFrames: 0,
     lastFrameMs: 0,
+    player: { x: 0, y: 0, pose: 'idle', hp: 0 },
+    status: 'playing',
     errors: [],
   };
   window.__batoman = hooks;
@@ -44,9 +52,15 @@ export function installHooks(): TestHooks {
   return hooks;
 }
 
+/** Provisional pixel-to-stage mapping until the renderer owns it: one tile per stage unit. */
+const PIXELS_PER_UNIT = 32;
+/** The Phase 0 reference marker rests 1.5 units above the stage floor. */
+const MARKER_REST_HEIGHT = 1.5;
+
 export class App {
   private readonly clock = new FixedClock();
-  private readonly world = new World();
+  private readonly world = new World(parseLevel(level1, 'level-1'));
+  private readonly keyboard = new Keyboard();
   private readonly stage: Stage;
   private previous: WorldSnapshot;
   private current: WorldSnapshot;
@@ -63,6 +77,7 @@ export class App {
     this.current = this.world.snapshot();
     this.previous = this.current;
     window.addEventListener('resize', this.onResize);
+    this.keyboard.attach();
   }
 
   start(): void {
@@ -74,6 +89,7 @@ export class App {
   stop(): void {
     cancelAnimationFrame(this.rafId);
     window.removeEventListener('resize', this.onResize);
+    this.keyboard.detach();
     this.stage.dispose();
     this.hooks.ready = false;
   }
@@ -88,19 +104,33 @@ export class App {
 
     for (let i = 0; i < step.ticks; i++) {
       this.previous = this.current;
-      this.world.step();
+      this.world.step(this.keyboard.frame());
       this.current = this.world.snapshot();
     }
     this.hooks.simTicks = this.current.tick;
+    const pl = this.current.player;
+    this.hooks.player = { x: pl.x, y: pl.y, pose: pl.pose, hp: pl.hp };
+    this.hooks.status = this.current.status;
 
     this.present(step.alpha);
     this.hooks.frames += 1;
     this.rafId = requestAnimationFrame(this.frame);
   };
 
-  /** Interpolate between the two most recent snapshots and draw. */
+  /**
+   * Interpolate between the two most recent snapshots and draw. Until the
+   * real renderer lands, the player is the reference marker: sim pixels map to
+   * stage units at 32 px per unit, relative to the spawn point.
+   */
   private present(alpha: number): void {
-    this.stage.setMarker(lerp(this.previous.marker, this.current.marker, alpha));
+    const a = this.previous.player;
+    const b = this.current.player;
+    const spawn = this.world.level.spawn;
+    const p = lerp({ x: a.x, y: a.y }, { x: b.x, y: b.y }, alpha);
+    this.stage.setMarker({
+      x: (p.x + b.w / 2 - spawn.x) / PIXELS_PER_UNIT,
+      y: (p.y - spawn.y) / PIXELS_PER_UNIT + MARKER_REST_HEIGHT,
+    });
     this.stage.render();
   }
 }

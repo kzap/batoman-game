@@ -21,7 +21,9 @@
     "assets": "tsx tools/pack/index.ts",
     "validate": "tsx tools/validate/index.ts",
     "budget": "tsx tools/validate/budget.ts",
-    "ci": "npm run lint && npm run test && npm run test:replay && npm run build && npm run test:e2e"
+    "ci": "npm run lint && npm run test && npm run test:replay && npm run build && npm run test:e2e",
+    "replay:record": "tsx --tsconfig tsconfig.json tests/replay/record.ts",
+    "level:from-tiled": "tsx tools/level/from-tiled.ts"
   },
   "dependencies": {
     "three": "0.186.0"

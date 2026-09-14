@@ -60,3 +60,25 @@ test.describe('smoke', () => {
     expect(distinct).toBeGreaterThan(5);
   });
 });
+
+test.describe('controls', () => {
+  test('keyboard drives the sim: run right, tap to hop', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrames(page, 10);
+    const start = (await readHooks(page))!.player;
+    expect(start.pose).toBe('idle');
+
+    await page.keyboard.down('ArrowRight');
+    await page.waitForTimeout(500);
+    const running = (await readHooks(page))!.player;
+    await page.keyboard.up('ArrowRight');
+    expect(running.x).toBeGreaterThan(start.x + 40);
+    expect(running.pose).toBe('run');
+
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Space');
+    await page.waitForFunction((y) => (window.__batoman?.player.y ?? 0) > y + 1, start.y);
+    await page.waitForFunction(() => window.__batoman?.player.pose === 'idle');
+    expect((await readHooks(page))!.errors).toEqual([]);
+  });
+});

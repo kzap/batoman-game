@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { levelProblems } from '../../src/content/level';
 import { PATHS, forbiddenServedPathReason } from '../config';
 import { validateAssets } from './assets';
 import { Report, walk } from './lib';
@@ -9,7 +10,7 @@ import { Report, walk } from './lib';
  *  - public/ contains nothing that must not ship (raw art, images that bypassed the pipeline)
  *  - the content manifest parses
  *  - every recipe/backdrop spec has pipeline output and each atlas JSON matches its image (assets.ts)
- *  - later phases add level schema checks here
+ *  - every manifest level exists and passes levelProblems (src/content/level.ts)
  */
 export function validateContent(root = '.'): Report {
   const report = new Report();
@@ -28,13 +29,35 @@ export function validateContent(root = '.'): Report {
     try {
       const m = JSON.parse(readFileSync(manifestPath, 'utf8')) as { levels?: unknown };
       if (!Array.isArray(m.levels)) report.error('manifest.levels must be an array');
-      else report.note(`manifest: ${m.levels.length} levels`);
+      else {
+        report.note(`manifest: ${m.levels.length} levels`);
+        for (const entry of m.levels) checkLevelEntry(entry, root, report);
+      }
     } catch (e) {
       report.error(`manifest.json is not valid JSON: ${(e as Error).message}`);
     }
   }
 
   return report;
+}
+
+/** A manifest entry must point at a level file that passes `levelProblems` and whose id matches. */
+function checkLevelEntry(entry: unknown, root: string, report: Report): void {
+  if (typeof entry !== 'object' || entry === null) return report.error('manifest.levels entries must be objects');
+  const { id, file } = entry as { id?: unknown; file?: unknown };
+  if (typeof id !== 'string' || typeof file !== 'string') return report.error('manifest.levels entries need string id and file');
+  const path = join(root, PATHS.content, file);
+  if (!existsSync(path)) return report.error(`manifest level ${id}: ${file} does not exist`);
+  let json: unknown;
+  try {
+    json = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    return report.error(`level ${file}: not valid JSON: ${(e as Error).message}`);
+  }
+  const problems = levelProblems(json);
+  for (const p of problems) report.error(`level ${id}: ${p}`);
+  if (problems.length === 0 && (json as { id: string }).id !== id) report.error(`level ${file}: id "${(json as { id: string }).id}" does not match manifest id "${id}"`);
+  if (problems.length === 0) report.note(`level ${id}: ${(json as { solids: unknown[] }).solids.length} solids`);
 }
 
 const isMain = process.argv[1]?.endsWith('validate/index.ts') ?? false;
