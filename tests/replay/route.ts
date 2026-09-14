@@ -1,6 +1,7 @@
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
 import type { Player } from '@game/player';
-import type { WorldSnapshot } from '@game/world';
+import { BOSS, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
+import type { EnemySnapshot, WorldSnapshot } from '@game/world';
 import type { Policy } from './harness';
 
 /**
@@ -123,6 +124,123 @@ export const ride = (dir: Dir, untilX: number): Step => ({
 
 /** Tap fire once (for the shooting pose in replays), then move on immediately. */
 export const fire = (): Step => ({ name: 'fire', input: () => ({ fire: true }), done: () => true });
+
+// ---- Combat -----------------------------------------------------------------
+
+/** Ticks between plasma taps; the cooldown is 10, so 12 keeps every tap a real shot. */
+const TAP_EVERY = 12;
+/** An enemy shot this many seconds from arriving at body height is jumped: late enough that a whole burst passes under one jump. */
+const SHOT_ALARM_S = 0.16;
+/** A rushing boss this many seconds away is jumped: the body is above its lowered collider from 0.13 s to 0.47 s into the jump. */
+const RUSH_ALARM_S = 0.2;
+/** Room to keep from the boss while it winds up a rush, so the jump over it has time to rise. */
+const RUSH_ROOM_PX = 150;
+const SHOT_H = 10;
+
+/** Enemies alive and visible between the player and `untilX`. */
+const foesAhead = (c: Ctx, untilX: number): EnemySnapshot[] => c.snap.enemies.filter((e) => e.pose !== 'death' && e.x + e.w > c.x && e.x < untilX);
+
+/** A grounded plasma tap would cross this enemy's body (the shot is `PROJECTILE.height` tall around the muzzle line). */
+const inLine = (c: Ctx, e: EnemySnapshot): boolean => {
+  const y = c.y + PROJECTILE.muzzleY;
+  const half = PROJECTILE.height / 2;
+  return y + half > e.y && y - half < e.y + e.h;
+};
+
+/** One tick of the direction key when not already facing `x`; the body barely moves but turns to shoot that way. */
+const faceToward = (c: Ctx, x: number): Partial<InputFrame> => {
+  const right = x > c.x + PLAYER.width / 2;
+  return right === c.p.facing > 0 ? {} : right ? { right: true } : { left: true };
+};
+
+/** An enemy shot about to reach the standing body. */
+const shotIncoming = (c: Ctx): boolean =>
+  c.snap.projectiles.some((p) => {
+    if (p.kind !== 'enemy' || p.vx === 0) return false;
+    const gap = p.vx > 0 ? c.x - p.x : p.x - c.right;
+    const soon = gap > 0 && gap / Math.abs(p.vx) < SHOT_ALARM_S;
+    return soon && p.y + SHOT_H > c.y && p.y - SHOT_H < c.y + PLAYER.height;
+  });
+
+/**
+ * Stand and shoot everything between here and `untilX`: tap fire whenever a
+ * live enemy is in the line of fire, jump incoming shots, otherwise wait
+ * (drones dive, cloaked ambushers decloak). Done when nothing is left ahead.
+ */
+export function fight(untilX: number): Step {
+  let sinceTap = TAP_EVERY;
+  let airborne = false;
+  return {
+    name: `fight to ${untilX}`,
+    input: (c) => {
+      sinceTap++;
+      const foes = foesAhead(c, untilX);
+      const target = foes.find((e) => e.alpha >= 1 && inLine(c, e));
+      if (shotIncoming(c) && c.grounded) {
+        airborne = true;
+        return { jump: true };
+      }
+      if (airborne && !c.grounded) return { jump: c.rising };
+      airborne = false;
+      if (target && sinceTap >= TAP_EVERY) {
+        sinceTap = 0;
+        return { ...faceToward(c, target.x + target.w / 2), fire: true };
+      }
+      return {};
+    },
+    // Wait for stray shots to land too: an enemy's last shot can outlive it.
+    done: (c) => foesAhead(c, untilX).length === 0 && !c.snap.projectiles.some((p) => p.kind === 'enemy'),
+  };
+}
+
+/**
+ * The Level 1 boss: hold position, jump its shots, jump over a rush (the boss
+ * drops low while rushing), tap plasma while it is hittable, and charge a nova
+ * while it is stunned so the weak point takes the big hit.
+ */
+export function bossFight(): Step {
+  let sinceTap = TAP_EVERY;
+  let charging = 0;
+  let airborne = false;
+  return {
+    name: 'boss fight',
+    input: (c) => {
+      sinceTap++;
+      const boss = c.snap.boss;
+      const body = c.snap.enemies.find((e) => e.type === 'aswang');
+      if (!boss || !body || boss.hp <= 0) return {};
+      const dx = body.x + body.w / 2 - (c.x + PLAYER.width / 2);
+      // A rush coming at us: jump so the apex is over the lowered body.
+      const gap = dx > 0 ? body.x - c.right : c.x - (body.x + body.w);
+      if (body.pose === 'rush' && c.grounded && gap > 0 && gap / BOSS.rushSpeed < RUSH_ALARM_S) {
+        airborne = true;
+        return { jump: true };
+      }
+      // Winding up next to us: back off so the jump has room to rise.
+      if (body.pose === 'windup' && gap < RUSH_ROOM_PX) return dx > 0 ? { left: true } : { right: true };
+      if (shotIncoming(c) && c.grounded && charging === 0) {
+        airborne = true;
+        return { jump: true };
+      }
+      if (airborne && !c.grounded) return { jump: c.rising };
+      airborne = false;
+      // Stunned: charge and release a nova at the exposed core.
+      if (boss.exposed && charging < NOVA.chargeTicks + 2) {
+        charging++;
+        return { fire: charging <= NOVA.chargeTicks + 1 };
+      }
+      if (charging > 0) charging = 0;
+      // Face the boss only as a one-tick nudge, so the body does not walk into it.
+      const nudge = faceToward(c, body.x + body.w / 2);
+      if (body.alpha >= 1 && body.pose !== 'shift' && body.pose !== 'rush' && sinceTap >= TAP_EVERY) {
+        sinceTap = 0;
+        return { ...nudge, fire: true };
+      }
+      return nudge;
+    },
+    done: (c) => c.snap.boss === null || c.snap.boss.hp <= 0,
+  };
+}
 
 /** Turn a step list into a policy. Once the list is exhausted the policy runs right, which reaches most exits. */
 export function route(steps: readonly Step[], onStep?: (step: Step, c: Ctx) => void): Policy {

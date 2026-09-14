@@ -80,6 +80,153 @@ export const PROJECTILE = {
 } as const;
 
 /**
+ * Charged shot (hold fire). Tapping fires plasma at once; holding past
+ * `chargeTicks` and releasing fires a nova that pierces enemies.
+ */
+export const NOVA = {
+  chargeTicks: 96,
+  width: 28,
+  height: 20,
+  speed: 480,
+  range: 640,
+  damage: 3,
+} as const;
+
+/** Shots fired by enemies; the shape is shared, speeds differ per enemy. */
+export const ENEMY_SHOT = {
+  width: 20,
+  height: 10,
+  range: 560,
+  damage: 1,
+} as const;
+
+/**
+ * Enemy behaviour, in sim pixels, px/s and ticks. Numbers are Phase 6 first
+ * pass: a standing player kills a patroller in three plasma taps before its
+ * first shot lands when engaging at sight range; a drone dives to chest
+ * height so it can be shot from the ground.
+ */
+export const ENEMY = {
+  /** Pixels between the body and a ledge edge at which a ground enemy turns round. */
+  ledgeProbe: 4,
+  /** Damage from touching any live enemy body. */
+  contactDamage: 1,
+  /** Patrol half-width when a spawn omits `patrolDistance`. */
+  defaultPatrol: 120,
+  /** Per-tick multiplier on the knockback slide while hurt. */
+  knockbackDecay: 0.85,
+  /** Ground enemies fall like the player does; kept separate so player retuning cannot change enemy footing. */
+  gravity: 1800,
+  maxFall: 640,
+  patroller: {
+    width: 40,
+    height: 60,
+    hp: 3,
+    speed: 60,
+    /** Sees the player within this horizontal distance, in the facing direction, at roughly its own height. */
+    sightRange: 320,
+    sightHeight: 96,
+    shotCooldownTicks: 150,
+    /** Ticks into the shoot pose at which the shot leaves (the sheet's fourth frame). */
+    shotWindupTicks: 36,
+    shotSpeed: 300,
+    muzzleY: 34,
+    hurtTicks: 20,
+    knockback: 120,
+    deathTicks: 96,
+  },
+  drone: {
+    width: 48,
+    height: 28,
+    hp: 2,
+    speed: 90,
+    /** Centre height above the spawn's ground reference while patrolling. */
+    hoverHeight: 88,
+    bobAmplitude: 6,
+    bobPeriodTicks: 120,
+    sightRange: 300,
+    /** Gives up the chase beyond this distance and goes back to hovering. */
+    loseRange: 450,
+    /** Centre height above the player's feet while chasing: chest height, so a grounded shot connects. */
+    chaseHeight: 40,
+    /** Horizontal stand-off kept from the player while chasing. */
+    chaseStandoff: 120,
+    shotCooldownTicks: 120,
+    shotWindupTicks: 30,
+    shotSpeed: 260,
+    hurtTicks: 16,
+    knockback: 90,
+    deathTicks: 135,
+  },
+  stealth: {
+    width: 40,
+    height: 60,
+    hp: 3,
+    speed: 110,
+    /** Player distance that breaks the cloak. */
+    ambushRange: 200,
+    decloakTicks: 40,
+    cloakedAlpha: 0.15,
+    /** Gives up the chase beyond this distance and re-cloaks. */
+    chaseRange: 420,
+    /** Stops closing in at this centre distance, so contact damage is the player's choice. */
+    standoff: 80,
+    shotCooldownTicks: 120,
+    shotWindupTicks: 36,
+    shotSpeed: 340,
+    muzzleY: 34,
+    hurtTicks: 16,
+    knockback: 80,
+    deathTicks: 96,
+  },
+} as const;
+
+/**
+ * Level 1 boss: the ASWANG prototype, a heavy patroller. Three phases by hp
+ * thirds: walk and shoot; add rushes that end stunned against a wall with the
+ * weak point exposed; add drone summons and faster fire.
+ */
+export const BOSS = {
+  width: 64,
+  height: 96,
+  hp: 24,
+  /** Dormant until the player is this close; the HUD bar appears at the same moment. */
+  engageRange: 560,
+  /** Hp at which phases 2 and 3 begin. */
+  phaseHp: [16, 8] as readonly number[],
+  walkSpeed: 50,
+  /** Keeps at least this distance while walking and shooting. */
+  standoff: 200,
+  shotCooldownTicks: [120, 100, 70] as readonly number[],
+  burstShots: 3,
+  burstSpacingTicks: 12,
+  shotWindupTicks: 30,
+  shotSpeed: 320,
+  /** Shots leave at standing-body height so they must be jumped. */
+  muzzleY: 30,
+  rushEveryTicks: 360,
+  rushWindupTicks: 40,
+  rushSpeed: 420,
+  /** The boss drops low while rushing: the collider shrinks to this height so a well-timed jump clears it. */
+  rushHeight: 56,
+  /** A rush that has not hit a wall ends after this many ticks. */
+  rushMaxTicks: 90,
+  stunTicks: 100,
+  /** Weak point (magenta core) relative to the feet; hits there do double while stunned. */
+  weakPoint: { y: 56, h: 24 },
+  weakPointMultiplier: 2,
+  hurtTicks: 8,
+  /** Invulnerable pause between phases. */
+  phaseShiftTicks: 72,
+  /** Phase 3: drones per summon (never past `summonMaxAlive` in total), interval, and where they appear beside the boss. */
+  summonCount: 2,
+  summonEveryTicks: 480,
+  summonMaxAlive: 2,
+  summonOffset: 104,
+  deathTicks: 180,
+} as const;
+
+/**
  * Camera, in sim pixels and ticks. The view size is the design viewport at the
  * gameplay plane (16:9 at 32 px per stage unit with the Phase 0 camera); the
  * renderer may show slightly more or less at other aspect ratios.

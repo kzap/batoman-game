@@ -1,3 +1,4 @@
+import type { World } from '@game/world';
 import { ROUTES } from './bots';
 import { loadLevel, record } from './harness';
 import { route } from './route';
@@ -20,7 +21,21 @@ for (const id of ids) {
     process.exitCode = 1;
     continue;
   }
-  const rec = record(loadLevel(id), 1, route(steps(), (s, c) => console.info(`  t${c.tick} x${c.x.toFixed(0)} y${c.y.toFixed(0)}: ${s.name}`)), 6000);
+  const world = { current: null as World | null };
+  const policy = route(steps(), (s, c) => console.info(`  t${c.tick} x${c.x.toFixed(0)} y${c.y.toFixed(0)} hp${c.snap.player.hp}: ${s.name}`));
+  const rec = record(
+    loadLevel(id),
+    1,
+    (w, snap) => {
+      if (world.current !== w) {
+        world.current = w;
+        w.events.on('hurt', (e) => console.info(`  t${w.currentTick} x${w.player.body.x} HURT -> hp ${e.hp}`));
+        w.events.on('death', (e) => console.info(`  t${w.currentTick} x${w.player.body.x} DEATH ${e.cause}`));
+      }
+      return policy(w, snap);
+    },
+    6000,
+  );
   const f = rec.final;
   console.info(`== ${id}: ${f.status} in ${f.tick} ticks, lives ${f.lives}, hp ${f.player.hp}, x ${f.player.x.toFixed(0)}`);
   if (f.status !== 'complete') process.exitCode = 1;

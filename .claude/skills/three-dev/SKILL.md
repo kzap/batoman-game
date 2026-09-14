@@ -33,7 +33,8 @@ with no screen, it is game.
 
 - Sim state is plain data. No class instances holding Three objects, no DOM handles, no `Date`.
 - `World.step(input)` advances exactly one tick from an `InputFrame`; it never reads devices.
-- Everything the renderer needs is in `World.snapshot()`. The renderer never calls into `World`.
+- Everything the renderer draws comes from `World.snapshot()`; one-shot effects (particles, freezes) come
+  from `World.events` payloads, which carry positions for that reason. The renderer never calls into `World`.
 - Randomness comes from `World.rng` (seeded mulberry32). `Math.random()`, `Date.now()`, and
   `performance.now()` are banned in `core`/`game` by ESLint (`no-restricted-properties`).
 - Sim coordinates are integer pixels, +Y up, 32 px tiles, origin at the level's bottom-left. Boxes are
@@ -44,8 +45,14 @@ with no screen, it is game.
   bodies. Sub-pixel remainders live on the `Body`. Do not add a velocity integrator that bypasses this.
 - All gameplay timers are in ticks (120 Hz), never seconds, so replays stay exact. Tuning numbers live in
   `src/game/tuning.ts` only.
-- Changing movement tuning or Level 1 geometry changes the replay fixture: run `npm run replay:record`,
-  check the bot still completes the level with full hp, and commit the fixture diff with the change.
+- Enemies (`src/game/enemies/`) are `Enemy` subclasses whose behaviour is a `Fsm` (`src/core/sim/fsm.ts`)
+  fed an `EnemyCtx`; they read the player and never mutate it, and ask the World to `fire`/`summon`.
+  Projectiles come from `ProjectilePool` (`src/game/projectiles.ts`); never allocate shots elsewhere.
+  Combat outcomes are announced as `WorldEvents` with positions (`enemyHit`, `enemyDeath`, `shotEnd`,
+  `bossPhase`, `bossDefeated`) so effects and audio can subscribe without reading the World.
+- Changing tuning, enemy placement or level geometry changes the replay fixtures: run
+  `npm run replay:trace -- <level-id>` while iterating (it prints step boundaries, hurts and deaths), then
+  `npm run replay:record`, check every bot still completes with full hp, and commit the fixture diff.
 - Level JSON schema is `src/content/level.ts`; `levelProblems()` must pass (`npm run validate`).
 
 ## Renderer rules
@@ -68,8 +75,13 @@ with no screen, it is game.
   `?dof=1` enables depth of field (expensive under software GL; off by default).
 - Interpolate: position = lerp(previous, current, alpha). Never move a mesh from inside a tick.
 - Dynamic entities are mirrored by id in `EntityView` (`src/render/entity-view.ts`): create on first
-  sight, remove when the id leaves the snapshot. Static level geometry is `LevelView`. Sim pixels become
-  stage units through `src/render/units.ts` (32 px per unit); do not hard-code the factor elsewhere.
+  sight, release to a per-sheet free list when the id leaves the snapshot (enemies and shots are pooled).
+  Enemy clips come from `enemyClips(atlas, type)`; add a pose there, not in the view. Static level
+  geometry is `LevelView`. Sim pixels become stage units through `src/render/units.ts` (32 px per unit);
+  do not hard-code the factor elsewhere.
+- Particles are GPU-side (`src/render/particles.ts`): write a burst once, the shader animates it. Add a
+  preset to `BURSTS` and map a sim event to it in `Effects` (`src/render/effects.ts`); no per-particle CPU
+  update loops.
 - Camera framing is simulated (`src/game/camera.ts`) and comes through the snapshot; the renderer only
   lerps it and adds shake. Do not add camera logic to `render/` or `app/`.
 - Dispose geometries, materials, and textures when removing objects. `Stage.dispose()` is the pattern.

@@ -4,6 +4,7 @@ import type { InputFrame } from '@core/sim/input';
 import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
 import { disposeAssets, type GameAssets } from '@render/assets';
+import { Effects } from '@render/effects';
 import { EntityView } from '@render/entity-view';
 import { LevelView } from '@render/level-view';
 import type { PostOptions } from '@render/post';
@@ -18,6 +19,9 @@ import { Keyboard } from './keyboard';
  * Hooks exposed on `window.__batoman` for Playwright and the game-testing skill.
  * Tests read these; nothing outside App should write them.
  */
+/** Frames the sim pauses when the boss changes phase. */
+const PHASE_FREEZE_FRAMES = 2;
+
 export interface TestHooks {
   readonly version: string;
   ready: boolean;
@@ -28,6 +32,11 @@ export interface TestHooks {
   /** Latest sim snapshot fields tests care about; updated every frame. */
   player: { x: number; y: number; pose: string; hp: number };
   camera: { x: number; y: number };
+  /** Live enemies by type and pose, and the boss bar state (null when the level has no boss). */
+  enemies: { type: string; pose: string; x: number; hp: number }[];
+  boss: { hp: number; phase: number; engaged: boolean } | null;
+  /** Sprites the entity view is currently showing (player, enemies, shots, movers). */
+  entities: number;
   status: string;
   /** Id of the loaded level and whether the sim is running (`play`) or frozen for the editor (`edit`). */
   level: string;
@@ -64,6 +73,9 @@ export function installHooks(): TestHooks {
     lastFrameMs: 0,
     player: { x: 0, y: 0, pose: 'idle', hp: 0 },
     camera: { x: 0, y: 0 },
+    enemies: [],
+    boss: null,
+    entities: 0,
     status: 'playing',
     level: '',
     mode: 'play',
@@ -120,6 +132,7 @@ export class App {
   readonly stage: Stage;
   private levelView: LevelView;
   private readonly entities: EntityView;
+  private readonly effects = new Effects();
   private mode: AppMode = 'play';
   private editorCamera: EditorCamera | null = null;
   private readonly debug: DebugOverlay;
@@ -127,6 +140,8 @@ export class App {
   private replay: Generator<InputFrame> | null = null;
   /** Set by a respawn: the next present must not lerp from the death spot. */
   private teleported = false;
+  /** Frames left of the boss phase-transition freeze (ART: a two-frame hit-stop). */
+  private freezeFrames = 0;
   private jumpWasHeld = false;
   private previous: WorldSnapshot;
   private current: WorldSnapshot;
@@ -145,7 +160,7 @@ export class App {
     this.stage = new Stage({ canvas, post: opts.post ?? {} });
     this.levelView = new LevelView(level, assets.levelArt);
     this.entities = new EntityView(assets);
-    this.stage.scene.add(this.levelView.group, this.entities.group);
+    this.stage.scene.add(this.levelView.group, this.entities.group, this.effects.particles.points);
     this.world = this.newWorld(1);
     this.current = this.world.snapshot();
     this.previous = this.current;
@@ -173,6 +188,7 @@ export class App {
     window.removeEventListener('resize', this.onResize);
     this.keyboard.detach();
     this.debug.detach();
+    this.effects.dispose();
     this.entities.dispose();
     this.levelView.dispose();
     disposeAssets(this.assets);
@@ -223,6 +239,8 @@ export class App {
   private newWorld(seed: number): World {
     const w = new World(this.level, seed);
     w.events.on('respawn', () => (this.teleported = true));
+    w.events.on('bossPhase', () => (this.freezeFrames = PHASE_FREEZE_FRAMES));
+    this.effects.attach(w.events);
     return w;
   }
 
@@ -260,7 +278,10 @@ export class App {
     const step = this.clock.advance(frameSeconds);
     if (step.dropped) this.hooks.droppedFrames += 1;
 
-    for (let i = 0; i < (this.mode === 'play' ? step.ticks : 0); i++) {
+    // The freeze skips this frame's ticks; the sim resumes from the same state, so replays are unaffected.
+    const ticks = this.mode === 'play' && this.freezeFrames === 0 ? step.ticks : 0;
+    if (this.freezeFrames > 0) this.freezeFrames--;
+    for (let i = 0; i < ticks; i++) {
       this.previous = this.current;
       this.world.step(this.nextInput());
       this.current = this.world.snapshot();
@@ -282,6 +303,9 @@ export class App {
     this.hooks.simTicks = s.tick;
     this.hooks.player = { x: s.player.x, y: s.player.y, pose: s.player.pose, hp: s.player.hp };
     this.hooks.camera = { x: s.camera.x, y: s.camera.y };
+    this.hooks.enemies = s.enemies.map((e) => ({ type: e.type, pose: e.pose, x: e.x, hp: e.hp }));
+    this.hooks.boss = s.boss ? { hp: s.boss.hp, phase: s.boss.phase, engaged: s.boss.engaged } : null;
+    this.hooks.entities = this.entities.entityCount;
     this.hooks.status = s.status;
   }
 
@@ -295,6 +319,7 @@ export class App {
       const shake = this.current.camera;
       this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
     }
+    this.effects.update(this.frameSeconds, this.stage.renderer.getPixelRatio());
     this.stage.render(this.frameSeconds);
   }
 }

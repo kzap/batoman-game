@@ -2,7 +2,7 @@ import { approach } from '@core/math/vec2';
 import { SIM_DT } from '@core/sim/clock';
 import { Body, type CollisionWorld } from '@core/sim/collision';
 import { inputAxis, type InputEdges } from '@core/sim/input';
-import { PLAYER } from './tuning';
+import { NOVA, PLAYER } from './tuning';
 
 export type PlayerPose = 'idle' | 'run' | 'jump' | 'fall' | 'wallslide' | 'dash' | 'crouch' | 'slide' | 'hurt' | 'dead';
 
@@ -13,6 +13,8 @@ export interface PlayerActions {
   dashed: boolean;
   landed: boolean;
   fired: boolean;
+  /** Fire was released after a full charge: a nova leaves this tick. */
+  novaFired: boolean;
 }
 
 /**
@@ -47,6 +49,8 @@ export class Player {
   private fireCooldown = 0;
   /** Ticks the shooting pose is still shown after a shot. Presentation only; never gates input. */
   private shootTicks = 0;
+  /** Ticks fire has been held since the last press; -1 when not held. */
+  private chargeTicks = -1;
   /** Ticks left of falling through a one-way platform after down + jump. */
   private dropTicks = 0;
 
@@ -68,6 +72,15 @@ export class Player {
   }
 
   /** True briefly after each shot so the renderer can show the firing arm. */
+  /** Charge progress 0..1 while fire is held (the renderer glows the muzzle); 0 otherwise. */
+  get charge(): number {
+    return this.chargeTicks < 0 ? 0 : Math.min(1, this.chargeTicks / NOVA.chargeTicks);
+  }
+
+  get charged(): boolean {
+    return this.chargeTicks >= NOVA.chargeTicks;
+  }
+
   get shooting(): boolean {
     return this.shootTicks > 0;
   }
@@ -115,6 +128,7 @@ export class Player {
     this.canDash = true;
     this.fireCooldown = 0;
     this.shootTicks = 0;
+    this.chargeTicks = -1;
     this.dropTicks = 0;
     this.hurtStun = 0;
     this.dead = false;
@@ -130,7 +144,7 @@ export class Player {
   }
 
   update(input: InputEdges, cw: CollisionWorld): PlayerActions {
-    const actions: PlayerActions = { jumped: false, wallJumped: false, dashed: false, landed: false, fired: false };
+    const actions: PlayerActions = { jumped: false, wallJumped: false, dashed: false, landed: false, fired: false, novaFired: false };
     if (this.dead) return actions;
     const dt = SIM_DT;
     const b = this.body;
@@ -191,11 +205,20 @@ export class Player {
       this.applyGravity(input.held('jump') && controllable, dt);
     }
 
-    // Fire on press, not on hold; cooldown limits the rate.
+    // Tap fires plasma at once (cooldown limits the rate); holding charges, and releasing a full charge fires a nova.
     if (controllable && input.pressed('fire') && this.fireCooldown === 0 && !this.sliding) {
       this.fireCooldown = PLAYER.fireCooldownTicks;
       this.shootTicks = PLAYER.shootPoseTicks;
       actions.fired = true;
+    }
+    if (input.pressed('fire')) this.chargeTicks = 0;
+    else if (this.chargeTicks >= 0 && input.held('fire')) this.chargeTicks++;
+    if (this.chargeTicks >= 0 && !input.held('fire')) {
+      if (this.charged && controllable && !this.sliding) {
+        this.shootTicks = PLAYER.shootPoseTicks;
+        actions.novaFired = true;
+      }
+      this.chargeTicks = -1;
     }
 
     // Integrate. Collisions zero the velocity on that axis.

@@ -33,7 +33,8 @@ export interface CheckpointJson extends Rect {
   readonly id: number;
 }
 
-export type EnemyType = 'patroller' | 'drone' | 'tikbalang';
+/** `aswang` is the Level 1 boss; `tikbalang` is spawn data until its behaviour exists. */
+export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang';
 
 export interface EnemySpawnJson {
   readonly type: EnemyType;
@@ -67,7 +68,7 @@ export interface LevelJson {
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 export const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
-export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'tikbalang'];
+export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'stealth', 'tikbalang', 'aswang'];
 
 
 function rectProblems(r: unknown, label: string, level: { width: number; height: number }): string[] {

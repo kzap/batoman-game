@@ -3,6 +3,7 @@
   --bg: #0d0d1a;
   --amber: #ffaa33;
   --cyan: #00e5ff;
+  --magenta: #ff2d78;
 }
 
 * {
@@ -45,6 +46,33 @@ body {
   font-size: 18px;
   color: var(--amber);
   text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+.hud-boss {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 320px;
+  transform: translateX(-50%);
+  text-align: center;
+  color: var(--magenta);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.hud-boss-track {
+  margin-top: 4px;
+  height: 8px;
+  border: 1px solid var(--magenta);
+  background: rgba(13, 13, 26, 0.7);
+}
+
+.hud-boss-fill {
+  height: 100%;
+  background: var(--magenta);
+  box-shadow: 0 0 8px var(--magenta);
+  transition: width 120ms linear;
 }
 
 .hud-banner {

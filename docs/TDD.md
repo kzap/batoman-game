@@ -33,7 +33,7 @@ At most `MAX_TICKS_PER_FRAME = 8` ticks run per frame; excess time is discarded 
 The remainder fraction `alpha` in `[0, 1)` drives render interpolation. Negative, NaN, and infinite frame
 durations count as zero.
 
-## 4. Sim `[implemented: Phase 2-3]`
+## 4. Sim `[implemented: Phase 2-6]`
 
 Units are integer sim pixels with Y up; 32 px tiles; the player is 24 x 48 (24 x 24 crouched). The renderer
 maps pixels to stage units; nothing in `core/` or `game/` knows about Three.js.
@@ -74,19 +74,76 @@ speed, so a 3-tile gap is the widest a plain jump clears; wider gaps need a dash
 
 ### 4.3 World (`src/game/world.ts`)
 
-`World(level, seed)` builds the collision world from the level JSON, then `step(input)` runs one tick:
-movers, player (or respawn countdown), zones, projectiles. Zones: death zones and falling below y = 0 kill
-instantly (`pit`); `crusher` hazards kill; `spikes` deal 1 damage with knockback away from the hazard;
-checkpoints move the respawn point; the exit sets `status: 'complete'`. Death respawns after
-`respawnTicks` with one life fewer; at zero lives `status: 'gameover'`. Damage respects `Health`
-invulnerability (`invulnTicks`) and the dash's i-frames; a fatal hit skips hurt-stun.
+`World(level, seed)` builds the collision world from the level JSON and spawns the level's enemies, then
+`step(input)` runs one tick: movers, player (or respawn countdown), zones, enemies, projectiles, camera.
+Zones: death zones and falling below y = 0 kill instantly (`pit`); `crusher` hazards kill; `spikes` deal 1
+damage with knockback away from the hazard; checkpoints move the respawn point; the exit sets
+`status: 'complete'` once `exitOpen` (no boss, or the boss is dead). Death clears projectiles, respawns
+every enemy fresh and the player after `respawnTicks` with one life fewer; at zero lives
+`status: 'gameover'`. Damage respects `Health` invulnerability (`invulnTicks`) and the dash's i-frames; a
+fatal hit skips hurt-stun.
 
-`snapshot()` is the renderer's only view: player exact position/pose/hp, projectiles, moving solids,
-status and lives. `events` announces jump, land, dash, fire, hurt, death, respawn, checkpoint, complete,
-gameover for audio and effects.
+`snapshot()` is the renderer's only view: player exact position/pose/hp/charge, projectiles (kind, centre,
+velocity), enemies (section 4.6), the boss bar state, moving solids, status and lives. `events` announces
+jump, land, dash, fire (with kind), hurt, death, respawn, checkpoint, complete, gameover, and the combat
+events `shotEnd`, `enemyHit`, `enemyDeath`, `bossPhase`, `bossDefeated`, each with a level-pixel position,
+for audio and effects.
 
-The seeded `Rng` (`src/core/sim/rng.ts`, mulberry32) lives on the World for later systems; nothing in
-Phase 2 consumes randomness.
+The seeded `Rng` (`src/core/sim/rng.ts`, mulberry32) lives on the World and is passed to enemies through
+their context; camera shake is its only consumer so far.
+
+### 4.5a Combat (`src/game/projectiles.ts`, tuning `PROJECTILE`, `NOVA`, `ENEMY_SHOT`)
+
+`ProjectilePool` holds 64 slots reused in place (a full pool recycles the oldest shot); ids are fresh per
+shot so the renderer can key sprites. A projectile is a centre, velocity, box, damage, range and kind:
+`plasma` (tap fire: 12x6, 720 px/s, 480 px range, 1 damage, 10-tick cooldown), `nova` (hold fire for
+`NOVA.chargeTicks` 96 and release: 28x20, 480 px/s, 640 px, 3 damage, pierces through enemies it has
+already damaged; the PRD's "AoE explosion" is realised as this pierce, which hits everything in a line
+rather than a radius, a deliberate simplification until the effect is playtested) and `enemy` (20x10, 560 px
+range, 1 damage, speed per enemy). A tap still fires plasma
+at once; the charge only adds the nova on release, and `PlayerSnapshot.charge` (0..1) drives the muzzle
+glow. Each tick a shot advances, ends on a solid, the level edge or its range (`shotEnd`), and then
+either damages the player (enemy shots, knockback in the travel direction) or every hittable enemy it
+overlaps (player shots; plasma stops at the first). Touching a hittable enemy costs
+`ENEMY.contactDamage` with knockback away from its centre. Enemies never hurt each other.
+
+### 4.6 Enemies (`src/game/enemies/`, tuning `ENEMY`, `BOSS`)
+
+`Enemy` (`enemy.ts`) owns a `Body`, a `Health` without i-frames, facing, the hurt and death timers, the
+shot cooldown and the hit rule: `hit(damage, dir, weakPoint)` returns the damage dealt (0 while not
+`hittable`), sets `hurtTicks` and calls the subclass's `onHurt` (knockback), or starts the death countdown;
+`gone` after `deathTicks` and the World drops it (also when it falls out of the level). Behaviour is a
+`Fsm` (`src/core/sim/fsm.ts`: named states with `enter`/`update(ctx, ticks)`/`exit`, transitions by return
+value) fed an `EnemyCtx` (collision world, read-only player, tick, level width, `fire`, `summon`,
+`countAlive`). The base class provides the states every shooter shares: `shootState(t, next, aim)` (stop,
+face, fire once `shotWindupTicks` in, hold as long again, arm the cooldown) and `hurtState(t, next)` (slide
+with the knockback decaying by `ENEMY.knockbackDecay`, then resume with the cooldown restarted); a hit
+interrupts any state into `hurt`. Ground enemies fall under `ENEMY.gravity`. Poses
+(`idle | move | shoot | hurt | death | cloaked | windup | rush | stunned | shift`) are what the renderer maps
+to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
+
+| Type | Sheet | Behaviour |
+|---|---|---|
+| `patroller` | patroller | 40x60, 3 hp. Walks its spawn +/- `patrolDistance` at 60 px/s, turning at bounds, walls and ledges. Seeing the player ahead within 320 px and 96 px of its height it stops, fires a horizontal shot (300 px/s from 34 px up) 36 ticks into the shoot pose, then patrols with a 150-tick cooldown. A hit knocks it back 120 px/s and restarts the cooldown. |
+| `drone` | drone | 48x28, 2 hp. Hovers 88 px (centre) above its spawn's ground reference with a slow bob, between its patrol bounds. Within 300 px it dives to chest height (40 px above the player's feet, so a grounded shot connects), keeps a 120 px stand-off and fires aimed shots (260 px/s) every 120 ticks; it loses interest beyond `loseRange` 450 px. |
+| `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px, decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px. |
+| `aswang` | patroller at 1.6x, lilac tint | The Level 1 boss, 64x96, 24 hp; see below. |
+| `tikbalang` | tikbalang | Spawn data only; drawn if placed, no behaviour yet. |
+
+The boss (`boss.ts`) is dormant until the player is within 560 px (`BossSnapshot.engaged` shows the HUD
+bar). Phases by hp: 1 (24-17) walks to a 200 px stand-off and fires bursts of three shots 12 ticks apart at
+standing height every 120 ticks; 2 (16-9) adds a rush every 360 ticks: a 40-tick wind-up (`windup`), then
+420 px/s toward the player with the collider lowered to 56 px so a jump timed 0.2 s ahead clears it, ending
+`stunned` for 100 ticks against a wall, a ledge or after 90 ticks; 3 (8-1) fires every 70 ticks and summons
+drones every 480 ticks, two at a time but never past two alive (`countAlive`). Crossing a threshold queues a
+`shift`: 72 invulnerable ticks, and the new phase opens with its new move (a rush after the first shift, a
+summon after the second). The World emits `bossPhase` when it sees `phase` change. The weak point
+(`weakPointRect`, 24 px tall from 56 px up) doubles damage while stunned; `BossSnapshot.exposed` and
+`weakPoint` let the renderer show the core only then. Its death fires `bossDefeated`, shakes the camera and
+opens the exit; the bar hides once the death clip ends.
+
+Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
+route bot clears Level 1 undamaged; they live in `tuning.ts` and nowhere else.
 
 ### 4.4 Camera (`src/game/camera.ts`, tuning `CAMERA`)
 
@@ -106,7 +163,7 @@ weaker shake never replaces a stronger one in progress. Hurt and death shake the
 replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
 a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
 
-## 5. Renderer `[implemented: Phase 3-4]`
+## 5. Renderer `[implemented: Phase 3-6]`
 
 `Stage` (`src/render/stage.ts`) owns the `WebGLRenderer`, `Scene`, `PerspectiveCamera` (`LENS`: FOV 30,
 distance 22, looking at Z=0), fog, ambient + key/rim lights, and the optional `PostStack`. `LAYER_Z` fixes
@@ -161,10 +218,30 @@ filtering without mipmaps (mipmap generation on two full-screen layers cost ~10 
 
 `EntityView(assets)` (`entity-view.ts`) mirrors dynamic entities by id. The player is one `SpriteQuad` at
 `PLAYER_Z` 0.3, flipped by facing, frame from `PlayerAnimator`, blinking while invulnerable and tinted
-magenta while hurt. Projectiles use the `orb` frame at 0.4 scale with additive blending. A moving solid with
-`prop` set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top
-edge; without `prop` it is a lit box. `present(prev, cur, alpha)` lerps positions between snapshots;
-collider outlines are separate `LineSegments` toggled by `setOutlines`.
+magenta while hurt; a muzzle glow (the `orb` frame) grows with `charge`. Enemies sit at `ENEMY_Z` 0.2 with
+one quad and one material each (alpha for the cloak, magenta flash while `flash > 0`). How a type is drawn
+is one table, `ENEMY_LOOK` in `assets.ts`: sheet, scale, tint, pivot (drones pivot at their centre) and the
+clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look at 1.6x with a
+lilac tint. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
+`stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
+dropped enemies go to a per-type free list and are reused. The boss core is an additive magenta orb over
+`BossSnapshot.weakPoint`, shown pulsing only while `exposed` (ART: visible during vulnerability windows).
+Projectiles are keyed by kind: plasma is the `orb` frame at 0.4, nova at 0.9 tinted white-hot, enemy shots
+the first loaded enemy sheet's `projectile` clip; their quads are pooled too. A moving solid with `prop`
+set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top edge;
+without `prop` it is a lit box. `present(prev, cur, alpha)` lerps positions between snapshots; collider
+outlines are separate `LineSegments` toggled by `setOutlines`. `loadAssets` fetches the enemy sheets a
+level needs (`enemyAtlasNames`: the types placed, plus drones when a boss is placed) alongside `batoman`.
+
+`Effects` (`effects.ts`) subscribes to a world's combat events and emits bursts from `ParticleSystem`
+(`particles.ts`): one `Points` mesh of 2048 slots whose origin, velocity, birth time, life, colour, size and
+drag are written once into a ring buffer; the vertex shader integrates position (drag, gravity) and fade
+from a time uniform, and sizes points in CSS pixels at the gameplay plane. Presets in `BURSTS`: hit spark,
+weak-point spark, solid spark, enemy death, nova fire, boss phase, boss death, coloured from `PALETTE`. The
+app owns the `Effects` and re-attaches it to each new World; the renderer still only sees event payloads.
+The app also freezes the sim for two frames on `bossPhase` (ART's phase-transition hit-stop; the ticks are
+skipped, not replayed, so fixtures are unaffected). The grey-box HUD (`src/app/hud.ts`) shows a boss bar
+with phase while `boss.engaged`.
 
 `PostStack` (`post.ts`, `postprocessing`): bloom (luminance threshold 0.62, intensity 1.1, mipmap blur) so
 only emissive planes and highlights glow, vignette (offset 0.32, darkness 0.55), soft-light film grain
@@ -303,11 +380,12 @@ JSON. A file under `public/assets/atlases/` with no recipe is an error. It then 
 block against the built outputs (`levelArtReferenceProblems`): the prop atlas exists, every decor and mover
 prop names a frame in it, and every backdrop slot names a file under `public/assets/backdrops/<level>/`.
 
-## 8. Content `[implemented: Phase 2-5]`
+## 8. Content `[implemented: Phase 2-6]`
 
 `src/content/level.ts` defines `LevelJson` (pixels, Y up): `solids`, `oneWay`, `movingSolids` (waypoint
 path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`,
-`enemies` (spawn data for Phase 6), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
+`enemies` (`type`, feet `x`/`y`, optional `patrolDistance`; types in section 4.6, `y` is the ground reference
+for drones), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
 overlapping blocking geometry, out-of-bounds rectangles, a spawn inside a solid, unknown enumerations and
 duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src/content/manifest.json`.
 
@@ -319,12 +397,14 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 
 | Level | Name | Size | Contents |
 |---|---|---|---|
-| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads) |
-| `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes |
-| `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint, a `tikbalang` spawn |
+| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies) |
+| `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet) |
 
 Levels 3 and 6 have no `art` block and render as grey boxes with the zone glows until their art exists
-(PLAN: dressed in Phase 7). Enemy entries are spawn data until Phase 6.
+(PLAN: dressed in Phase 7). Enemy placement follows one rule the routes rely on: a patroller must be
+killable from a spot the player reaches before entering its sight range, with no solid between (a
+patroller behind a hop block cannot be shot from the ground, and one that sees a pit jump lands a free hit).
 
 `art` (`src/content/level-art.ts`, `LevelArtJson`) is presentation only; the sim never reads it.
 `props` names the prop atlas, `backdrops` maps the `far` and `mid` slots to backdrop file stems, and `decor`
@@ -352,12 +432,17 @@ tuning or level change that caused it.
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
 until its `done` condition holds, then handing over to the next (`run(dir, untilX)`, `jump(dir)`,
 `dashJump(dir)` dashes at the apex, `dropThrough()`, `waitMover(index, {x?, y?})`, `ride(dir, untilX)`,
-`waitUntil(pred)`, `fire()`). Steps keep state, so `ROUTES[id]` is a factory and
-`clearRoute(id)` builds a fresh policy per recording. `npm run replay:trace -- <level-id>` prints where each
-step finished and the outcome, for authoring. Fixtures: `level-1-clear` 3884 ticks, `level-3-clear` 2310,
+`waitUntil(pred)`, `fire()`, and the combat steps). `fight(untilX)` stands still, taps fire every 12 ticks
+while a visible enemy between here and `untilX` is in the plasma line, jumps enemy shots 0.16 s before they
+arrive (late enough that a three-shot burst passes under one jump) and finishes when nothing is left ahead
+and no enemy shot is in flight. `bossFight()` adds: jump a rush 0.2 s before contact, back off while the
+boss winds up within 150 px, hold fire for a nova while it is stunned, stop when it dies. Steps keep state,
+so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
+`npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
+outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
 `level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
-undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for each
-manifest level.
+undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
+each manifest level; its World-rules block uses Level 1 without enemies.
 
 Physics facts the routes and levels are built on (tuning as of Phase 5): a full jump rises 81 px and covers
 120 px of run; the body must be at least 64 px above the floor for 0.27 s, which spans 55 px, so a 32 px
@@ -382,11 +467,11 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Single image | 1.5 MB |
 | Single audio | 6 MB |
 
-## 10. Testing `[implemented: Phase 0-5]`
+## 10. Testing `[implemented: Phase 0-6]`
 
 | Layer | Tool | Location | Runs against |
 |---|---|---|---|
-| Unit | Vitest project `unit` | `tests/unit/**`, `tools/**/*.test.ts` | `core`, `game`, `tools` (segmenter stages run on synthetic sheets from `tools/recut/__tests__/fixtures.ts`) |
+| Unit | Vitest project `unit` | `tests/unit/**`, `tools/**/*.test.ts` | `core`, `game`, `tools` (segmenter stages run on synthetic sheets from `tools/recut/__tests__/fixtures.ts`; `tests/unit/game/enemies.test.ts` drives each enemy FSM, the boss phases, the pool, the charge shot and the respawn reset in a synthetic arena level) |
 | Replay | Vitest project `replay` | `tests/replay/**` | headless `World` on real level JSON |
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
@@ -395,8 +480,11 @@ the art requests (atlases, backdrops) all succeed, a frame-time budget (at least
 3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
 written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with the debug overlay and HUD
 asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
-screenshots the one-way, mover and first dash-gap sections, and requires the browser build to finish on the same tick, hp
-and x as the headless replay; the same load-and-replay check runs for `level-3` and `level-6` through
+checks six enemies and the dormant boss are live sprites from the first frame, screenshots the first
+fight, one-way, mover and first dash-gap sections, checks the first patroller is gone, waits for the boss
+to engage (HUD bar), reach phase 3 and die (bar gone), and requires the browser build to finish on the same
+tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
+snapshot's enemy list, boss bar state and sprite count); the same load-and-replay check runs for `level-3` and `level-6` through
 `?level=`, plus a check that an unknown id is a boot error. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
