@@ -4,7 +4,10 @@
     "lib": ["ES2022"],
     "types": ["node"],
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    // Pixel pipelines index typed arrays in tight loops; per-access undefined
+    // checks would bury the algorithms. Everything else from the root stays strict.
+    "noUncheckedIndexedAccess": false
   },
   "include": ["."]
 }

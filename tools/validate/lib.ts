@@ -1,5 +1,5 @@
 import { readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { basename, join, relative } from 'node:path';
 
 export interface FileEntry {
   /** Path relative to the walk root, POSIX separators. */
@@ -26,6 +26,13 @@ export function walk(root: string): FileEntry[] {
   };
   visit(root);
   return out.sort((a, b) => a.rel.localeCompare(b.rel));
+}
+
+/** Absolute-or-relative paths (joined onto `root`) of files whose base name satisfies `match`, sorted. */
+export function findFiles(root: string, match: (name: string) => boolean): string[] {
+  return walk(root)
+    .filter((f) => match(basename(f.rel)))
+    .map((f) => join(root, f.rel));
 }
 
 export const IMAGE_EXT = /\.(png|webp|avif|jpe?g|ktx2|basis)$/i;
