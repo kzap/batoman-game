@@ -44,9 +44,9 @@ npm run dev                        # http://localhost:5173
 
 ```
 src/
-  core/      pure TS: math, clock, events (physics/FSM/input from Phase 2)
-  game/      gameplay rules on top of core; headless
-  render/    Three.js stage, camera, lights
+  core/      pure TS: math, clock, events, collision, input, FSM, rng
+  game/      gameplay rules on top of core; headless (player, enemies/, projectiles, world, camera)
+  render/    Three.js stage, sprites, level and entity views, GPU particles, post
   app/       frame loop, DOM HUD, test hooks, styles
   editor/    in-browser level editor (?edit=1), loaded on demand
   content/   level JSON, manifest, validators
@@ -62,6 +62,10 @@ Three.js or touch the DOM.
 
 Levels: `?level=level-3` loads another manifest level; `?edit=1` opens the current level in the editor, whose
 `Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
+
+Controls: arrows or WASD move, `Space` jumps (down + jump drops through platforms), `Shift` or `X` dashes, `Z` fires; hold
+`Z` for 0.8 s and release for a piercing nova. Level 1 ends at the ASWANG prototype; the exit opens when it
+falls.
 
 ---
 

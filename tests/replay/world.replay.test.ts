@@ -54,7 +54,9 @@ describe.each(['level-1', 'level-3', 'level-6'])('%s under replay', (id) => {
 });
 
 describe('World rules', () => {
-  const level = loadLevel('level-1');
+  // Level 1 geometry without its enemies: these rules are about pits, hazards, checkpoints and the exit
+  // (the boss gate and enemy contact are covered in tests/unit/game/enemies.test.ts).
+  const level = { ...loadLevel('level-1'), enemies: [] };
 
   it('kills the player in a pit, respawns at the start with one life fewer', () => {
     const w = new World(level, 1);

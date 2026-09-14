@@ -81,17 +81,31 @@ test.describe('level 1', () => {
   });
 
   test('scripted traversal: the browser build replays the Level 1 fixture to the same outcome', async ({ page }) => {
-    test.setTimeout(150_000); // 3884 ticks at 120 Hz is 32 s of wall time, more under software GL
+    test.setTimeout(200_000); // 5567 ticks at 120 Hz is 46 s of wall time, more under software GL
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-1-clear.json'), 'utf8')) as Fixture;
     await page.goto('/');
     await ready(page);
     await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
-    // Screenshots at landmarks on the way: the one-way platform, the moving platform over the second pit, the first dash gap.
-    for (const [name, x] of [['level-1-oneway', 1550], ['level-1-mover', 2380], ['level-1-dash', 3500]] as const) {
+    // Enemies are live sprites from the first frame: five spawns plus the dormant boss.
+    await page.waitForFunction(() => (window.__batoman?.enemies.length ?? 0) >= 6);
+    const start = await hooks(page);
+    expect(start.boss).toEqual({ hp: 24, phase: 1, engaged: false });
+    expect(start.entities).toBeGreaterThanOrEqual(1 + 6 + 1); // player, six enemies, the mover
+    // Screenshots at landmarks on the way: the first fight, the one-way platform, the moving platform over the second pit, the first dash gap.
+    for (const [name, x] of [['level-1-fight', 380], ['level-1-oneway', 1550], ['level-1-mover', 2380], ['level-1-dash', 3500]] as const) {
       await page.waitForFunction((min) => (window.__batoman?.player.x ?? 0) > min, x, { timeout: 60_000 });
       await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
     }
+    // The first patroller is dead once we are past it, and the boss engages when we reach the arena.
+    expect((await hooks(page)).enemies.filter((e) => e.type === 'patroller' && e.x < 900)).toEqual([]);
+    await page.waitForFunction(() => window.__batoman?.boss?.engaged === true, null, { timeout: 90_000 });
+    await expect(page.locator('#hud')).toContainText('ASWANG PROTOTYPE');
+    await page.waitForFunction(() => (window.__batoman?.boss?.phase ?? 0) >= 3, null, { timeout: 90_000 });
+    await page.screenshot({ path: resolve(SHOTS, 'level-1-boss.png') });
     await page.waitForFunction(() => window.__batoman?.status !== 'playing', null, { timeout: 120_000 });
+    // The boss is dead and its bar gone; the exit opened.
+    expect((await hooks(page)).boss).toBeNull();
+    await expect(page.locator('#hud')).not.toContainText('ASWANG PROTOTYPE');
     const h = await hooks(page);
     expect(h.status).toBe(fixture.expect.status);
     expect(h.simTicks).toBe(fixture.expect.ticks);

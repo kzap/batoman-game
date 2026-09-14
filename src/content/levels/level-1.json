@@ -59,9 +59,10 @@
   "enemies": [
     { "type": "patroller", "x": 700, "y": 64, "patrolDistance": 120 },
     { "type": "drone", "x": 1500, "y": 64, "patrolDistance": 150 },
-    { "type": "patroller", "x": 3020, "y": 128, "patrolDistance": 80 },
+    { "type": "patroller", "x": 3400, "y": 64, "patrolDistance": 60 },
     { "type": "drone", "x": 4300, "y": 64, "patrolDistance": 150 },
-    { "type": "patroller", "x": 5400, "y": 64, "patrolDistance": 120 }
+    { "type": "patroller", "x": 5000, "y": 64, "patrolDistance": 40 },
+    { "type": "aswang", "x": 6150, "y": 64 }
   ],
   "art": {
     "props": "level-1-props",

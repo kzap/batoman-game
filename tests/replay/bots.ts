@@ -1,5 +1,5 @@
 import type { Policy } from './harness';
-import { dashJump, dropThrough, fire, jump, ride, route, run, type Step, waitMover, waitUntil } from './route';
+import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, type Step, waitMover, waitUntil } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -11,10 +11,12 @@ import { dashJump, dropThrough, fire, jump, ride, route, run, type Step, waitMov
 export const ROUTES: Readonly<Record<string, () => Step[]>> = {
   /** Tondo docks: pit jump, one-way drop, block hop, spikes, mover ride, plateau, two dash gaps, an edge jump. */
   'level-1': () => [
-    run(1, 400),
-    fire(),
+    run(1, 380),
+    fight(900), // patroller at 700
     run(1, 1122),
     jump(1), // pit A (96)
+    run(1, 1300),
+    fight(1700), // drone at 1500 dives to chest height
     run(1, 1540),
     jump(1), // onto the one-way at 1600
     run(1, 1690),
@@ -30,21 +32,28 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // up onto the far floor
     run(1, 2860),
     jump(1), // plateau at 2912
+    run(1, 3180),
+    fight(3520), // patroller at 3400
     run(1, 3470),
-    fire(),
     dashJump(1), // dash gap 3520..3648
     run(1, 4100),
     jump(1), // block 4160
+    fight(4600), // drone at 4300, fought from the block top so the block does not eat the shots
     run(1, 4292),
     jump(1), // block 4352
     run(1, 4500),
     jump(1), // spikes 4544
+    run(1, 4700),
+    fight(5200), // patroller at 5000, shot across pit C so its fire cannot catch us mid-jump
     run(1, 4770),
     jump(1), // pit C (96)
     run(1, 5150),
     jump(1), // block row 5216
     run(1, 5550),
     dashJump(1), // dash gap 5600..5728
+    run(1, 5800),
+    bossFight(), // ASWANG prototype at 6150
+    fight(6400), // its leftover drones
     run(1, 6400),
   ],
 
@@ -52,6 +61,8 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
   'level-3': () => [
     run(1, 470),
     waitUntil('landed in the nave', (c) => c.grounded && c.y === 448),
+    run(1, 610),
+    fight(1000), // cloaked ambusher at 800
     run(1, 994),
     jump(1), // stone 1
     run(1, 1150),
@@ -60,6 +71,8 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // stone 3
     run(1, 1470),
     jump(1), // far floor
+    run(1, 1650),
+    fight(2100), // drone at 1900
     run(1, 1700),
     jump(1), // crusher pillar at 1760
     run(1, 1936),
@@ -72,6 +85,8 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // one-way ladder to the gallery (top 768)
     run(1, 2500),
     jump(1), // low pillar at 2560
+    run(1, 2650),
+    fight(3300), // patroller at 3100
     run(1, 2830),
     jump(1), // spikes at 2880
     run(1, 3584),
@@ -81,8 +96,10 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
   'level-6': () => [
     run(1, 612),
     jump(1), // roof 2 (+32 over a 64 gap)
-    run(1, 860),
-    jump(1), // planter at 900
+    run(1, 726),
+    jump(1), // planter at 760
+    run(1, 850),
+    fight(1200), // drone at 1000
     run(1, 1210),
     dashJump(1), // dash gap 1248..1376
     run(1, 1650),
@@ -91,6 +108,7 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     waitMover(0, { y: 208 }),
     run(1, 2080), // onto the lift
     waitUntil('lift at the top', (c) => (c.snap.movingSolids[0]?.y ?? 0) >= 430),
+    fight(2400), // patroller at 2300, shot from the lift before stepping off
     run(1, 2200), // onto roof 4
     run(1, 2350),
     jump(1), // planter at 2400
