@@ -1,6 +1,6 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-1 merged; Phase 2 in review. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
+Status: Phases 0-2 merged; Phase 3 in review. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
 the `v2` branch one phase per PR, then merges to `main` when playable.
 
 ## Why a remake

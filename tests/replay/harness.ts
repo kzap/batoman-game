@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLevel, type LevelJson } from '@content/level';
-import { packInput, unpackInput, type InputFrame } from '@core/sim/input';
+import { packInput, type InputFrame } from '@core/sim/input';
+import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
 
 /**
@@ -10,10 +11,8 @@ import { World, type WorldSnapshot } from '@game/world';
  * run-length encoded as [bits, count] pairs. `expect` pins the outcome so a
  * tuning change that alters the run fails loudly instead of silently drifting.
  */
-export interface ReplayFixture {
+export interface ReplayFixture extends ReplayInputs {
   readonly level: string;
-  readonly seed: number;
-  readonly inputs: readonly (readonly [bits: number, count: number])[];
   readonly expect: {
     readonly status: WorldSnapshot['status'];
     readonly ticks: number;
@@ -41,13 +40,6 @@ export function encodeInputs(frames: readonly InputFrame[]): [number, number][] 
     else out.push([bits, 1]);
   }
   return out;
-}
-
-export function* decodeInputs(rle: ReplayFixture['inputs']): Generator<InputFrame> {
-  for (const [bits, count] of rle) {
-    const f = unpackInput(bits);
-    for (let i = 0; i < count; i++) yield f;
-  }
 }
 
 /** Drive a fresh world with the fixture's inputs and return the final snapshot. */

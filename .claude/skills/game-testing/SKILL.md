@@ -49,10 +49,13 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `droppedFrames` | frames where the clock discarded time (stall recovery) |
 | `lastFrameMs` | last frame duration |
 | `player` | `{ x, y, pose, hp }` from the latest snapshot; sim pixels, Y up, feet at `y` |
+| `camera` | `{ x, y }` camera centre in sim pixels |
 | `status` | `playing`, `complete`, or `gameover` |
+| `replay(fixture)` | restart and feed a replay fixture (`tests/replay/fixtures/*.json`) instead of the keyboard |
 | `errors` | uncaught errors and unhandled rejections captured in-page |
 
-A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` at 60 fps, and
+A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` at 60 fps while `status` is
+`playing` (it freezes after completion or game over until a jump restarts), and
 `droppedFrames` staying near 0 after the first second.
 
 ### Workflow
@@ -72,7 +75,8 @@ Controls (`src/app/keyboard.ts`):
 | Crouch / slide | Down / S (slide when moving) |
 | Dash | X / K / Shift |
 | Fire | Z / J (tap; charged shot arrives with combat) |
-| Debug overlay | backtick (Phase 3) |
+| Debug overlay | backtick: stats bottom-left plus collider outlines |
+| Restart | jump after LEVEL COMPLETE / GAME OVER |
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 

@@ -7,9 +7,10 @@ import { Rng } from '@core/sim/rng';
 import type { LevelJson, MovingSolidJson, Rect } from '@content/level';
 
 const overlapsRect = (b: Body, r: Rect): boolean => overlaps(b, r);
+import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
 import { Health } from './health';
 import { Player, type PlayerPose } from './player';
-import { PLAYER, PROJECTILE } from './tuning';
+import { CAMERA, PLAYER, PROJECTILE } from './tuning';
 
 /** Events the sim announces; audio and effects subscribe in later phases. */
 export interface WorldEvents extends Record<string, unknown> {
@@ -64,6 +65,7 @@ export interface WorldSnapshot {
   readonly player: PlayerSnapshot;
   readonly projectiles: readonly ProjectileSnapshot[];
   readonly movingSolids: readonly SolidSnapshot[];
+  readonly camera: CameraSnapshot;
 }
 
 interface Projectile {
@@ -97,6 +99,7 @@ export class World {
   readonly collision = new CollisionWorld();
   readonly player: Player;
   readonly health = new Health(PLAYER.maxHp, PLAYER.invulnTicks);
+  readonly camera: CameraController;
   lives: number = PLAYER.lives;
   status: WorldStatus = 'playing';
 
@@ -122,15 +125,23 @@ export class World {
     }
     this.respawnAt = { ...level.spawn };
     this.player = new Player(level.spawn.x - PLAYER.width / 2, level.spawn.y);
+    this.camera = new CameraController(level.width, level.height, level.spawn);
+  }
+
+  private cameraTarget(): CameraTarget {
+    const p = this.player;
+    return { x: p.body.centerX, y: p.body.y, facing: p.facing, moving: Math.abs(p.vx) > PLAYER.stillSpeed, grounded: p.grounded };
   }
 
   get currentTick(): number {
     return this.tick;
   }
 
+  /** One tick. After completion or game over the world is frozen; the app restarts it. */
   step(frame: InputFrame = NO_INPUT): void {
+    if (this.status !== 'playing') return;
     this.tick += 1;
-    this.input.update(this.status === 'playing' ? frame : NO_INPUT);
+    this.input.update(frame);
     this.health.tick();
 
     this.updateMovers();
@@ -141,6 +152,7 @@ export class World {
       this.checkZones();
     }
     this.updateProjectiles();
+    this.camera.update(this.cameraTarget(), this.rng);
     this.events.emit('tick', { tick: this.tick });
   }
 
@@ -233,6 +245,7 @@ export class World {
     if (!this.health.hit(amount)) return false;
     if (this.health.alive) {
       this.player.knockback(dir, this.collision);
+      this.camera.shake(CAMERA.hurtShake.amplitude, CAMERA.hurtShake.ticks);
       this.events.emit('hurt', { hp: this.health.hp });
     } else {
       this.die('damage');
@@ -246,6 +259,7 @@ export class World {
     this.player.kill();
     this.projectiles.length = 0;
     this.respawnIn = PLAYER.respawnTicks;
+    this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
     this.events.emit('death', { cause });
   }
 
@@ -261,6 +275,7 @@ export class World {
     this.lives--;
     this.health.reset();
     this.player.respawn(this.respawnAt.x - PLAYER.width / 2, this.respawnAt.y);
+    this.camera.snapTo(this.cameraTarget());
     this.events.emit('respawn', { ...this.respawnAt, lives: this.lives });
   }
 
@@ -282,6 +297,7 @@ export class World {
       },
       projectiles: this.projectiles.map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })),
       movingSolids: this.movers.map((m) => ({ id: m.solid.id, x: m.solid.x, y: m.solid.y, w: m.solid.w, h: m.solid.h })),
+      camera: this.camera.snapshot(),
     };
   }
 }

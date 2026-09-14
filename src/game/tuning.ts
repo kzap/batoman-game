@@ -76,3 +76,30 @@ export const PROJECTILE = {
   /** Where the shot leaves the body, relative to the player's feet. */
   muzzleY: 30,
 } as const;
+
+/**
+ * Camera, in sim pixels and ticks. The view size is the design viewport at the
+ * gameplay plane (16:9 at 32 px per stage unit with the Phase 0 camera); the
+ * renderer may show slightly more or less at other aspect ratios.
+ */
+export const CAMERA = {
+  viewW: 672,
+  viewH: 378,
+  /** Camera centre sits this far above the player's feet when settled. */
+  focusAboveFeet: 96,
+  /** Extra horizontal target offset in the facing direction while running. */
+  lookAhead: 64,
+  /** Look-ahead eases in at this fraction of the remaining distance per tick. */
+  lookAheadEase: 0.04,
+  /** Half-widths of the box the target may roam in before the camera moves. */
+  deadzoneX: 24,
+  deadzoneY: 32,
+  /** While airborne the camera does not follow upward until the target is this far above centre. */
+  airDeadzoneUp: 120,
+  /** Fraction of the remaining distance covered per tick; fixed so replays are exact. */
+  followX: 0.12,
+  followY: 0.1,
+  /** Shake: initial amplitude decays linearly to zero over `ticks`. */
+  hurtShake: { amplitude: 6, ticks: 18 },
+  deathShake: { amplitude: 10, ticks: 30 },
+} as const;

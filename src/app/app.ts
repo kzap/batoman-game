@@ -1,9 +1,16 @@
 import { lerp } from '@core/math/vec2';
 import { FixedClock } from '@core/sim/clock';
+import type { InputFrame } from '@core/sim/input';
+import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
+import { EntityView } from '@render/entity-view';
+import { LevelView } from '@render/level-view';
 import { Stage } from '@render/stage';
+import { toUnits } from '@render/units';
 import level1 from '@content/levels/level-1.json';
-import { parseLevel } from '@content/level';
+import { parseLevel, type LevelJson } from '@content/level';
+import { DebugOverlay } from './debug';
+import { Hud } from './hud';
 import { Keyboard } from './keyboard';
 
 /**
@@ -19,8 +26,15 @@ export interface TestHooks {
   lastFrameMs: number;
   /** Latest sim snapshot fields tests care about; updated every frame. */
   player: { x: number; y: number; pose: string; hp: number };
+  camera: { x: number; y: number };
   status: string;
   readonly errors: string[];
+  /**
+   * Restart the level and feed a recorded input sequence instead of the
+   * keyboard. Lets e2e tests traverse the level deterministically and check
+   * the browser build reaches the same outcome as the headless replay.
+   */
+  replay: ((fixture: ReplayInputs) => void) | null;
 }
 
 declare global {
@@ -43,8 +57,10 @@ export function installHooks(): TestHooks {
     droppedFrames: 0,
     lastFrameMs: 0,
     player: { x: 0, y: 0, pose: 'idle', hp: 0 },
+    camera: { x: 0, y: 0 },
     status: 'playing',
     errors: [],
+    replay: null,
   };
   window.__batoman = hooks;
   window.addEventListener('error', (e) => hooks.errors.push(String(e.message)));
@@ -52,16 +68,20 @@ export function installHooks(): TestHooks {
   return hooks;
 }
 
-/** Provisional pixel-to-stage mapping until the renderer owns it: one tile per stage unit. */
-const PIXELS_PER_UNIT = 32;
-/** The Phase 0 reference marker rests 1.5 units above the stage floor. */
-const MARKER_REST_HEIGHT = 1.5;
-
 export class App {
   private readonly clock = new FixedClock();
-  private readonly world = new World(parseLevel(level1, 'level-1'));
+  private readonly level: LevelJson = parseLevel(level1, 'level-1');
+  private world: World;
   private readonly keyboard = new Keyboard();
   private readonly stage: Stage;
+  private readonly levelView: LevelView;
+  private readonly entities = new EntityView();
+  private readonly debug: DebugOverlay;
+  private readonly hud: Hud;
+  private replay: Generator<InputFrame> | null = null;
+  /** Set by a respawn: the next present must not lerp from the death spot. */
+  private teleported = false;
+  private jumpWasHeld = false;
   private previous: WorldSnapshot;
   private current: WorldSnapshot;
   private lastTime = 0;
@@ -73,11 +93,18 @@ export class App {
     readonly hooks: TestHooks,
   ) {
     this.stage = new Stage({ canvas });
-    this.stage.addReferenceScene();
+    this.levelView = new LevelView(this.level);
+    this.stage.scene.add(this.levelView.group, this.entities.group);
+    this.world = this.newWorld(1);
     this.current = this.world.snapshot();
     this.previous = this.current;
+    this.debug = new DebugOverlay(document.getElementById('debug') ?? document.createElement('div'));
+    this.debug.onToggle = (on): void => this.entities.setOutlines(on);
+    this.hud = new Hud(document.getElementById('hud') ?? document.createElement('div'));
     window.addEventListener('resize', this.onResize);
     this.keyboard.attach();
+    this.debug.attach();
+    hooks.replay = (fixture): void => this.startReplay(fixture);
   }
 
   start(): void {
@@ -90,8 +117,42 @@ export class App {
     cancelAnimationFrame(this.rafId);
     window.removeEventListener('resize', this.onResize);
     this.keyboard.detach();
+    this.debug.detach();
+    this.entities.dispose();
+    this.levelView.dispose();
     this.stage.dispose();
     this.hooks.ready = false;
+    this.hooks.replay = null;
+  }
+
+  private newWorld(seed: number): World {
+    const w = new World(this.level, seed);
+    w.events.on('respawn', () => (this.teleported = true));
+    return w;
+  }
+
+  private restart(seed = 1): void {
+    this.world = this.newWorld(seed);
+    this.current = this.world.snapshot();
+    this.previous = this.current;
+  }
+
+  private startReplay(fixture: ReplayInputs): void {
+    this.restart(fixture.seed);
+    this.replay = decodeInputs(fixture.inputs);
+  }
+
+  private nextInput(): InputFrame {
+    if (this.replay) {
+      const r = this.replay.next();
+      if (!r.done) return r.value;
+      this.replay = null;
+    }
+    const f = this.keyboard.frame();
+    // Restart on a fresh press only, so a jump held into the exit does not skip the banner.
+    if (this.current.status !== 'playing' && f.jump && !this.jumpWasHeld) this.restart();
+    this.jumpWasHeld = f.jump;
+    return f;
   }
 
   private readonly frame = (now: number): void => {
@@ -104,33 +165,35 @@ export class App {
 
     for (let i = 0; i < step.ticks; i++) {
       this.previous = this.current;
-      this.world.step(this.keyboard.frame());
+      this.world.step(this.nextInput());
       this.current = this.world.snapshot();
+      if (this.teleported) {
+        this.previous = this.current;
+        this.teleported = false;
+      }
     }
-    this.hooks.simTicks = this.current.tick;
-    const pl = this.current.player;
-    this.hooks.player = { x: pl.x, y: pl.y, pose: pl.pose, hp: pl.hp };
-    this.hooks.status = this.current.status;
-
+    this.publish();
     this.present(step.alpha);
+    this.debug.update(now, this.current, { frameMs, droppedFrames: this.hooks.droppedFrames, entities: this.entities.entityCount });
+    this.hud.update(this.current);
     this.hooks.frames += 1;
     this.rafId = requestAnimationFrame(this.frame);
   };
 
-  /**
-   * Interpolate between the two most recent snapshots and draw. Until the
-   * real renderer lands, the player is the reference marker: sim pixels map to
-   * stage units at 32 px per unit, relative to the spawn point.
-   */
+  private publish(): void {
+    const s = this.current;
+    this.hooks.simTicks = s.tick;
+    this.hooks.player = { x: s.player.x, y: s.player.y, pose: s.player.pose, hp: s.player.hp };
+    this.hooks.camera = { x: s.camera.x, y: s.camera.y };
+    this.hooks.status = s.status;
+  }
+
+  /** Interpolate between the two most recent snapshots, point the camera, and draw. */
   private present(alpha: number): void {
-    const a = this.previous.player;
-    const b = this.current.player;
-    const spawn = this.world.level.spawn;
-    const p = lerp({ x: a.x, y: a.y }, { x: b.x, y: b.y }, alpha);
-    this.stage.setMarker({
-      x: (p.x + b.w / 2 - spawn.x) / PIXELS_PER_UNIT,
-      y: (p.y - spawn.y) / PIXELS_PER_UNIT + MARKER_REST_HEIGHT,
-    });
+    this.entities.present(this.previous, this.current, alpha);
+    const cam = lerp(this.previous.camera, this.current.camera, alpha);
+    const shake = this.current.camera;
+    this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
     this.stage.render();
   }
 }

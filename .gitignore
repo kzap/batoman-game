@@ -12,6 +12,7 @@ dist/
 
 # Test artifacts
 test-results/
+e2e-screenshots/
 playwright-report/
 tests/e2e/**/*-actual.png
 tests/e2e/**/*-diff.png

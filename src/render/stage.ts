@@ -1,18 +1,4 @@
-import {
-  AmbientLight,
-  BoxGeometry,
-  Color,
-  DirectionalLight,
-  Fog,
-  Mesh,
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  PerspectiveCamera,
-  PlaneGeometry,
-  Scene,
-  WebGLRenderer,
-} from 'three';
-import type { Vec2 } from '@core/math/vec2';
+import { AmbientLight, Color, DirectionalLight, Fog, Mesh, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 
 /** Palette anchors from docs/ART.md. */
 export const PALETTE = {
@@ -30,7 +16,7 @@ export const PALETTE = {
  * readable: perspective compression is small at Z=0 so horizontal travel
  * on screen stays close to linear in world units.
  */
-export const CAMERA = {
+export const LENS = {
   fovDeg: 30,
   /** Distance from camera to the gameplay plane (Z=0). */
   distance: 22,
@@ -57,7 +43,8 @@ export interface StageOptions {
 
 /**
  * Owns the Three.js renderer, scene graph, camera, and lighting.
- * Contains no gameplay logic; it draws whatever the app tells it to.
+ * Contains no gameplay logic; views (LevelView, EntityView) add themselves to
+ * `scene` and the app points the camera each frame.
  */
 export class Stage {
   readonly renderer: WebGLRenderer;
@@ -65,7 +52,6 @@ export class Stage {
   readonly camera: PerspectiveCamera;
   private readonly canvas: HTMLCanvasElement;
   private readonly maxPixelRatio: number;
-  private marker: Mesh | null = null;
 
   constructor(opts: StageOptions) {
     this.canvas = opts.canvas;
@@ -80,8 +66,8 @@ export class Stage {
     });
     this.renderer.setClearColor(new Color(PALETTE.deepShadow));
 
-    this.camera = new PerspectiveCamera(CAMERA.fovDeg, 16 / 9, CAMERA.near, CAMERA.far);
-    this.camera.position.set(0, 2, CAMERA.distance);
+    this.camera = new PerspectiveCamera(LENS.fovDeg, 16 / 9, LENS.near, LENS.far);
+    this.camera.position.set(0, 2, LENS.distance);
     this.camera.lookAt(0, 2, 0);
 
     this.scene.fog = new Fog(PALETTE.smogPurple, 40, 220);
@@ -90,8 +76,8 @@ export class Stage {
   }
 
   private buildLights(): void {
-    // Low ambient so the key/rim pair does the work of separating Z=0 from the backdrop.
-    this.scene.add(new AmbientLight(PALETTE.smogPurple, 0.6));
+    // Grey-box level of ambient so untextured faces read; Phase 4 lowers it once art carries the contrast.
+    this.scene.add(new AmbientLight(0x8a8aa0, 1.4));
 
     const key = new DirectionalLight(PALETTE.warmAmber, 2.2);
     key.position.set(-6, 10, 12);
@@ -128,57 +114,9 @@ export class Stage {
     this.renderer.dispose();
   }
 
-  /**
-   * Grey-box reference scene: ground slab at Z=0, a couple of platform blocks,
-   * backdrop planes at the standard layer depths, and a marker the sim drives.
-   * Exists so Phase 0 has something visible that proves depth layering,
-   * lighting, and the sim -> render path work.
-   */
-  addReferenceScene(): void {
-    const solid = new MeshStandardMaterial({ color: PALETTE.concreteGrey, roughness: 0.9 });
-    const rust = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.8 });
-
-    const ground = new Mesh(new BoxGeometry(24, 1, 2), solid);
-    ground.position.set(0, -0.5, LAYER_Z.gameplay);
-    this.scene.add(ground);
-
-    const stepA = new Mesh(new BoxGeometry(3, 0.5, 2), rust);
-    stepA.position.set(-4, 1.25, LAYER_Z.gameplay);
-    this.scene.add(stepA);
-
-    const stepB = new Mesh(new BoxGeometry(3, 0.5, 2), rust);
-    stepB.position.set(4, 2.5, LAYER_Z.gameplay);
-    this.scene.add(stepB);
-
-    interface Backdrop {
-      z: number;
-      color: number;
-      /** Plane width in world units; sized so it fills the view at its depth. */
-      width: number;
-    }
-    const backdrops: Backdrop[] = [
-      { z: LAYER_Z.nearStructures, color: 0x3a2f4d, width: 40 },
-      { z: LAYER_Z.midStructures, color: PALETTE.smogPurple, width: 90 },
-      { z: LAYER_Z.farStructures, color: 0x1a1530, width: 180 },
-      { z: LAYER_Z.farSky, color: PALETTE.deepShadow, width: 420 },
-    ];
-    for (const { z, color, width } of backdrops) {
-      // Backdrops are unlit: only fog affects them, so Z=0 lighting stays readable.
-      const plane = new Mesh(new PlaneGeometry(width, width * 0.5), new MeshBasicMaterial({ color }));
-      plane.position.set(0, width * 0.15, z);
-      this.scene.add(plane);
-    }
-
-    this.marker = new Mesh(
-      new BoxGeometry(0.6, 1.2, 0.6),
-      new MeshStandardMaterial({ color: PALETTE.neonCyan, emissive: PALETTE.neonCyan, emissiveIntensity: 0.6 }),
-    );
-    this.marker.position.set(0, 1.5, LAYER_Z.gameplay);
-    this.scene.add(this.marker);
-  }
-
-  /** Place the reference marker on the gameplay plane. No-op before addReferenceScene(). */
-  setMarker(p: Vec2): void {
-    this.marker?.position.set(p.x, p.y, LAYER_Z.gameplay);
+  /** Look at a point on the gameplay plane (stage units) from the fixed distance. */
+  setCamera(x: number, y: number): void {
+    this.camera.position.set(x, y, LENS.distance);
+    this.camera.lookAt(x, y, 0);
   }
 }
