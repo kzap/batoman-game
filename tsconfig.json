@@ -23,7 +23,8 @@
       "@game/*": ["src/game/*"],
       "@render/*": ["src/render/*"],
       "@app/*": ["src/app/*"],
-      "@content/*": ["src/content/*"]
+      "@content/*": ["src/content/*"],
+      "@editor/*": ["src/editor/*"]
     }
   },
   "include": ["src", "tests", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]

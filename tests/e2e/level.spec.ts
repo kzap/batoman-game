@@ -81,17 +81,17 @@ test.describe('level 1', () => {
   });
 
   test('scripted traversal: the browser build replays the Level 1 fixture to the same outcome', async ({ page }) => {
-    test.setTimeout(120_000); // 2514 ticks at 120 Hz is 21 s of wall time, more under software GL
+    test.setTimeout(150_000); // 3884 ticks at 120 Hz is 32 s of wall time, more under software GL
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-1-clear.json'), 'utf8')) as Fixture;
     await page.goto('/');
     await ready(page);
     await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
-    // Screenshots at landmarks on the way: the one-way platform and the moving platform over the second pit.
-    for (const [name, x] of [['level-1-oneway', 1550], ['level-1-mover', 2380]] as const) {
+    // Screenshots at landmarks on the way: the one-way platform, the moving platform over the second pit, the first dash gap.
+    for (const [name, x] of [['level-1-oneway', 1550], ['level-1-mover', 2380], ['level-1-dash', 3500]] as const) {
       await page.waitForFunction((min) => (window.__batoman?.player.x ?? 0) > min, x, { timeout: 60_000 });
       await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
     }
-    await page.waitForFunction(() => window.__batoman?.status !== 'playing', null, { timeout: 90_000 });
+    await page.waitForFunction(() => window.__batoman?.status !== 'playing', null, { timeout: 120_000 });
     const h = await hooks(page);
     expect(h.status).toBe(fixture.expect.status);
     expect(h.simTicks).toBe(fixture.expect.ticks);
@@ -104,5 +104,37 @@ test.describe('level 1', () => {
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__batoman?.status === 'playing');
     expect((await hooks(page)).simTicks).toBeLessThan(200);
+  });
+});
+
+test.describe('other levels', () => {
+  for (const id of ['level-3', 'level-6']) {
+    test(`${id} loads as grey-box from ?level= and replays its fixture`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const fixture = JSON.parse(readFileSync(resolve(HERE, `../replay/fixtures/${id}-clear.json`), 'utf8')) as Fixture;
+      const requests: string[] = [];
+      page.on('request', (r) => requests.push(r.url()));
+      await page.goto(`/?level=${id}`);
+      await ready(page);
+      const h0 = await hooks(page);
+      expect(h0.level).toBe(id);
+      expect(h0.errors).toEqual([]);
+      // No art block: the player atlas is the only image the level needs.
+      expect(requests.some((u) => u.includes('/assets/backdrops/'))).toBe(false);
+      await page.screenshot({ path: resolve(SHOTS, `${id}-start.png`) });
+      await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+      await page.waitForFunction(() => window.__batoman?.status !== 'playing', null, { timeout: 100_000 });
+      const h = await hooks(page);
+      expect(h.status).toBe('complete');
+      expect(h.simTicks).toBe(fixture.expect.ticks);
+      expect(Math.round(h.player.x)).toBe(fixture.expect.x);
+      await page.screenshot({ path: resolve(SHOTS, `${id}-complete.png`) });
+    });
+  }
+
+  test('an unknown level id fails loudly instead of falling back to level 1', async ({ page }) => {
+    await page.goto('/?level=level-99');
+    await page.waitForFunction(() => (window.__batoman?.errors.length ?? 0) > 0);
+    expect((await hooks(page)).errors[0]).toMatch(/unknown level "level-99"/);
   });
 });

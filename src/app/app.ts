@@ -29,6 +29,11 @@ export interface TestHooks {
   player: { x: number; y: number; pose: string; hp: number };
   camera: { x: number; y: number };
   status: string;
+  /** Id of the loaded level and whether the sim is running (`play`) or frozen for the editor (`edit`). */
+  level: string;
+  mode: AppMode;
+  /** Present only while the editor is attached. */
+  editor: EditorHooks | null;
   readonly errors: string[];
   /**
    * Restart the level and feed a recorded input sequence instead of the
@@ -60,6 +65,9 @@ export function installHooks(): TestHooks {
     player: { x: 0, y: 0, pose: 'idle', hp: 0 },
     camera: { x: 0, y: 0 },
     status: 'playing',
+    level: '',
+    mode: 'play',
+    editor: null,
     errors: [],
     replay: null,
   };
@@ -67,6 +75,27 @@ export function installHooks(): TestHooks {
   window.addEventListener('error', (e) => hooks.errors.push(String(e.message)));
   window.addEventListener('unhandledrejection', (e) => hooks.errors.push(String(e.reason)));
   return hooks;
+}
+
+export type AppMode = 'play' | 'edit';
+
+/** Editor state published for e2e tests while `?edit=1` is active. */
+export interface EditorHooks {
+  tool: string;
+  /** `kind#index` of the selected object. */
+  selection: string | null;
+  objects: number;
+  revision: number;
+  dirty: boolean;
+  lastSave: string | null;
+  playing: boolean;
+}
+
+/** Camera the editor drives directly: a centre on the gameplay plane (sim px) and a lens distance (stage units). */
+export interface EditorCamera {
+  readonly x: number;
+  readonly y: number;
+  readonly distance: number;
 }
 
 export interface AppOptions {
@@ -88,9 +117,11 @@ export class App {
   private readonly clock = new FixedClock();
   private world: World;
   private readonly keyboard = new Keyboard();
-  private readonly stage: Stage;
-  private readonly levelView: LevelView;
+  readonly stage: Stage;
+  private levelView: LevelView;
   private readonly entities: EntityView;
+  private mode: AppMode = 'play';
+  private editorCamera: EditorCamera | null = null;
   private readonly debug: DebugOverlay;
   private readonly hud: Hud;
   private replay: Generator<InputFrame> | null = null;
@@ -107,7 +138,7 @@ export class App {
   constructor(
     canvas: HTMLCanvasElement,
     readonly hooks: TestHooks,
-    private readonly level: LevelJson,
+    private level: LevelJson,
     private readonly assets: GameAssets,
     opts: AppOptions = {},
   ) {
@@ -118,6 +149,7 @@ export class App {
     this.world = this.newWorld(1);
     this.current = this.world.snapshot();
     this.previous = this.current;
+    hooks.level = level.id;
     this.debug = new DebugOverlay(document.getElementById('debug') ?? document.createElement('div'));
     this.debug.onToggle = (on): void => {
       this.entities.setOutlines(on);
@@ -147,6 +179,45 @@ export class App {
     this.stage.dispose();
     this.hooks.ready = false;
     this.hooks.replay = null;
+  }
+
+  /**
+   * Swap the level in place: rebuild the static view and restart the world.
+   * The editor calls this on every edit; the prop atlas and backdrops must be
+   * the ones already loaded (a level cannot change its `art.props` at runtime).
+   */
+  loadLevel(level: LevelJson): void {
+    this.level = level;
+    this.hooks.level = level.id;
+    this.levelView.dispose();
+    this.levelView = new LevelView(level, this.assets.levelArt);
+    this.levelView.setOutlines(this.debug.enabled);
+    this.stage.scene.add(this.levelView.group);
+    this.restart();
+  }
+
+  get currentLevel(): LevelJson {
+    return this.level;
+  }
+
+  /**
+   * `edit` freezes the sim (no ticks, keyboard released so the editor can use
+   * it) and points the camera where the editor says; `play` hands both back.
+   */
+  setMode(mode: AppMode): void {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    this.hooks.mode = mode;
+    if (mode === 'edit') this.keyboard.detach();
+    else {
+      this.keyboard.attach();
+      this.editorCamera = null;
+      this.restart();
+    }
+  }
+
+  setEditorCamera(cam: EditorCamera): void {
+    this.editorCamera = cam;
   }
 
   private newWorld(seed: number): World {
@@ -189,7 +260,7 @@ export class App {
     const step = this.clock.advance(frameSeconds);
     if (step.dropped) this.hooks.droppedFrames += 1;
 
-    for (let i = 0; i < step.ticks; i++) {
+    for (let i = 0; i < (this.mode === 'play' ? step.ticks : 0); i++) {
       this.previous = this.current;
       this.world.step(this.nextInput());
       this.current = this.world.snapshot();
@@ -217,9 +288,13 @@ export class App {
   /** Interpolate between the two most recent snapshots, point the camera, and draw. */
   private present(alpha: number): void {
     this.entities.present(this.previous, this.current, alpha);
-    const cam = lerp(this.previous.camera, this.current.camera, alpha);
-    const shake = this.current.camera;
-    this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
+    if (this.editorCamera) {
+      this.stage.setCamera(toUnits(this.editorCamera.x), toUnits(this.editorCamera.y), this.editorCamera.distance);
+    } else {
+      const cam = lerp(this.previous.camera, this.current.camera, alpha);
+      const shake = this.current.camera;
+      this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
+    }
     this.stage.render(this.frameSeconds);
   }
 }

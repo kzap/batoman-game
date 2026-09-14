@@ -10,7 +10,7 @@ description: Three.js 0.186 and deterministic-sim development skill for the Bato
 Gameplay runs in a deterministic, headless sim (`src/core`, `src/game`) at a fixed 120 Hz. The renderer
 (`src/render`, Three.js) reads snapshots from the sim and interpolates between the last two ticks. The app
 shell (`src/app`) owns the frame loop, DOM HUD, input plumbing, audio, and save data. Dependencies flow one
-way: `core <- game <- render/app`. ESLint enforces that `core` and `game` import neither Three.js nor DOM
+way: `core <- game <- render/app <- editor`. ESLint enforces that `core` and `game` import neither Three.js nor DOM
 globals.
 
 ## Where code goes
@@ -21,7 +21,9 @@ globals.
 | Player controller, enemies, weapons, damage, level runtime | `src/game/` | `tests/unit/game/` + `tests/replay/` |
 | Scene graph, camera, lights, materials, atlases, post FX | `src/render/` | `tests/e2e/` (screenshots) |
 | Frame loop, input devices, HUD DOM, audio, save | `src/app/` | `tests/e2e/` |
-| Level JSON, atlas manifests | `src/content/` | `tools/validate` |
+| Level JSON, manifest, schema validators, file format | `src/content/` | `tools/validate`, `tests/unit/content/` |
+| In-browser level editor (`?edit=1`): pure ops in `doc.ts`, DOM panel, Three.js overlay | `src/editor/` | `tests/unit/editor/` (ops) + `tests/e2e/editor.spec.ts` |
+| Dev-server endpoints (editor save) | `tools/dev/` | co-located `__tests__/` (unit + real dev server) |
 | Offline asset tooling | `tools/` | `tests/unit/tools/` (or co-located `*.test.ts` for fixtures-heavy tools) |
 
 If you are unsure whether something is "game" or "render": if it would need to exist to run a replay test

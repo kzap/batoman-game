@@ -4,26 +4,28 @@ import { join } from 'node:path';
 import { World } from '@game/world';
 import { NO_INPUT } from '@core/sim/input';
 import { CAMERA, PLAYER } from '@game/tuning';
-import { clearLevel1 } from './bots';
+import { clearRoute } from './bots';
 import { FIXTURE_DIR, loadLevel, record, replay, toFixture, type ReplayFixture } from './harness';
 
 /**
  * Replay tests drive the headless sim with fixed inputs and pin the outcome.
- * `level-1-clear.json` is recorded by `npx tsx tests/replay/record.ts`; when a
- * tuning change legitimately alters the run, re-record and review the diff.
+ * The `<level>-clear.json` fixtures are recorded by `npm run replay:record`
+ * from the routes in bots.ts; when a tuning or level change legitimately
+ * alters a run, re-record and review the diff.
  */
-describe('Level 1 under replay', () => {
-  const level = loadLevel('level-1');
+/** Every level in the manifest has a recorded clear; the same checks run for each. */
+describe.each(['level-1', 'level-3', 'level-6'])('%s under replay', (id) => {
+  const level = loadLevel(id);
 
   it('is completable by the scripted route, taking no damage', () => {
-    const rec = record(level, 1, clearLevel1, 6000);
+    const rec = record(level, 1, clearRoute(id), 6000);
     expect(rec.final.status).toBe('complete');
     expect(rec.final.lives).toBe(3);
     expect(rec.final.player.hp).toBe(3);
   });
 
   it('replays the committed fixture to the same outcome', () => {
-    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-1-clear.json'), 'utf8')) as ReplayFixture;
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, `${id}-clear.json`), 'utf8')) as ReplayFixture;
     const final = replay(fixture);
     expect(final.status).toBe(fixture.expect.status);
     expect(final.tick).toBe(fixture.expect.ticks);
@@ -33,7 +35,7 @@ describe('Level 1 under replay', () => {
   });
 
   it('is deterministic: two runs of the same inputs match snapshot for snapshot', () => {
-    const rec = record(level, 7, clearLevel1, 6000);
+    const rec = record(level, 7, clearRoute(id), 6000);
     const a = new World(level, 7);
     const b = new World(level, 7);
     for (const f of rec.frames) {
@@ -44,8 +46,8 @@ describe('Level 1 under replay', () => {
   });
 
   it('records a fixture that round-trips through the RLE encoding', () => {
-    const rec = record(level, 1, clearLevel1, 6000);
-    const fx = toFixture('level-1', 1, rec);
+    const rec = record(level, 1, clearRoute(id), 6000);
+    const fx = toFixture(id, 1, rec);
     expect(fx.inputs.reduce((n, [, c]) => n + c, 0)).toBe(rec.frames.length);
     expect(replay(fx).tick).toBe(rec.final.tick);
   });
@@ -107,7 +109,7 @@ describe('World rules', () => {
     expect(w.health.invulnerable).toBe(true);
     const deaths: string[] = [];
     w.events.on('death', (e) => deaths.push(e.cause));
-    w.player.body.place(1300, 60); // inside the death zone, mid-stun and invulnerable
+    w.player.body.place(pit.x + 20, 60); // inside the added death zone, mid-stun and invulnerable
     w.step();
     expect(deaths).toEqual(['pit']);
     expect(w.player.dead).toBe(true);
@@ -131,7 +133,7 @@ describe('World rules', () => {
     let over = false;
     w.events.on('gameover', () => (over = true));
     for (let life = 0; life < 3; life++) {
-      w.player.body.place(1300, 60); // over the first pit
+      w.player.body.place(level.deathZones[0]!.x + 20, 60); // over the first pit
       for (let i = 0; i < 400; i++) w.step();
     }
     expect(over).toBe(true);
@@ -146,7 +148,7 @@ describe('World rules', () => {
     w.step();
     let respawn = { x: 0, y: 0 };
     w.events.on('respawn', (e) => (respawn = { x: e.x, y: e.y }));
-    w.player.body.place(1300, 60);
+    w.player.body.place(level.deathZones[0]!.x + 20, 60);
     for (let i = 0; i < 400; i++) w.step();
     expect(respawn).toEqual({ x: cp.x + cp.w / 2, y: cp.y });
     w.player.body.place(level.exit.x, 64);
@@ -172,7 +174,7 @@ describe('World rules', () => {
     const cam1 = w.snapshot().camera;
     expect(cam1.x).toBeGreaterThan(cam0.x);
     expect(Math.abs(cam1.x - w.snapshot().player.x)).toBeLessThan(CAMERA.lookAhead + CAMERA.deadzoneX + 12); // leading, within look-ahead
-    w.player.body.place(1300, 60);
+    w.player.body.place(level.deathZones[0]!.x + 20, 60);
     let respawned = false;
     w.events.on('respawn', () => (respawned = true));
     for (let i = 0; i < 400 && !respawned; i++) w.step();
@@ -200,7 +202,8 @@ describe('World rules', () => {
     const m = level.movingSolids[0]!;
     w.player.body.place(m.x + 30, m.y + m.h);
     const x0 = w.player.body.x;
-    for (let i = 0; i < 120; i++) w.step();
+    // The mover pauses at its first waypoint before setting off, so give it time to travel.
+    for (let i = 0; i < 240; i++) w.step();
     expect(w.player.body.x).toBeGreaterThan(x0 + 60);
     expect(w.player.grounded).toBe(true);
   });

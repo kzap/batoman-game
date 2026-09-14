@@ -32,6 +32,8 @@ npm run dev                        # http://localhost:5173
 | `npm run typecheck` | `tsc --noEmit` for `src/` and `tools/` |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:replay` | Headless sim replay tests |
+| `npm run replay:record` | Re-record the replay fixtures from the scripted routes (after a level or tuning change) |
+| `npm run replay:trace -- <level>` | Print where a route's steps finish, for authoring levels and routes |
 | `npm run test:e2e` | Playwright against `dist/` (run `npm run build` first) |
 | `npm run validate` | Content checks: no raw art or unpipelined images in `public/`, manifest parses |
 | `npm run ci` | Everything above in CI order |
@@ -46,7 +48,8 @@ src/
   game/      gameplay rules on top of core; headless
   render/    Three.js stage, camera, lights
   app/       frame loop, DOM HUD, test hooks, styles
-  content/   level JSON and asset manifests
+  editor/    in-browser level editor (?edit=1), loaded on demand
+  content/   level JSON, manifest, validators
 tools/       offline asset pipeline and validators (Node)
 tests/       unit/ replay/ e2e/
 art-source/  raw AI art; never served to the browser
@@ -54,8 +57,11 @@ public/      processed assets only (audio now; atlases from Phase 1)
 docs/        PRD.md, TDD.md, ART.md, STORY.md
 ```
 
-Dependencies flow one way: `core <- game <- render/app`. ESLint fails the build if `core` or `game` import
+Dependencies flow one way: `core <- game <- render/app <- editor`. ESLint fails the build if `core` or `game` import
 Three.js or touch the DOM.
+
+Levels: `?level=level-3` loads another manifest level; `?edit=1` opens the current level in the editor, whose
+`Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
 
 ---
 

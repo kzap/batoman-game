@@ -66,8 +66,8 @@ export interface LevelJson {
 }
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
-const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
-const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'tikbalang'];
+export const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
+export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'tikbalang'];
 
 
 function rectProblems(r: unknown, label: string, level: { width: number; height: number }): string[] {

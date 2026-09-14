@@ -17,11 +17,16 @@ npm run test:e2e      # Playwright against the production build in dist/
 npm run ci            # everything, in CI order
 ```
 
-E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`). They run against `vite preview`
+E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`, `editor.spec.ts`). They run against `vite preview`
 on port 4173 with software WebGL (`--use-angle=swiftshader`) so they behave the same on CI runners, one
 worker at a time (parallel SwiftShader pages halve each other's frame rate). `level.spec.ts` writes
-screenshots to `e2e-screenshots/` (start, debug overlay, one-way section, mover section); look at them after
-a render change. The frame budget floor is 20 fps under SwiftShader; the measured value is logged.
+screenshots to `e2e-screenshots/` (start, debug overlay, one-way, mover and dash sections, Level 3 and 6
+start/complete, editor open/created); look at them after a render change. The frame budget floor is 20 fps
+under SwiftShader; the measured value is logged.
+
+Replay fixtures are recorded from routes in `tests/replay/bots.ts` (step language in `route.ts`). After
+changing a level or the player tuning: `npm run replay:trace -- level-1` shows where the route stalls or
+dies, fix the route or the level, then `npm run replay:record` and commit the fixture diff.
 
 Add a spec when a bug is found in the browser that the unit/replay layers cannot catch (rendering, input
 plumbing, DOM HUD). Anything about movement, collision, or game rules belongs in `tests/unit` or
@@ -54,6 +59,9 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `player` | `{ x, y, pose, hp }` from the latest snapshot; sim pixels, Y up, feet at `y` |
 | `camera` | `{ x, y }` camera centre in sim pixels |
 | `status` | `playing`, `complete`, or `gameover` |
+| `level` | id of the loaded level |
+| `mode` | `play`, or `edit` while the editor has the sim frozen |
+| `editor` | null, or `{ tool, selection, objects, revision, dirty, lastSave, playing }` while `?edit=1` is attached |
 | `replay(fixture)` | restart and feed a replay fixture (`tests/replay/fixtures/*.json`) instead of the keyboard |
 | `errors` | uncaught errors and unhandled rejections captured in-page |
 
@@ -83,8 +91,10 @@ Controls (`src/app/keyboard.ts`):
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
-Query flags: `?post=0` disables the post stack (bloom, vignette, grain) to isolate a rendering problem;
-`?dof=1` enables depth of field. Only some poses have their own art; see `PlayerAnimator`
+Query flags: `?level=<id>` loads a manifest level (`level-1`, `level-3`, `level-6`; an unknown id is a boot
+error); `?edit=1` opens the level editor (keys listed in the panel tooltips and docs/TDD.md section 11; `P`
+playtests, `Ctrl+S` saves through the dev server); `?post=0` disables the post stack (bloom, vignette, grain)
+to isolate a rendering problem; `?dof=1` enables depth of field. Only some poses have their own art; see `PlayerAnimator`
 (`src/render/animator.ts`) for which frames `fall`, `wallslide`, `dash`, `crouch`, `slide` and `dead` borrow.
 
 ## Common issues
@@ -101,6 +111,9 @@ Query flags: `?post=0` disables the post stack (bloom, vignette, grain) to isola
 | Boot fails with `boot failed: ...` in `errors` | An atlas or backdrop fetch failed; run `npm run assets` and `npm run validate` |
 | Prop or backdrop missing but no error | Level `art` names a frame/stem the validator did not see; check `npm run validate` output |
 | Visible seam or dark bar where a backdrop repeats | `edgeFade`/`erase` in `art-source/<level>/backdrops.json`, then `npm run assets` |
+| Editor save reports 404 | The level id is not in `src/content/manifest.json`; add it, restart the dev server |
+| Editor save reports problems | The level would fail `npm run validate`; the panel's problem list names the object |
+| Editor decor hit box is off the art | The atlas frame's pivot is not centred; hit boxes follow the pivot fraction, so check the recipe |
 
 ## Reporting
 

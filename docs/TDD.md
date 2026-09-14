@@ -20,7 +20,8 @@ Node 20.19+ or 22.12+ (`engines`; Vite 7 requirement). Path aliases `@core`, `@g
 
 ## 2. Layers `[implemented: Phase 0]`
 
-`core <- game <- render/app`. ESLint (`eslint.config.js`) forbids `core` and `game` from importing `three`,
+`core <- game <- render/app <- editor`. `src/editor` is loaded on demand (`?edit=1`) as its own chunk and may
+import every other layer; nothing imports it except `main.ts`. ESLint (`eslint.config.js`) forbids `core` and `game` from importing `three`,
 `postprocessing`, or anything under `render/` or `app/` (aliased or relative); from touching browser globals
 (`window`, `document`, `navigator`, storage, timers, `performance`, `globalThis`); and from calling
 `Math.random`, `Date.now`, `performance.now`, or `new Date`.
@@ -175,12 +176,17 @@ enables bloom, vignette and grain; DOF is off (11 fps under SwiftShader). `?post
 Camera framing comes from the sim (`CameraController`, section 4.4); the app lerps the centre between
 snapshots and adds the current tick's shake offset unlerped.
 
-## 6. App `[implemented: Phase 3]`
+## 6. App `[implemented: Phase 3-5]`
 
 `installHooks()` (`src/app/app.ts`) publishes `window.__batoman` and global error capture before anything
 else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
-`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `status`, and `replay(fixture)`,
+`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `status`, `level` (id),
+`mode` (`play` | `edit`), `editor` (section 11, null unless the editor is attached), and `replay(fixture)`,
 which restarts the level and feeds a recorded input sequence instead of the keyboard.
+
+`main.ts` picks the level from `?level=<id>` through `src/content/levels.ts` (section 8), loads its assets,
+starts the `App`, and with `?edit=1` imports the editor chunk and attaches it. An unknown id is a boot
+error, not a fallback to Level 1.
 
 `App` runs the `requestAnimationFrame` loop: advance clock, step the world N times with the next input
 (replay source if active, otherwise `Keyboard.frame()`), keep the last two snapshots, present with
@@ -188,6 +194,13 @@ interpolation, update the debug overlay and HUD. After `complete` or `gameover` 
 stop); a fresh jump press restarts it. On a respawn the previous snapshot is replaced by the current one so
 neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key pressed and released inside one frame so a tap
 still reaches one tick.
+
+`App.loadLevel(level)` swaps the level in place (new `LevelView`, fresh world) for the editor; the prop
+atlas and backdrops stay the ones loaded at boot, so a level cannot change `art.props` at runtime.
+`setMode('edit')` stops ticking and detaches the keyboard; `setMode('play')` reattaches it and restarts the
+world from the spawn. `setEditorCamera({x, y, distance})` overrides the
+sim camera, including the lens distance (`Stage.setCamera` takes it as a third argument for zoom).
+`Stage.pickPlane(px, py)` unprojects a canvas pixel onto Z=0 for the editor's hit-testing.
 
 `DebugOverlay` (`debug.ts`, backtick): fps and ticks/s over 500 ms windows, frame time, dropped frames,
 entity count, tick, status, player position/size/pose/facing/hp, camera centre and shake. Toggling it also
@@ -290,7 +303,7 @@ JSON. A file under `public/assets/atlases/` with no recipe is an error. It then 
 block against the built outputs (`levelArtReferenceProblems`): the prop atlas exists, every decor and mover
 prop names a frame in it, and every backdrop slot names a file under `public/assets/backdrops/<level>/`.
 
-## 8. Content `[partial: Phase 2-4]`
+## 8. Content `[implemented: Phase 2-5]`
 
 `src/content/level.ts` defines `LevelJson` (pixels, Y up): `solids`, `oneWay`, `movingSolids` (waypoint
 path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`,
@@ -298,27 +311,59 @@ path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZo
 overlapping blocking geometry, out-of-bounds rectangles, a spawn inside a solid, unknown enumerations and
 duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src/content/manifest.json`.
 
+`src/content/levels.ts` reads the same manifest at runtime: `levelIdFromQuery(search)` resolves `?level=`
+(default: the first manifest entry) and `loadLevelById(id)` imports the level JSON through
+`import.meta.glob`, so each level is its own chunk (Level 1 with its decor is 4 KB). Level files are
+written in the layout of `src/content/format.ts` (`formatLevel`): two-space indent, primitive-only
+objects and point arrays on one line, so rects and decor entries diff line by line.
+
+| Level | Name | Size | Contents |
+|---|---|---|---|
+| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads) |
+| `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint, a `tikbalang` spawn |
+
+Levels 3 and 6 have no `art` block and render as grey boxes with the zone glows until their art exists
+(PLAN: dressed in Phase 7). Enemy entries are spawn data until Phase 6.
+
 `art` (`src/content/level-art.ts`, `LevelArtJson`) is presentation only; the sim never reads it.
 `props` names the prop atlas, `backdrops` maps the `far` and `mid` slots to backdrop file stems, and `decor`
 lists quads: `{ prop, x, y, w?, h?, flip?, layer? }` with `x, y` in sim pixels at the frame's pivot
 (bottom centre), an optional `w` or `h` that scales keeping aspect, and `layer` in `wall | prop | front`
 (default `prop`). `levelArtProblems()` checks shapes and keeps positions within one level width of the
-level. Level 1's `art` uses `level-1-props` and the `sky`/`town` backdrops with 60 decor quads: floor
-boards scaled to fill each solid span, `platform_block_b` on the block, `platform_low_a` on the one-way and
-the mover, cans, and rust and concrete panels in the `wall` layer.
+level. Level 1's `art` uses `level-1-props` and the `sky`/`town` backdrops: floor boards
+(`platform_long_a`/`_b`) scaled to fill each solid span, `platform_block_b` on the blocks,
+`platform_low_a` hung from the one-ways and the mover, cans, and rust and concrete panels in the `wall`
+layer. The spans were dressed with the editor's `dressSpan` operation (section 11).
 
 `tools/level/from-tiled.ts` converts v1's Tiled map (`art-source/level-1/level-1.tiled.json`) into this
-schema: tile runs are merged into rectangles, spawns carried over, Y flipped. `src/content/levels/level-1.json`
-started from that output and was hand-edited: two pits (one three tiles wide, one crossed on a moving
-platform), a one-way platform, a two-tile block, spikes, and a checkpoint. The in-browser editor is Phase 5.
+schema: tile runs are merged into rectangles, spawns carried over, Y flipped. The Phase 2-4 Level 1 started
+from that output; the Phase 5 level replaced it with designed content and the tool is kept for importing
+other Tiled maps.
 
 ### 8.1 Replays (`tests/replay/`)
 
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
-(`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by scripted policies (`bots.ts`) that read the live world; only the
-inputs are saved, and `expect` pins status, tick count, lives, hp and final x. `npm run replay:record`
-re-records; commit the diff with the tuning change that caused it. `level-1-clear.json` completes Level 1
-in 2514 ticks (21 s) without damage.
+(`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by
+scripted routes (`bots.ts`) that read the live world; only the inputs are saved, and `expect` pins status,
+tick count, lives, hp and final x. `npm run replay:record` re-records all of them; commit the diff with the
+tuning or level change that caused it.
+
+Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
+until its `done` condition holds, then handing over to the next (`run(dir, untilX)`, `jump(dir)`,
+`dashJump(dir)` dashes at the apex, `dropThrough()`, `waitMover(index, {x?, y?})`, `ride(dir, untilX)`,
+`waitUntil(pred)`, `fire()`). Steps keep state, so `ROUTES[id]` is a factory and
+`clearRoute(id)` builds a fresh policy per recording. `npm run replay:trace -- <level-id>` prints where each
+step finished and the outcome, for authoring. Fixtures: `level-1-clear` 3884 ticks, `level-3-clear` 2310,
+`level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
+undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for each
+manifest level.
+
+Physics facts the routes and levels are built on (tuning as of Phase 5): a full jump rises 81 px and covers
+120 px of run; the body must be at least 64 px above the floor for 0.27 s, which spans 55 px, so a 32 px
+high obstacle is hopped and a 64 px one is landed on; a 96 px gap is jumpable at the same height, 128 px
+needs a dash at the apex (about 185 px of reach), and a +64 rise is reachable only with no gap (a 64 px gap
+with a +64 rise falls a few pixels short).
 
 ## 9. Validation and budgets `[implemented: Phase 0]`
 
@@ -337,7 +382,7 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Single image | 1.5 MB |
 | Single audio | 6 MB |
 
-## 10. Testing `[implemented: Phase 0-4]`
+## 10. Testing `[implemented: Phase 0-5]`
 
 | Layer | Tool | Location | Runs against |
 |---|---|---|---|
@@ -345,13 +390,14 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Replay | Vitest project `replay` | `tests/replay/**` | headless `World` on real level JSON |
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
-E2E specs: `smoke.spec.ts` (boot, pixels drawn, keyboard drives the sim) and `level.spec.ts`: a check that
+E2E specs: `smoke.spec.ts` (boot, pixels drawn, keyboard drives the sim), `editor.spec.ts` (section 11), and `level.spec.ts`: a check that
 the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
 3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
 written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with the debug overlay and HUD
 asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
-screenshots the one-way and mover sections, and requires the browser build to finish on the same tick, hp
-and x as the headless replay. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
+screenshots the one-way, mover and first dash-gap sections, and requires the browser build to finish on the same tick, hp
+and x as the headless replay; the same load-and-replay check runs for `level-3` and `level-6` through
+`?level=`, plus a check that an unknown id is a boot error. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
 
@@ -360,3 +406,64 @@ Measured under SwiftShader at 1280x720: grey-box 60 fps; art with the post stack
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
 uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.
+
+## 11. Level editor `[implemented: Phase 5]`
+
+`?edit=1` opens the current level in the editor (`src/editor/`, loaded as a separate chunk). The sim is
+frozen; every edit rebuilds the level view and world through `App.loadLevel`, so what is drawn is what the
+sim will collide with. `P` playtests from the spawn with the game's own keyboard and camera; `P` again
+returns to the editor camera.
+
+`doc.ts` is the pure model, unit-tested without DOM or Three.js. Objects are addressed by `Ref`
+(`{ kind, index }`, kinds `solid | oneWay | mover | hazard | deathZone | checkpoint | enemy | decor | spawn |
+exit`; spawn and exit are singletons). A `KIND` table maps each kind to the `LevelJson` array holding it
+and its shape (`rect`, `point`, or `decor`), so storage, hit-testing and deletion are generic and only the
+shapes branch. `bounds()` gives every kind a rectangle (point kinds get a 24x48
+standing body at the feet; decor its rendered size placed by the frame's pivot fraction, mirrored when
+flipped), `setBounds()`/`move()` write it back (a mover's path shifts with it; resizing decor pins `w` and
+drops `h` so the aspect holds), `add()` creates with defaults (a mover shuttles 128 px right at 60 px/s
+with a 30-tick pause, a checkpoint takes the next id, an enemy is a patroller with 120 px patrol),
+`remove()`, `duplicate()` (one tile right; a checkpoint copy takes a fresh id), `fieldsFor(kind)` lists the
+editable fields per kind with enumerations taken from the content schema (`HAZARD_KINDS`, `ENEMY_TYPES`,
+`DECOR_LAYERS`) and `setField()` writes one (`undefined` deletes an optional field; a mover's typed `x`/`y`
+shift its path like a drag), `refsAt()` hit-tests smallest first,
+`snapRect()` keeps at least one grid cell, `dressSpan(ref, prop)` covers a solid or one-way with copies of a
+prop (scaled to its height for thick colliders; natural aspect hung from the top edge for thin ones).
+`EditorDoc` holds the level, the selection and an undo/redo stack of whole levels (they are a few KB):
+`commit(next)` records a step, `preview(level)` shows a transient state without touching history, and
+`commitFrom(base, next)` records a whole drag as one step whatever previews happened in between. Every
+operation returns a new level; the same functions dressed Level 1 from a script.
+
+`editor.ts` is the controller: pointer tools (select/move/resize with eight handles, drag-to-create for the
+armed kind, click-to-place for spawn/enemy/decor; shift-click cycles overlapping objects), pan with the
+right or middle button or Alt-drag, wheel zoom about the cursor (lens distance 6..160), arrow keys nudge the
+selection by the grid (Shift: 1 px) or pan when nothing is selected. Keys: `V`/`Esc` select, `1`-`9`,`0`
+arm a kind in palette order, `G` cycles the grid (32/16/8/1), `Delete`/`Backspace`,
+`Ctrl+Z`/`Ctrl+Shift+Z`/`Ctrl+Y`, `Ctrl+D`, `B` dress the selected span with the current prop, `F` flip
+decor, `L` cycle the decor layer, `Home` fit the level, `Ctrl+S` save; keys are ignored while a drag is in
+progress. Every shown state is validated first: the world is rebuilt through `App.loadLevel` only when
+`levelProblems` is empty, so the sim never sees an invalid level while the overlay and problem list keep
+showing it for fixing. The document is dirty when its level is not the object last saved or opened, so
+undoing back to the saved state clears it. `overlay.ts` draws outlines per kind (`KIND_COLORS`), mover paths, the level bounds,
+the grid, the selection with handles kept 8 CSS px wide, and the drag ghost, all above the front decor with
+depth testing off. `panel.ts` is the DOM: kind and action buttons, grid and level fields on the left with
+the prop palette (thumbnails cut from the atlas WebP by CSS background offsets), the selection's fields and
+the live `levelProblems` + prop reference list on the right.
+
+Saving: `Ctrl+S` runs the validators; with problems nothing is sent. Otherwise the level is formatted
+(`formatLevel`) and `PUT /__editor/levels/<id>` goes to the dev server. `tools/dev/editor-plugin.ts`
+(registered in `vite.config.ts`, serve only) loads `tools/dev/editor-save.ts` through Vite's SSR loader so
+it shares `src/content` with the app, and `saveLevel()` checks the id is in the manifest (404 otherwise: add
+it by hand first), the body parses, `levelProblems` and the on-disk art references
+(`tools/validate/level-refs.ts`, shared with `npm run validate`) pass, then writes
+`src/content/levels/<id>.json`. The plugin remembers the text it wrote per file and, in `hotUpdate`, swallows
+change events whose content matches (a save, including a double-fired watcher) so the page does not reload
+over the editor's state; a later hand edit differs and reloads as usual. Without a dev server (production
+build, `GET /__editor/ping` fails) the editor downloads `<id>.json` instead. `saveLevel` is unit-tested with
+an injected filesystem, and `editor-plugin.test.ts` runs the endpoint on a real dev server (ping, 404, 422,
+a no-op re-save of Level 3, and the hot-update rule).
+
+Not in this phase: adding an `art` block or changing `art.props`/backdrops from the editor (requires an
+asset reload), multi-selection, and editing enemies beyond spawn data. `hooks.editor` publishes `tool`,
+`selection` (`kind#index`), `objects`, `revision`, `dirty`, `lastSave` and `playing` for `editor.spec.ts`,
+which drags out a solid, selects it, undoes, playtests with `P`, and opens an art-less level.
