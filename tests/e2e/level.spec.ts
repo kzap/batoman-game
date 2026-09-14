@@ -22,7 +22,7 @@ const SHOTS = resolve(HERE, '../../e2e-screenshots');
 const hooks = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__batoman)) as TestHooks);
 const ready = (page: Page) => page.waitForFunction(() => window.__batoman?.ready === true && window.__batoman.frames > 10);
 
-test.describe('grey-box', () => {
+test.describe('level 1', () => {
   test('holds the frame-time budget while running the sim', async ({ page }) => {
     await page.goto('/');
     await ready(page);
@@ -35,12 +35,31 @@ test.describe('grey-box', () => {
     const seconds = (Date.now() - t0) / 1000;
     const fps = (after.frames - before.frames) / seconds;
     const tps = (after.simTicks - before.simTicks) / seconds;
-    // Software WebGL in CI is slow; 30 fps is the floor, and the sim must still run at full rate.
-    expect(fps).toBeGreaterThan(30);
+    // Software WebGL in CI is fill-bound: the two full-screen backdrop layers plus the post stack run at
+    // roughly 35-40 fps under SwiftShader on a laptop (grey-box was 60). 20 fps is the floor for regressions;
+    // the sim must still run at full rate whatever the renderer manages.
+    console.log(`frame budget: ${fps.toFixed(1)} fps, ${tps.toFixed(0)} ticks/s, dropped ${after.droppedFrames - before.droppedFrames}`);
+    expect(fps).toBeGreaterThan(20);
     expect(tps).toBeGreaterThan(110);
     expect(after.droppedFrames - before.droppedFrames).toBeLessThanOrEqual(6); // one GC pause is not a regression
     expect(after.lastFrameMs).toBeLessThan(100);
     expect(after.errors).toEqual([]);
+  });
+
+  test('loads the art: sprites and props are drawn, not grey boxes', async ({ page }) => {
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(r.url()));
+    await page.goto('/');
+    await ready(page);
+    // Every atlas and backdrop the level references must have arrived; a 404 lands in errors via the boot catch.
+    const h = await hooks(page);
+    expect(h.errors).toEqual([]);
+    const served = requests.filter((u) => u.includes('/assets/atlases/') || u.includes('/assets/backdrops/'));
+    expect(served.some((u) => u.endsWith('atlases/batoman.json'))).toBe(true);
+    expect(served.some((u) => u.endsWith('atlases/batoman.webp'))).toBe(true);
+    expect(served.some((u) => u.endsWith('atlases/level-1-props.webp'))).toBe(true);
+    expect(served.some((u) => u.endsWith('backdrops/level-1/sky.webp'))).toBe(true);
+    expect(served.some((u) => u.endsWith('backdrops/level-1/town.webp'))).toBe(true);
   });
 
   test('captures baseline screenshots of the start and mid-level, with the debug overlay', async ({ page }) => {
@@ -67,6 +86,11 @@ test.describe('grey-box', () => {
     await page.goto('/');
     await ready(page);
     await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+    // Screenshots at landmarks on the way: the one-way platform and the moving platform over the second pit.
+    for (const [name, x] of [['level-1-oneway', 1550], ['level-1-mover', 2380]] as const) {
+      await page.waitForFunction((min) => (window.__batoman?.player.x ?? 0) > min, x, { timeout: 60_000 });
+      await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
+    }
     await page.waitForFunction(() => window.__batoman?.status !== 'playing', null, { timeout: 90_000 });
     const h = await hooks(page);
     expect(h.status).toBe(fixture.expect.status);

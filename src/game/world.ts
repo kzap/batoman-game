@@ -38,6 +38,8 @@ export interface PlayerSnapshot {
   readonly h: number;
   readonly facing: 1 | -1;
   readonly pose: PlayerPose;
+  /** Fired recently; the renderer overlays the shooting clip on idle/run. */
+  readonly shooting: boolean;
   readonly hp: number;
   readonly invulnerable: boolean;
 }
@@ -51,6 +53,8 @@ export interface ProjectileSnapshot {
 
 export interface SolidSnapshot extends Rect {
   readonly id: number;
+  /** Prop frame from the level JSON, passed through for the renderer. */
+  readonly prop: string | undefined;
 }
 
 /**
@@ -293,10 +297,11 @@ export class World {
         facing: this.player.facing,
         pose: this.player.pose,
         hp: this.health.hp,
+        shooting: this.player.shooting,
         invulnerable: this.health.invulnerable || this.player.invulnerable,
       },
       projectiles: this.projectiles.map((p) => ({ id: p.id, x: p.x, y: p.y, dir: p.dir })),
-      movingSolids: this.movers.map((m) => ({ id: m.solid.id, x: m.solid.x, y: m.solid.y, w: m.solid.w, h: m.solid.h })),
+      movingSolids: this.movers.map((m) => ({ id: m.solid.id, x: m.solid.x, y: m.solid.y, w: m.solid.w, h: m.solid.h, prop: m.spec.prop })),
       camera: this.camera.snapshot(),
     };
   }

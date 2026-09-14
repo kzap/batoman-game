@@ -8,7 +8,7 @@ Status: skeleton. Sections are filled in by the phase that implements them. Anyt
 | Package | Version | Role |
 |---|---|---|
 | `three` | 0.186 | Renderer, scene graph, loaders |
-| `postprocessing` | 6.39 (added in Phase 4) | Bloom, vignette, DOF |
+| `postprocessing` | 6.39 (added in Phase 4) | Bloom, vignette, grain, DOF |
 | `vite` | 7 | Dev server, bundler |
 | `typescript` | 5.9 (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) | |
 | `vitest` | 5 | Unit and replay tests |
@@ -105,32 +105,75 @@ weaker shake never replaces a stronger one in progress. Hurt and death shake the
 replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
 a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
 
-## 5. Renderer `[partial: Phase 3]`
+## 5. Renderer `[implemented: Phase 3-4]`
 
 `Stage` (`src/render/stage.ts`) owns the `WebGLRenderer`, `Scene`, `PerspectiveCamera` (`LENS`: FOV 30,
-distance 22, looking at Z=0), fog, and ambient + key/rim lights (ambient is high for grey-box readability;
-Phase 4 lowers it). `LAYER_Z` fixes the Z depths for backdrop,
-gameplay, and foreground layers. `setCamera(x, y)` places the camera over a point on the gameplay plane.
-`preserveDrawingBuffer` is on so tests can read pixels.
+distance 22, looking at Z=0), fog, ambient + key/rim lights, and the optional `PostStack`. `LAYER_Z` fixes
+the Z depths for backdrop, gameplay, and foreground layers. `setCamera(x, y)` places the camera over a point
+on the gameplay plane; `render(deltaSeconds)` draws through the post stack when one is installed.
+`preserveDrawingBuffer` is on so tests can read pixels. The lights only affect the few lit meshes left (grey
+boxes, crushers); art is drawn unlit.
 
-Units: `src/render/units.ts`, 32 sim pixels per stage unit. At Z=0 the view is about 21 x 11.8 units
-(672 x 378 px), so the 48 px player is 1.5 units, roughly 13% of the screen height.
+Units: `src/render/units.ts`, 32 sim pixels per stage unit (`toUnits`). Atlas frames are packed at half
+source scale, and one source pixel is one sim pixel, so `atlasToUnits` maps 1 atlas px to 0.5 sim px
+(`SIM_PX_PER_ATLAS_PX`). At Z=0 the view is about 21 x 11.8 units (672 x 378 px); BatoMan's 120 px idle
+frame is 60 sim px tall over a 48 px hitbox.
 
-`LevelView` (`level-view.ts`) builds grey-box meshes straight from the level JSON: solids (grey boxes,
-depth 2, set slightly behind Z=0), one-way platforms (rust), spikes (magenta), crushers (red), and
-translucent planes for death zones (red), checkpoints (cyan), the exit (green) and enemy spawns (amber).
-Backdrop planes are sized to the level plus a margin per depth so the camera never sees past them.
+### 5.1 Assets and sprites
 
-`EntityView` (`entity-view.ts`) mirrors dynamic entities by id: one mesh per player, projectile and moving
-solid, created when an id appears and removed when it disappears. `present(prev, cur, alpha)` lerps
-positions between the two latest snapshots; the player mesh is scaled from the body's `w x h` so crouching
-shows, blinks while invulnerable and turns magenta while hurt. Collider outlines (`setOutlines`) are
-`LineSegments` children so the parent's scale sizes them; the debug overlay toggles them.
+`loadAssets(level, source)` (`assets.ts`) fetches the `batoman` atlas and, when the level has an `art`
+block, its prop atlas and backdrop textures, through an `AssetSource` (`HttpAssetSource` in production; tests
+substitute their own). `main.ts` awaits it before constructing `App`; a failed fetch is pushed to
+`hooks.errors` as `boot failed: ...`.
+
+`SpriteQuad` (`sprite.ts`) is one `PlaneGeometry` quad with an unlit `MeshBasicMaterial` (`alphaTest 0.02`,
+`depthWrite false`, no lighting). `setFrame` rewrites the UVs from `frameUv`; `place(x, y, z, { flip, size,
+scale })` positions the quad so the frame's pivot lands on the sim point, using `placeFrame`
+(`sprite-layout.ts`, pure). By default the quad is sized from the frame's pixel box through
+`SIM_PX_PER_ATLAS_PX`; `size` stretches a frame to a target width or height (decor scaled to a span, a mover's
+prop to its collider), keeping the aspect when one side is given.
+
+`PlayerAnimator` (`animator.ts`) is tick-driven: `frameAt(pose, shooting, tick)` picks a clip with
+`clipForPose` and a frame with `clipFrameIndex`, so playback is deterministic and survives replay. The atlas
+has `idle run shoot shoot_run hurt jump orb`; poses without art borrow: `jump` = first five jump frames
+(non-looping, 1.5x fps), `fall` = last three, `wallslide` = jump frame 6, `crouch`/`slide` = jump frame 0,
+`dash` = run frame 3, `dead` = hurt frame 1. While `PlayerSnapshot.shooting` is true (36 ticks after a shot,
+`PLAYER.shootPoseTicks`), idle/crouch use `shoot` and run uses `shoot_run`.
+
+### 5.2 Level view and diorama
+
+`LevelView(level, art)` (`level-view.ts`) builds the static scene. With art: two backdrop planes placed by
+`backdropPlacement` (`diorama.ts`), decor quads from `art.decor` at `DECOR_Z` (`wall` -1.2, `prop` -0.4,
+`front` 3), and additive glow planes for the zones that matter in play (checkpoint beams amber, exit beam
+cyan, death zones teal, spikes magenta). Without art it draws the Phase 3 grey boxes. Collider outlines for
+every static rectangle (`setOutlines`) are toggled with the debug overlay.
+
+`diorama.ts` is pure geometry. `SLOT_Z` maps the `far` slot to `LAYER_Z.farStructures` (-60) and `mid` to
+`LAYER_Z.nearStructures` (-8). `cameraRange` derives the camera's travel from the level size and
+`CAMERA.viewW/viewH`; the far plane is sized so its projection covers that range with a 15% margin, wrapping
+the texture (mirrored repeat) horizontally. The mid plane is sized to appear one screen tall and has its
+bottom sunk 0.8 units below the ground line so the silhouettes sit behind the floor props; it repeats
+horizontally with a 5% edge fade baked into the texture (section 7.3). Backdrop textures use linear
+filtering without mipmaps (mipmap generation on two full-screen layers cost ~10 fps under software GL).
+
+### 5.3 Entity view and post
+
+`EntityView(assets)` (`entity-view.ts`) mirrors dynamic entities by id. The player is one `SpriteQuad` at
+`PLAYER_Z` 0.3, flipped by facing, frame from `PlayerAnimator`, blinking while invulnerable and tinted
+magenta while hurt. Projectiles use the `orb` frame at 0.4 scale with additive blending. A moving solid with
+`prop` set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top
+edge; without `prop` it is a lit box. `present(prev, cur, alpha)` lerps positions between snapshots;
+collider outlines are separate `LineSegments` toggled by `setOutlines`.
+
+`PostStack` (`post.ts`, `postprocessing`): bloom (luminance threshold 0.62, intensity 1.1, mipmap blur) so
+only emissive planes and highlights glow, vignette (offset 0.32, darkness 0.55), soft-light film grain
+(opacity 0.35), and optional depth of field focused at `LENS.distance` (range 6, bokeh 3). `POST_DEFAULTS`
+enables bloom, vignette and grain; DOF is off (11 fps under SwiftShader). `?post=0` disables the stack
+(and re-enables canvas MSAA, which the stack otherwise replaces); `?dof=1` turns DOF on
+(`postOptionsFromQuery` in `app.ts`).
 
 Camera framing comes from the sim (`CameraController`, section 4.4); the app lerps the centre between
 snapshots and adds the current tick's shake offset unlerped.
-
-Billboards, atlas-driven animation, diorama layers, prop instancing, and the post stack arrive in Phase 4.
 
 ## 6. App `[implemented: Phase 3]`
 
@@ -148,8 +191,7 @@ still reaches one tick.
 
 `DebugOverlay` (`debug.ts`, backtick): fps and ticks/s over 500 ms windows, frame time, dropped frames,
 entity count, tick, status, player position/size/pose/facing/hp, camera centre and shake. Toggling it also
-shows collider outlines on dynamic entities (player, projectiles, movers); static colliders are the grey-box
-meshes themselves, drawn at their exact collision rectangles. `Hud` (`hud.ts`) is the grey-box placeholder: hearts, lives, end-of-run banner.
+shows collider outlines on every collider, static and dynamic. `Hud` (`hud.ts`) is a placeholder: hearts, lives, end-of-run banner.
 
 ## 7. Asset pipeline `[implemented: Phase 1]`
 
@@ -213,8 +255,12 @@ and animations `{ fps, loop, frames }`. Frame names are `<animation>_<NN>` for s
 catalogues.
 
 `buildBackdrops` (`backdrops.ts`) reads `art-source/<level>/backdrops.json` and writes one WebP per layer,
-lossy (default quality 82) unless the layer has transparency or sets `lossless: true`. Level 1's foreground
-has alpha but is written lossy at quality 90 to stay within the payload target.
+lossy (default quality 82) unless the layer has transparency or sets `lossless: true`. Two per-layer fixes
+run on the raw RGBA before encoding: `erase` rectangles (`mode: 'clear'` zeroes alpha; `mode: 'fill'`
+recolours with the mean of the visible border pixels, keeping alpha) remove the generator's watermark, and
+`edgeFade` (fraction of width) fades alpha to zero at the left and right edges so a layer can repeat
+horizontally without a seam. Level 1 ships `sky` (opaque, from `background.png`) and `town` (alpha, from
+`foreground.png`, lossy at quality 90, 5% edge fade); the source midground is not used.
 
 Atlases are WebP only. KTX2/Basis output needs an encoder dependency and a runtime `KTX2Loader` path; it is
 deferred until a measured GPU-memory or decode-time problem justifies it.
@@ -230,25 +276,36 @@ deferred until a measured GPU-memory or decode-time problem justifies it.
 | `level-1-props` | 24 | 1024x1024 | 769 KB |
 | `level-4-props` | 27 | 1024x1024 | 791 KB |
 
-Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops: 61 KB + 176 KB + 221 KB.
+Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops: `sky` 60 KB, `town` 225 KB.
 
-The Level 1 set a player downloads (BatoMan, patroller, drone, props atlases with their JSON, three
-backdrops) is 2,918,440 bytes. v1 loaded 29,557,023 bytes of images for the same level
-(`git show v1-archive:src/scenes/PreloadScene.ts`: three backdrops, tileset, batoman, drone, patroller
-PNGs). Ratio 9.9%, against the 10% ceiling; a quality or scale increase on any Level 1 asset needs a
-matching saving elsewhere.
+The Level 1 set a player downloads today (BatoMan and props atlases with their JSON, two backdrops) is
+1,729,694 bytes; with the patroller and drone atlases Phase 6 adds it is 2,741,238 bytes. v1 loaded
+29,557,023 bytes of images for the same level (`git show v1-archive:src/scenes/PreloadScene.ts`: three
+backdrops, tileset, batoman, drone, patroller PNGs). Ratio 9.3%, against the 10% ceiling; a quality or
+scale increase on any Level 1 asset needs a matching saving elsewhere.
 
 `npm run validate` (`tools/validate/assets.ts`) parses every recipe and backdrop spec, requires each output
 file to exist, checks each atlas JSON with `atlasProblems()`, and confirms the WebP dimensions match the
-JSON. A file under `public/assets/atlases/` with no recipe is an error.
+JSON. A file under `public/assets/atlases/` with no recipe is an error. It then checks each level's `art`
+block against the built outputs (`levelArtReferenceProblems`): the prop atlas exists, every decor and mover
+prop names a frame in it, and every backdrop slot names a file under `public/assets/backdrops/<level>/`.
 
-## 8. Content `[partial: Phase 2]`
+## 8. Content `[partial: Phase 2-4]`
 
 `src/content/level.ts` defines `LevelJson` (pixels, Y up): `solids`, `oneWay`, `movingSolids` (waypoint
-path, speed, pause), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`, `enemies` (spawn data
-for Phase 6), `spawn`, `exit`. `levelProblems()` rejects overlapping blocking geometry, out-of-bounds
-rectangles, a spawn inside a solid, unknown enumerations and duplicate checkpoint ids; `tools/validate`
-runs it on every level listed in `src/content/manifest.json`.
+path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`,
+`enemies` (spawn data for Phase 6), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
+overlapping blocking geometry, out-of-bounds rectangles, a spawn inside a solid, unknown enumerations and
+duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src/content/manifest.json`.
+
+`art` (`src/content/level-art.ts`, `LevelArtJson`) is presentation only; the sim never reads it.
+`props` names the prop atlas, `backdrops` maps the `far` and `mid` slots to backdrop file stems, and `decor`
+lists quads: `{ prop, x, y, w?, h?, flip?, layer? }` with `x, y` in sim pixels at the frame's pivot
+(bottom centre), an optional `w` or `h` that scales keeping aspect, and `layer` in `wall | prop | front`
+(default `prop`). `levelArtProblems()` checks shapes and keeps positions within one level width of the
+level. Level 1's `art` uses `level-1-props` and the `sky`/`town` backdrops with 60 decor quads: floor
+boards scaled to fill each solid span, `platform_block_b` on the block, `platform_low_a` on the one-way and
+the mover, cans, and rust and concrete panels in the `wall` layer.
 
 `tools/level/from-tiled.ts` converts v1's Tiled map (`art-source/level-1/level-1.tiled.json`) into this
 schema: tile runs are merged into rectangles, spawns carried over, Y flipped. `src/content/levels/level-1.json`
@@ -280,7 +337,7 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Single image | 1.5 MB |
 | Single audio | 6 MB |
 
-## 10. Testing `[implemented: Phase 0-3]`
+## 10. Testing `[implemented: Phase 0-4]`
 
 | Layer | Tool | Location | Runs against |
 |---|---|---|---|
@@ -288,13 +345,18 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Replay | Vitest project `replay` | `tests/replay/**` | headless `World` on real level JSON |
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
-E2E specs: `smoke.spec.ts` (boot, pixels drawn, keyboard drives the sim) and `greybox.spec.ts`: a
-frame-time budget (at least 30 fps and 110 ticks/s over 3 s of running, at most 2 dropped frames, under
-software GL), baseline screenshots written to `e2e-screenshots/` (gitignored; CI uploads them on every run)
-with the debug overlay and HUD asserted, and a scripted traversal that feeds `level-1-clear.json` through
-`window.__batoman.replay` and requires the browser build to finish on the same tick, hp and x as the
-headless replay. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL output is
-not stable enough across machines to gate on.
+E2E specs: `smoke.spec.ts` (boot, pixels drawn, keyboard drives the sim) and `level.spec.ts`: a check that
+the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
+3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
+written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with the debug overlay and HUD
+asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
+screenshots the one-way and mover sections, and requires the browser build to finish on the same tick, hp
+and x as the headless replay. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
+output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
+halve each other's frame rate.
+
+Measured under SwiftShader at 1280x720: grey-box 60 fps; art with the post stack 37-41 fps; `?post=0` about
+38 fps (the two full-screen backdrop layers are the fill cost, not the post stack); `?dof=1` 11 fps.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
 uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.

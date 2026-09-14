@@ -1,6 +1,6 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-2 merged; Phase 3 in review. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
+Status: Phases 0-3 merged; Phase 4 in review. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
 the `v2` branch one phase per PR, then merges to `main` when playable.
 
 ## Why a remake
@@ -55,8 +55,9 @@ Dependency direction is `core <- game <- render/app`, enforced by ESLint.
 
 Camera on +Z at distance 22, FOV 30, looking at Z=0. Diorama layers at Z = -8 / -25 / -60 / -150, unlit,
 fog only; parallax comes from camera motion. Foreground dressing at +5 / +15. Characters are alpha-tested
-billboards at Z=0 with per-frame pivots. Z=0 gets an amber key and cyan rim light so silhouettes read
-against the art (ART.md's readability rule).
+billboards at Z=0 with per-frame pivots. Phase 4 outcome: painted art (backdrops, props, sprites) is unlit
+so the paintings keep their own light; the amber key and cyan rim lights remain for lit placeholder geometry.
+Level 1 uses two backdrop slots (far -60, mid -8) plus three decor layers (wall, prop, front).
 
 ## Workflow per phase
 

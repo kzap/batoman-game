@@ -50,10 +50,20 @@ with no screen, it is game.
 
 - Camera: `PerspectiveCamera`, FOV 30, on +Z looking at Z=0 (`src/render/stage.ts` `CAMERA`). Keep FOV narrow;
   wide FOV makes jump distances unreadable.
-- Layer depths are the `LAYER_Z` constants. Backdrops use `MeshBasicMaterial` (unlit, fog only). Z=0 content
-  uses `MeshStandardMaterial` with the key (amber) + rim (cyan) lights so silhouettes read against art.
-- Characters are alpha-tested billboards driven by atlas frames with per-frame pivots. Never scale a
-  billboard to "fix" alignment; fix the pivot in the recut recipe.
+- Layer depths are the `LAYER_Z` constants (`src/render/stage.ts`); backdrop slots map to them in
+  `src/render/diorama.ts` (`SLOT_Z`), decor layers in `src/render/level-view.ts` (`DECOR_Z`). Painted art
+  (backdrops, decor, sprites) is unlit `MeshBasicMaterial` via `atlasMaterial`/`SpriteQuad`
+  (`src/render/sprite.ts`). Only grey boxes and crushers are lit.
+- Characters are alpha-tested billboards (`SpriteQuad`) driven by atlas frames with per-frame pivots;
+  `placeFrame` (`src/render/sprite-layout.ts`) does the maths. Never scale a billboard to "fix" alignment;
+  fix the pivot in the recut recipe. Atlas px to sim px is `atlasToUnits` (`units.ts`), not a local factor.
+- Player animation is tick-driven (`PlayerAnimator`, `src/render/animator.ts`): frame = f(pose, shooting,
+  tick). Do not keep wall-clock animation state in the renderer.
+- Level dressing is data: `art` in the level JSON (`src/content/level-art.ts`), decor quads at the frame's
+  pivot in sim px. Prop names and backdrop stems are checked against built outputs by `npm run validate`.
+- Post stack is `PostStack` (`src/render/post.ts`, `postprocessing`). Bloom is luminance-thresholded; make
+  something glow by making it bright (additive/emissive), not by adding a pass. `?post=0` disables it,
+  `?dof=1` enables depth of field (expensive under software GL; off by default).
 - Interpolate: position = lerp(previous, current, alpha). Never move a mesh from inside a tick.
 - Dynamic entities are mirrored by id in `EntityView` (`src/render/entity-view.ts`): create on first
   sight, remove when the id leaves the snapshot. Static level geometry is `LevelView`. Sim pixels become
@@ -65,6 +75,8 @@ with no screen, it is game.
 
 ## App rules
 
+- Boot is async: `main.ts` awaits `loadAssets` (`src/render/assets.ts`) then constructs `App(canvas, hooks,
+  level, assets, opts)`. Fetch through an `AssetSource`; never `fetch` from `render/` directly.
 - The frame loop is `App.frame`. It calls `clock.advance`, steps the world N times, then presents once.
 - Test hooks live on `window.__batoman` (`TestHooks` in `src/app/app.ts`). Add fields there when e2e tests
   need new visibility; never read private state from tests.
@@ -84,6 +96,9 @@ with no screen, it is game.
 - `tools/pack` writes atlases and backdrops under `public/assets/` (gitignored; `npm run assets`, also run
   by `npm run build`). Atlas JSON shape is `AtlasJson` in `src/content/atlas.ts`; pivots are in atlas pixels
   from the frame's top-left.
+- Backdrop layers (`art-source/<level>/backdrops.json`) support `erase` rects (`clear` or `fill`, for the
+  generator watermark) and `edgeFade` (fraction of width) for layers that repeat horizontally. Fix source
+  blemishes there, not in the renderer.
 - `tools/validate` and `tools/validate/budget.ts` fail the build on malformed content, missing pipeline
   output, or oversized payload. Budgets are in `tools/config.ts`; raise them in a PR with a stated reason.
 - Details: `docs/TDD.md` section 7.

@@ -55,6 +55,8 @@ export const PLAYER = {
   dropThroughSpeed: 120,
 
   fireCooldownTicks: 10,
+  /** How long the shooting pose lingers after a shot (renderer hint; no gameplay effect). */
+  shootPoseTicks: 36,
 
   maxHp: 3,
   invulnTicks: 72,

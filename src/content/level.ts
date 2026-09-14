@@ -7,6 +7,8 @@
 import type { AABB } from '@core/math/aabb';
 import { overlaps } from '@core/math/aabb';
 import type { Vec2 } from '@core/math/vec2';
+import { isInt, isRecord } from './json';
+import { levelArtProblems, type LevelArtJson } from './level-art';
 
 export type Rect = AABB;
 export type Point = Vec2;
@@ -17,6 +19,8 @@ export interface MovingSolidJson extends Rect {
   readonly speed: number;
   /** Ticks to wait at each waypoint. */
   readonly pause?: number;
+  /** Frame in the level's prop atlas drawn stretched over the collider. Grey box when absent. */
+  readonly prop?: string;
 }
 
 export type HazardKind = 'spikes' | 'crusher';
@@ -57,14 +61,14 @@ export interface LevelJson {
   readonly deathZones: readonly Rect[];
   readonly checkpoints: readonly CheckpointJson[];
   readonly enemies: readonly EnemySpawnJson[];
+  /** Dressing for the renderer; a level without it renders as grey boxes. */
+  readonly art?: LevelArtJson;
 }
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
 const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'tikbalang'];
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const isInt = (v: unknown): v is number => Number.isInteger(v);
 
 function rectProblems(r: unknown, label: string, level: { width: number; height: number }): string[] {
   if (!isRecord(r)) return [`${label}: must be an object`];
@@ -144,6 +148,7 @@ export function levelProblems(json: unknown): string[] {
     }
     if (typeof m.speed !== 'number' || !(m.speed > 0)) problems.push(`movingSolids[${i}].speed must be positive`);
     if (m.pause !== undefined && (!isInt(m.pause) || m.pause < 0)) problems.push(`movingSolids[${i}].pause must be a non-negative integer`);
+    if (m.prop !== undefined && (typeof m.prop !== 'string' || m.prop.length === 0)) problems.push(`movingSolids[${i}].prop must be a non-empty string`);
   });
 
   (json.hazards as unknown[] | undefined)?.forEach((h, i) => {
@@ -173,6 +178,7 @@ export function levelProblems(json: unknown): string[] {
       if (e.patrolDistance !== undefined && (!isInt(e.patrolDistance) || e.patrolDistance < 0)) problems.push(`enemies[${i}].patrolDistance must be a non-negative integer`);
     });
   }
+  if (json.art !== undefined) problems.push(...levelArtProblems(json.art, level));
   return problems;
 }
 

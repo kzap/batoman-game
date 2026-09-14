@@ -3,12 +3,13 @@ import { FixedClock } from '@core/sim/clock';
 import type { InputFrame } from '@core/sim/input';
 import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
+import { disposeAssets, type GameAssets } from '@render/assets';
 import { EntityView } from '@render/entity-view';
 import { LevelView } from '@render/level-view';
+import type { PostOptions } from '@render/post';
 import { Stage } from '@render/stage';
 import { toUnits } from '@render/units';
-import level1 from '@content/levels/level-1.json';
-import { parseLevel, type LevelJson } from '@content/level';
+import type { LevelJson } from '@content/level';
 import { DebugOverlay } from './debug';
 import { Hud } from './hud';
 import { Keyboard } from './keyboard';
@@ -68,14 +69,28 @@ export function installHooks(): TestHooks {
   return hooks;
 }
 
+export interface AppOptions {
+  /** Post-processing switches; `null` disables the stack (see `postOptionsFromQuery`). */
+  readonly post?: PostOptions | null;
+}
+
+/**
+ * `?post=0` turns the post stack off, `?dof=1` adds depth of field. For
+ * profiling and for machines where the composer is the bottleneck.
+ */
+export function postOptionsFromQuery(search: string): PostOptions | null {
+  const q = new URLSearchParams(search);
+  if (q.get('post') === '0') return null;
+  return q.get('dof') === '1' ? { dof: true } : {};
+}
+
 export class App {
   private readonly clock = new FixedClock();
-  private readonly level: LevelJson = parseLevel(level1, 'level-1');
   private world: World;
   private readonly keyboard = new Keyboard();
   private readonly stage: Stage;
   private readonly levelView: LevelView;
-  private readonly entities = new EntityView();
+  private readonly entities: EntityView;
   private readonly debug: DebugOverlay;
   private readonly hud: Hud;
   private replay: Generator<InputFrame> | null = null;
@@ -85,21 +100,29 @@ export class App {
   private previous: WorldSnapshot;
   private current: WorldSnapshot;
   private lastTime = 0;
+  private frameSeconds = 0;
   private rafId = 0;
   private readonly onResize = (): void => this.stage.resize();
 
   constructor(
     canvas: HTMLCanvasElement,
     readonly hooks: TestHooks,
+    private readonly level: LevelJson,
+    private readonly assets: GameAssets,
+    opts: AppOptions = {},
   ) {
-    this.stage = new Stage({ canvas });
-    this.levelView = new LevelView(this.level);
+    this.stage = new Stage({ canvas, post: opts.post ?? {} });
+    this.levelView = new LevelView(level, assets.levelArt);
+    this.entities = new EntityView(assets);
     this.stage.scene.add(this.levelView.group, this.entities.group);
     this.world = this.newWorld(1);
     this.current = this.world.snapshot();
     this.previous = this.current;
     this.debug = new DebugOverlay(document.getElementById('debug') ?? document.createElement('div'));
-    this.debug.onToggle = (on): void => this.entities.setOutlines(on);
+    this.debug.onToggle = (on): void => {
+      this.entities.setOutlines(on);
+      this.levelView.setOutlines(on);
+    };
     this.hud = new Hud(document.getElementById('hud') ?? document.createElement('div'));
     window.addEventListener('resize', this.onResize);
     this.keyboard.attach();
@@ -120,6 +143,7 @@ export class App {
     this.debug.detach();
     this.entities.dispose();
     this.levelView.dispose();
+    disposeAssets(this.assets);
     this.stage.dispose();
     this.hooks.ready = false;
     this.hooks.replay = null;
@@ -157,10 +181,12 @@ export class App {
 
   private readonly frame = (now: number): void => {
     const frameMs = now - this.lastTime;
+    const frameSeconds = frameMs / 1000;
     this.lastTime = now;
     this.hooks.lastFrameMs = frameMs;
+    this.frameSeconds = frameSeconds;
 
-    const step = this.clock.advance(frameMs / 1000);
+    const step = this.clock.advance(frameSeconds);
     if (step.dropped) this.hooks.droppedFrames += 1;
 
     for (let i = 0; i < step.ticks; i++) {
@@ -194,6 +220,6 @@ export class App {
     const cam = lerp(this.previous.camera, this.current.camera, alpha);
     const shake = this.current.camera;
     this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
-    this.stage.render();
+    this.stage.render(this.frameSeconds);
   }
 }

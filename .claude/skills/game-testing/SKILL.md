@@ -17,8 +17,11 @@ npm run test:e2e      # Playwright against the production build in dist/
 npm run ci            # everything, in CI order
 ```
 
-E2E specs live in `tests/e2e/*.spec.ts`. They run against `vite preview` on port 4173 with software WebGL
-(`--use-angle=swiftshader`) so they behave the same on CI runners.
+E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`). They run against `vite preview`
+on port 4173 with software WebGL (`--use-angle=swiftshader`) so they behave the same on CI runners, one
+worker at a time (parallel SwiftShader pages halve each other's frame rate). `level.spec.ts` writes
+screenshots to `e2e-screenshots/` (start, debug overlay, one-way section, mover section); look at them after
+a render change. The frame budget floor is 20 fps under SwiftShader; the measured value is logged.
 
 Add a spec when a bug is found in the browser that the unit/replay layers cannot catch (rendering, input
 plumbing, DOM HUD). Anything about movement, collision, or game rules belongs in `tests/unit` or
@@ -80,6 +83,10 @@ Controls (`src/app/keyboard.ts`):
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
+Query flags: `?post=0` disables the post stack (bloom, vignette, grain) to isolate a rendering problem;
+`?dof=1` enables depth of field. Only some poses have their own art; see `PlayerAnimator`
+(`src/render/animator.ts`) for which frames `fall`, `wallslide`, `dash`, `crouch`, `slide` and `dead` borrow.
+
 ## Common issues
 
 | Symptom | Likely cause |
@@ -91,6 +98,9 @@ Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide
 | Motion stutters at steady fps | Render interpolation broken; check `alpha` use in `App.present` |
 | Player passes through geometry | Sim bug: write a replay test that reproduces it before fixing |
 | Sprite feet slide during animation | Atlas pivot wrong; fix the recipe in `tools/recut`, not the renderer |
+| Boot fails with `boot failed: ...` in `errors` | An atlas or backdrop fetch failed; run `npm run assets` and `npm run validate` |
+| Prop or backdrop missing but no error | Level `art` names a frame/stem the validator did not see; check `npm run validate` output |
+| Visible seam or dark bar where a backdrop repeats | `edgeFade`/`erase` in `art-source/<level>/backdrops.json`, then `npm run assets` |
 
 ## Reporting
 
