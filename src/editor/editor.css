@@ -1,0 +1,180 @@
+/* Level editor chrome (?edit=1). Sits over the canvas; the canvas keeps pointer events in the middle. */
+
+body.editing #hud {
+  display: none;
+}
+
+.editor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-size: 12px;
+  color: #e8e4d8;
+}
+
+.editor-side {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 220px;
+  padding: 10px;
+  overflow-y: auto;
+  background: rgba(13, 13, 26, 0.92);
+  border-color: #2a2a44;
+  border-style: solid;
+  border-width: 0;
+  pointer-events: auto;
+}
+
+.editor-left {
+  left: 0;
+  border-right-width: 1px;
+}
+
+.editor-right {
+  right: 0;
+  border-left-width: 1px;
+}
+
+.editor.playing .editor-side {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.editor-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--amber);
+}
+
+.editor h2 {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+
+.editor-tools,
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.editor button {
+  font: inherit;
+  color: inherit;
+  background: #1c1c30;
+  border: 1px solid #3a3a55;
+  border-radius: 3px;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.editor button:hover {
+  background: #26263f;
+}
+
+.editor-tool {
+  border-left-width: 4px;
+}
+
+.editor button.active {
+  background: #3a2f4d;
+  border-color: var(--amber);
+}
+
+.editor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+
+.editor input,
+.editor select {
+  font: inherit;
+  color: inherit;
+  background: #101020;
+  border: 1px solid #3a3a55;
+  border-radius: 3px;
+  padding: 2px 4px;
+  width: 120px;
+}
+
+.editor-level {
+  margin: 8px 0;
+  padding-top: 6px;
+  border-top: 1px solid #2a2a44;
+}
+
+.editor-palette {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.editor-prop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  overflow: hidden;
+}
+
+.editor-thumb {
+  background-repeat: no-repeat;
+  image-rendering: auto;
+}
+
+.editor-prop-name {
+  font-size: 10px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-ref {
+  color: var(--amber);
+  margin-bottom: 4px;
+}
+
+.editor-hint {
+  color: #8a8aa0;
+  margin: 4px 0;
+}
+
+.editor-problems {
+  margin: 0;
+  padding-left: 16px;
+  color: #ff6060;
+}
+
+.editor-problems .editor-ok {
+  color: #40ff80;
+  list-style: none;
+  margin-left: -16px;
+}
+
+.editor-status {
+  position: sticky;
+  bottom: 0;
+  margin-top: 12px;
+  padding: 6px;
+  background: #1c1c30;
+  border-radius: 3px;
+  color: #c0c0d0;
+}
+
+.editor-status[data-kind='ok'] {
+  color: #40ff80;
+}
+
+.editor-status[data-kind='error'] {
+  color: #ff6060;
+}

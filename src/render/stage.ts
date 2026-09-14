@@ -1,4 +1,4 @@
-import { AmbientLight, Color, DirectionalLight, Fog, Mesh, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
+import { AmbientLight, Color, DirectionalLight, Fog, Mesh, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from 'three';
 import { PostStack, type PostOptions } from './post';
 
 /** Palette anchors from docs/ART.md. */
@@ -125,9 +125,20 @@ export class Stage {
     this.renderer.dispose();
   }
 
-  /** Look at a point on the gameplay plane (stage units) from the fixed distance. */
-  setCamera(x: number, y: number): void {
-    this.camera.position.set(x, y, LENS.distance);
+  /** Look at a point on the gameplay plane (stage units). Play uses the fixed lens distance; the editor zooms by changing it. */
+  setCamera(x: number, y: number, distance: number = LENS.distance): void {
+    this.camera.position.set(x, y, distance);
     this.camera.lookAt(x, y, 0);
+  }
+
+  /** Where a canvas pixel (CSS px, canvas-relative) lands on the Z=0 plane, in stage units. */
+  pickPlane(px: number, py: number): { x: number; y: number } {
+    const w = this.canvas.clientWidth || 1;
+    const h = this.canvas.clientHeight || 1;
+    const ndc = new Vector3((px / w) * 2 - 1, -(py / h) * 2 + 1, 0.5).unproject(this.camera);
+    const origin = this.camera.position;
+    const dir = ndc.sub(origin);
+    const t = -origin.z / dir.z;
+    return { x: origin.x + dir.x * t, y: origin.y + dir.y * t };
   }
 }

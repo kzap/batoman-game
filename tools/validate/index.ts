@@ -1,10 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AtlasJson } from '../../src/content/atlas';
 import { levelProblems, type LevelJson } from '../../src/content/level';
-import { levelArtReferenceProblems } from '../../src/content/level-art';
 import { PATHS, forbiddenServedPathReason } from '../config';
 import { validateAssets } from './assets';
+import { levelArtReferences } from './level-refs';
 import { Report, walk } from './lib';
 
 /**
@@ -64,22 +63,6 @@ function checkLevelEntry(entry: unknown, root: string, report: Report): void {
   const level = json as LevelJson;
   report.note(`level ${id}: ${level.solids.length} solids`);
   if (level.art) for (const p of levelArtReferences(level, root)) report.error(`level ${id}: ${p}`);
-}
-
-/** Resolve a level's art block against the atlas JSON and backdrop files on disk. */
-function levelArtReferences(level: LevelJson, root: string): string[] {
-  const art = level.art!;
-  const atlasPath = join(root, PATHS.atlases, `${art.props}.json`);
-  if (!existsSync(atlasPath)) return [`art.props atlas ${art.props} has not been built (${atlasPath})`];
-  const atlas = JSON.parse(readFileSync(atlasPath, 'utf8')) as AtlasJson;
-  const dir = join(root, PATHS.backdrops, level.id);
-  const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.slice(0, -'.webp'.length)) : [];
-  return levelArtReferenceProblems(
-    art,
-    level.movingSolids.map((m) => m.prop),
-    new Set(Object.keys(atlas.frames)),
-    new Set(files),
-  );
 }
 
 const isMain = process.argv[1]?.endsWith('validate/index.ts') ?? false;
