@@ -30,14 +30,21 @@ with no screen, it is game.
 ## Sim rules
 
 - Sim state is plain data. No class instances holding Three objects, no DOM handles, no `Date`.
-- `World.step()` advances exactly one tick. From Phase 2 it takes an `InputFrame`; it never reads devices.
+- `World.step(input)` advances exactly one tick from an `InputFrame`; it never reads devices.
 - Everything the renderer needs is in `World.snapshot()`. The renderer never calls into `World`.
-- Randomness comes from a seeded PRNG stored in world state. `Math.random()`, `Date.now()`, and
+- Randomness comes from `World.rng` (seeded mulberry32). `Math.random()`, `Date.now()`, and
   `performance.now()` are banned in `core`/`game` by ESLint (`no-restricted-properties`).
-- Coordinates: world units are metres-ish; +Y is up; gameplay plane is Z=0. Boxes are `{x, y, w, h}` with
-  `x,y` the min corner (see `src/core/math/aabb.ts`).
-- Physics is Actor/Solid swept AABB, not a rigid-body solver. Actors move, sweep, and never overlap solids;
-  solids move and push actors. Sub-pixel remainders are accumulated per actor.
+- Sim coordinates are integer pixels, +Y up, 32 px tiles, origin at the level's bottom-left. Boxes are
+  `{x, y, w, h}` with `x,y` the min corner. The renderer converts pixels to stage units; the gameplay plane
+  is Z=0.
+- Physics is Actor/Solid (`src/core/sim/collision.ts`): bodies move one pixel at a time through
+  `CollisionWorld.moveX/moveY` and never overlap solids; solids move through `moveSolid` and carry or push
+  bodies. Sub-pixel remainders live on the `Body`. Do not add a velocity integrator that bypasses this.
+- All gameplay timers are in ticks (120 Hz), never seconds, so replays stay exact. Tuning numbers live in
+  `src/game/tuning.ts` only.
+- Changing movement tuning or Level 1 geometry changes the replay fixture: run `npm run replay:record`,
+  check the bot still completes the level with full hp, and commit the fixture diff with the change.
+- Level JSON schema is `src/content/level.ts`; `levelProblems()` must pass (`npm run validate`).
 
 ## Renderer rules
 
@@ -91,6 +98,8 @@ npm run test -- -w     # watch unit tests
 npm run assets         # regenerate atlases + backdrops from art-source/ recipes
 npm run recut <recipe> # segment one sheet and write its preview
 npm run recut:review <recipe>  # browser review UI
+npm run replay:record  # re-record replay fixtures from the scripted bots
+npm run level:from-tiled <map.json> <out.json> --id <id> --name <name>  # convert a Tiled map
 ```
 
 ## Three.js 0.186 notes

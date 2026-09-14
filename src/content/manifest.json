@@ -1,3 +1,8 @@
 {
-  "levels": []
+  "levels": [
+    {
+      "id": "level-1",
+      "file": "levels/level-1.json"
+    }
+  ]
 }

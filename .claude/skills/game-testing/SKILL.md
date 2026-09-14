@@ -48,6 +48,8 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `simTicks` | fixed-step sim ticks since boot (120 Hz) |
 | `droppedFrames` | frames where the clock discarded time (stall recovery) |
 | `lastFrameMs` | last frame duration |
+| `player` | `{ x, y, pose, hp }` from the latest snapshot; sim pixels, Y up, feet at `y` |
+| `status` | `playing`, `complete`, or `gameover` |
 | `errors` | uncaught errors and unhandled rejections captured in-page |
 
 A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` at 60 fps, and
@@ -61,15 +63,18 @@ A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` a
 4. Screenshot after each action; compare against the expected state.
 5. Read `window.__batoman.errors` and the console; both must be empty.
 
-Controls (from Phase 2 onward):
+Controls (`src/app/keyboard.ts`):
 
 | Action | Keys |
 |---|---|
 | Move | Arrow keys or A / D |
-| Jump | Up / W / Space (release early for a shorter jump) |
-| Dash | Down + direction |
-| Fire | Z tap; hold 0.8 s and release for charged shot |
-| Debug overlay | backtick |
+| Jump | Up / W / Space (release early for a shorter jump; down + jump drops through one-way platforms) |
+| Crouch / slide | Down / S (slide when moving) |
+| Dash | X / K / Shift |
+| Fire | Z / J (tap; charged shot arrives with combat) |
+| Debug overlay | backtick (Phase 3) |
+
+Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
 ## Common issues
 
