@@ -47,13 +47,13 @@ src/
   core/      pure TS: math, clock, events, collision, input, FSM, rng
   game/      gameplay rules on top of core; headless (player, enemies/, projectiles, world, camera)
   render/    Three.js stage, sprites, level and entity views, GPU particles, post
-  app/       frame loop, DOM HUD, test hooks, styles
+  app/       frame loop, DOM HUD, shell/ (menus, pause, save, score), audio/ (buses, procedural sfx, music), test hooks, styles
   editor/    in-browser level editor (?edit=1), loaded on demand
   content/   level JSON, manifest, validators
 tools/       offline asset pipeline and validators (Node)
 tests/       unit/ replay/ e2e/
 art-source/  raw AI art; never served to the browser
-public/      processed assets only (audio now; atlases from Phase 1)
+public/      generated assets only (atlases, backdrops, audio; all gitignored, built by `npm run assets`)
 docs/        PRD.md, TDD.md, ART.md, STORY.md
 ```
 
@@ -64,8 +64,12 @@ Levels: `?level=level-3` loads another manifest level; `?edit=1` opens the curre
 `Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
 
 Controls: arrows or WASD move, `Space` jumps (down + jump drops through platforms), `Shift` or `X` dashes, `Z` fires; hold
-`Z` for 0.8 s and release for a piercing nova. Level 1 ends at the ASWANG prototype; the exit opens when it
-falls.
+`Z` for 0.8 s and release for a piercing nova. `Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N`
+toggle music and sound effects. Level 1 ends at the ASWANG prototype; the exit opens when it falls.
+Progress (unlocked levels, best times, audio options) is saved in `localStorage`.
+
+Music sources live in `art-source/audio/` and are transcoded to Opus by `npm run assets` (via
+`ffmpeg-static`); sound effects are synthesised in the browser, so there are no sample files.
 
 ---
 

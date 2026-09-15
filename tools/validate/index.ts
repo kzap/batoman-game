@@ -29,11 +29,13 @@ export function validateContent(root = '.'): Report {
     report.error(`missing ${manifestPath}`);
   } else {
     try {
-      const m = JSON.parse(readFileSync(manifestPath, 'utf8')) as { levels?: unknown };
+      const m = JSON.parse(readFileSync(manifestPath, 'utf8')) as { levels?: unknown; titleMusic?: unknown };
+      const tracks = musicTrackIds(root);
+      if (typeof m.titleMusic !== 'string' || !tracks.includes(m.titleMusic)) report.error(`manifest.titleMusic must name a track in ${PATHS.audioSource}/music.json (${tracks.join(', ')})`);
       if (!Array.isArray(m.levels)) report.error('manifest.levels must be an array');
       else {
         report.note(`manifest: ${m.levels.length} levels`);
-        for (const entry of m.levels) checkLevelEntry(entry, root, report);
+        for (const entry of m.levels) checkLevelEntry(entry, root, tracks, report);
       }
     } catch (e) {
       report.error(`manifest.json is not valid JSON: ${(e as Error).message}`);
@@ -43,11 +45,23 @@ export function validateContent(root = '.'): Report {
   return report;
 }
 
-/** A manifest entry must point at a level file that passes `levelProblems` and whose id matches. */
-function checkLevelEntry(entry: unknown, root: string, report: Report): void {
+/** Track ids the music spec will build; an empty list when the spec is missing or broken (reported separately by the pack step). */
+function musicTrackIds(root: string): string[] {
+  try {
+    const spec = JSON.parse(readFileSync(join(root, PATHS.audioSource, 'music.json'), 'utf8')) as { tracks?: Record<string, unknown> };
+    return Object.keys(spec.tracks ?? {});
+  } catch {
+    return [];
+  }
+}
+
+/** A manifest entry must point at a level file that passes `levelProblems`, whose id matches, and name a real music track. */
+function checkLevelEntry(entry: unknown, root: string, tracks: readonly string[], report: Report): void {
   if (typeof entry !== 'object' || entry === null) return report.error('manifest.levels entries must be objects');
-  const { id, file } = entry as { id?: unknown; file?: unknown };
+  const { id, file, name, music } = entry as { id?: unknown; file?: unknown; name?: unknown; music?: unknown };
   if (typeof id !== 'string' || typeof file !== 'string') return report.error('manifest.levels entries need string id and file');
+  if (typeof name !== 'string' || !name) report.error(`manifest level ${id}: needs a display name`);
+  if (typeof music !== 'string' || !tracks.includes(music)) report.error(`manifest level ${id}: music "${String(music)}" is not a track in ${PATHS.audioSource}/music.json`);
   const path = join(root, PATHS.content, file);
   if (!existsSync(path)) return report.error(`manifest level ${id}: ${file} does not exist`);
   let json: unknown;

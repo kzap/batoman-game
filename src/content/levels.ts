@@ -9,11 +9,27 @@ import manifest from './manifest.json';
 
 export interface ManifestEntry {
   readonly id: string;
+  /** Display name for the shell (level select, intro card). */
+  readonly name: string;
   /** Path relative to `src/content/`. */
   readonly file: string;
+  /** Track id from `art-source/audio/music.json`, served as `assets/audio/<id>.ogg`. */
+  readonly music: string;
 }
 
-export const LEVELS: readonly ManifestEntry[] = (manifest as { levels: ManifestEntry[] }).levels;
+interface Manifest {
+  readonly titleMusic: string;
+  readonly levels: ManifestEntry[];
+}
+
+export const MANIFEST = manifest as Manifest;
+export const LEVELS: readonly ManifestEntry[] = MANIFEST.levels;
+
+export function manifestEntry(id: string): ManifestEntry {
+  const e = LEVELS.find((l) => l.id === id);
+  if (!e) throw new Error(`unknown level "${id}"`);
+  return e;
+}
 
 export const DEFAULT_LEVEL_ID = LEVELS[0]?.id ?? 'level-1';
 

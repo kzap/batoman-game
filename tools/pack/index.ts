@@ -1,4 +1,5 @@
 import { readFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PATHS } from '../config.js';
 import { loadImage } from '../recut/io.js';
 import { applyMask } from '../recut/mask.js';
@@ -6,18 +7,21 @@ import { parseRecipe } from '../recut/recipe.js';
 import { planAtlas, segment } from '../recut/segment.js';
 import { findFiles, fmtBytes } from '../validate/lib.js';
 import { buildAtlas, writeAtlas } from './atlas.js';
+import { buildMusic } from './audio.js';
 import { buildBackdrops } from './backdrops.js';
 
 /**
- * `npm run assets`: rebuild every atlas and backdrop set from the committed
- * recipes under art-source/. Output directories are wiped first so a renamed
- * atlas cannot leave a stale file behind.
+ * `npm run assets`: rebuild every atlas, backdrop set and music track from the
+ * committed recipes under art-source/. Output directories are wiped first so a
+ * renamed atlas cannot leave a stale file behind.
  */
 async function main(): Promise<void> {
   const recipes = findFiles(PATHS.artSource, (n) => n.endsWith('.recipe.json'));
   const backdropSpecs = findFiles(PATHS.artSource, (n) => n === 'backdrops.json');
+  const musicSpec = join(PATHS.audioSource, 'music.json');
   await rm(PATHS.atlases, { recursive: true, force: true });
   await rm(PATHS.backdrops, { recursive: true, force: true });
+  await rm(PATHS.audio, { recursive: true, force: true });
 
   let failed = false;
   let total = 0;
@@ -50,6 +54,17 @@ async function main(): Promise<void> {
     }
   }
   console.info(`total generated image payload: ${fmtBytes(total)}`);
+  try {
+    let audio = 0;
+    for (const t of await buildMusic(musicSpec, PATHS.audioSource, PATHS.audio)) {
+      audio += t.bytes;
+      console.info(`music ${t.id}: ${fmtBytes(t.bytes)} -> ${t.path}`);
+    }
+    console.info(`total generated audio payload: ${fmtBytes(audio)}`);
+  } catch (err) {
+    failed = true;
+    console.error(`${musicSpec}: ${(err as Error).message}`);
+  }
   if (failed) process.exit(1);
 }
 
