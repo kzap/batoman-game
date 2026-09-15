@@ -117,9 +117,10 @@ with no screen, it is game.
 - `tools/pack` writes atlases and backdrops under `public/assets/` (gitignored; `npm run assets`, also run
   by `npm run build`). Atlas JSON shape is `AtlasJson` in `src/content/atlas.ts`; pivots are in atlas pixels
   from the frame's top-left.
-- Backdrop layers (`art-source/<level>/backdrops.json`) support `erase` rects (`clear` or `fill`, for the
-  generator watermark) and `edgeFade` (fraction of width) for layers that repeat horizontally. Fix source
-  blemishes there, not in the renderer.
+- Backdrop layers (`art-source/<level>/backdrops.json`) support `key` (`{ color: '#rrggbb', tolerance }`
+  chroma key for sources on a solid background; raise `tolerance` until the fringe goes, Level 4 uses 96),
+  `erase` rects (`clear` or `fill`, for the generator watermark) and `edgeFade` (fraction of width) for
+  layers that repeat horizontally. Fix source blemishes there, not in the renderer.
 - `tools/validate` and `tools/validate/budget.ts` fail the build on malformed content, missing pipeline
   output, or oversized payload. Budgets are in `tools/config.ts`; raise them in a PR with a stated reason.
 - Details: `docs/TDD.md` section 7.

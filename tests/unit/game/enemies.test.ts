@@ -188,6 +188,19 @@ describe('Drone', () => {
     expect(d.body.y + d.body.h / 2).toBeGreaterThan(64 + ENEMY.drone.hoverHeight - ENEMY.drone.bobAmplitude - 2);
   });
 
+  it('ignores a player on another storey: only a target within sightHeight starts the chase', () => {
+    // A ledge well above the drone's hover height, inside its horizontal sight range.
+    const ledgeY = 64 + ENEMY.drone.hoverHeight + ENEMY.drone.sightHeight + 40;
+    const w = new World(arena([{ type: 'drone', x: 1200, y: 64, patrolDistance: 100 }], { oneWay: [{ x: 900, y: ledgeY - 8, w: 200, h: 8 }] }), 1);
+    const d = w.enemies[0] as Drone;
+    w.player.body.place(1000, ledgeY);
+    run(w, 200);
+    expect(d.state).toBe('hover');
+    w.player.body.place(1000, 64);
+    run(w, 200);
+    expect(d.state).not.toBe('hover');
+  });
+
   it('dies to two plasma hits', () => {
     const w = new World(arena([{ type: 'drone', x: 300, y: 64, patrolDistance: 0 }]), 1);
     const d = w.enemies[0]!;
@@ -233,6 +246,18 @@ describe('Stealth', () => {
     w.player.body.place(200, 64);
     run(w, 60);
     expect(s.state).toBe('cloaked');
+  });
+
+  it('stays cloaked while the player is on a storey above it, even within ambush range', () => {
+    const ledgeY = 64 + ENEMY.stealth.sightHeight + 40;
+    const w = new World(arena([{ type: 'stealth', x: 900, y: 64 }], { oneWay: [{ x: 800, y: ledgeY - 8, w: 200, h: 8 }] }), 1);
+    const s = w.enemies[0] as Stealth;
+    w.player.body.place(880, ledgeY);
+    run(w, 60);
+    expect(s.state).toBe('cloaked');
+    w.player.body.place(880, 64);
+    w.step();
+    expect(s.state).toBe('decloak');
   });
 });
 

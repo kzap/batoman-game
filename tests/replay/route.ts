@@ -115,12 +115,62 @@ export const waitMover = (index: number, at: { x?: number; y?: number }, tol = 4
     return xOk && yOk;
   });
 
+/**
+ * Wait until a moving solid is descending and within `within` px above `y`, its
+ * lower stop: it is about to settle and pause there, so a walk onto it now lands
+ * inside the pause instead of on a platform already leaving.
+ */
+export function waitMoverSettling(index: number, y: number, within = 4): Step {
+  let prevY = -Infinity;
+  return waitUntil(`mover ${index} settling at ${y}`, (c) => {
+    const m = c.snap.movingSolids[index];
+    if (!m) return false;
+    const descending = m.y < prevY;
+    prevY = m.y;
+    return descending && m.y >= y && m.y - y <= within;
+  });
+}
+
 /** Ride whatever is underfoot until the body's x passes `untilX` (the platform carries the player). */
 export const ride = (dir: Dir, untilX: number): Step => ({
   name: `ride to ${untilX}`,
   input: () => ({}),
   done: (c) => past(c, dir, untilX),
 });
+
+/**
+ * Climb a shaft by wall kicks: jump at the wall on `dir`, and each time the body
+ * touches a wall kick off it toward the other one. Done when standing at or above
+ * `untilY` (a one-way rung across the shaft top catches the last kick).
+ */
+export function wallClimb(dir: Dir, untilY: number): Step {
+  let toward = dir;
+  let heldJump = false;
+  return {
+    name: `wall-climb to ${untilY}`,
+    input: (c) => {
+      let jump: boolean;
+      if (c.grounded) {
+        // On the floor (or a ledge partway up): jump at the `dir` wall to start or restart the climb.
+        toward = dir;
+        jump = !heldJump;
+      } else if (c.p.wallDir !== 0 && !heldJump) {
+        // Touching a wall with the button up: kick. The kick itself flips the direction.
+        toward = -c.p.wallDir as Dir;
+        jump = true;
+      } else if (c.p.wallDir !== 0) {
+        // Still holding from the last press: release for a tick so the next press registers.
+        jump = false;
+      } else {
+        // Hold jump through the rise for full height.
+        jump = c.rising;
+      }
+      heldJump = jump;
+      return { ...dirInput(toward), jump };
+    },
+    done: (c) => c.grounded && c.y >= untilY,
+  };
+}
 
 /** Tap fire once (for the shooting pose in replays), then move on immediately. */
 export const fire = (): Step => ({ name: 'fire', input: () => ({ fire: true }), done: () => true });
@@ -136,9 +186,19 @@ const RUSH_ALARM_S = 0.2;
 /** Room to keep from the boss while it winds up a rush, so the jump over it has time to rise. */
 const RUSH_ROOM_PX = 150;
 const SHOT_H = 10;
+/**
+ * Enemies further than this above or below the feet are on another storey and not this fight's business:
+ * the enemies' own `sightHeight` (128) plus a rung of slack, so a drone diving toward us still counts.
+ */
+const FIGHT_BAND = 160;
 
-/** Enemies alive and visible between the player and `untilX`. */
-const foesAhead = (c: Ctx, untilX: number): EnemySnapshot[] => c.snap.enemies.filter((e) => e.pose !== 'death' && e.x + e.w > c.x && e.x < untilX);
+/** `e` overlaps the span from the player's near edge to `untilX` on the `dir` side. */
+const spansAhead = (c: Ctx, e: EnemySnapshot, untilX: number, dir: Dir): boolean =>
+  dir > 0 ? e.x + e.w > c.x && e.x < untilX : e.x < c.right && e.x + e.w > untilX;
+
+/** Enemies alive between the player and `untilX`, on the `dir` side, within a storey of the feet. */
+const foesAhead = (c: Ctx, untilX: number, dir: Dir): EnemySnapshot[] =>
+  c.snap.enemies.filter((e) => e.pose !== 'death' && Math.abs(e.y - c.y) <= FIGHT_BAND && spansAhead(c, e, untilX, dir));
 
 /** A grounded plasma tap would cross this enemy's body (the shot is `PROJECTILE.height` tall around the muzzle line). */
 const inLine = (c: Ctx, e: EnemySnapshot): boolean => {
@@ -163,18 +223,19 @@ const shotIncoming = (c: Ctx): boolean =>
   });
 
 /**
- * Stand and shoot everything between here and `untilX`: tap fire whenever a
- * live enemy is in the line of fire, jump incoming shots, otherwise wait
- * (drones dive, cloaked ambushers decloak). Done when nothing is left ahead.
+ * Stand and shoot everything between here and `untilX` (to the right, or to
+ * the left with `dir` -1): tap fire whenever a live enemy is in the line of
+ * fire, jump incoming shots, otherwise wait (drones dive, cloaked ambushers
+ * decloak). Done when nothing is left ahead.
  */
-export function fight(untilX: number): Step {
+export function fight(untilX: number, dir: Dir = 1): Step {
   let sinceTap = TAP_EVERY;
   let airborne = false;
   return {
     name: `fight to ${untilX}`,
     input: (c) => {
       sinceTap++;
-      const foes = foesAhead(c, untilX);
+      const foes = foesAhead(c, untilX, dir);
       const target = foes.find((e) => e.alpha >= 1 && inLine(c, e));
       if (shotIncoming(c) && c.grounded) {
         airborne = true;
@@ -189,7 +250,7 @@ export function fight(untilX: number): Step {
       return {};
     },
     // Wait for stray shots to land too: an enemy's last shot can outlive it.
-    done: (c) => foesAhead(c, untilX).length === 0 && !c.snap.projectiles.some((p) => p.kind === 'enemy'),
+    done: (c) => foesAhead(c, untilX, dir).length === 0 && !c.snap.projectiles.some((p) => p.kind === 'enemy'),
   };
 }
 

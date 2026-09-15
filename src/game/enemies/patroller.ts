@@ -75,7 +75,6 @@ export class Patroller extends Enemy {
   private seesPlayer(ctx: EnemyCtx): boolean {
     if (ctx.player.dead) return false;
     const dx = this.toPlayer(ctx);
-    const dy = ctx.player.body.y - this.body.y;
-    return Math.sign(dx) === this.facing && Math.abs(dx) <= T.sightRange && Math.abs(dy) <= T.sightHeight;
+    return Math.sign(dx) === this.facing && Math.abs(dx) <= T.sightRange && this.sameStorey(ctx, T.sightHeight);
   }
 }

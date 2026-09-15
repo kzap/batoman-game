@@ -85,7 +85,7 @@ export class Drone extends Enemy {
   }
 
   private seesPlayer(ctx: EnemyCtx, range: number): boolean {
-    return !ctx.player.dead && Math.abs(this.toPlayer(ctx)) <= range;
+    return !ctx.player.dead && Math.abs(this.toPlayer(ctx)) <= range && this.sameStorey(ctx, T.sightHeight);
   }
 
   /** A shot from the centre toward the player's centre. */

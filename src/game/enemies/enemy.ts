@@ -185,6 +185,11 @@ export abstract class Enemy {
     this.facing = this.toPlayer(ctx) < 0 ? -1 : 1;
   }
 
+  /** The player's feet are within `band` px of this body's feet: the same storey of a vertical level. */
+  protected sameStorey(ctx: EnemyCtx, band: number): boolean {
+    return Math.abs(ctx.player.body.y - this.body.y) <= band;
+  }
+
   /** Gravity and vertical resolution for ground enemies. */
   protected fall(cw: CollisionWorld): void {
     this.vy = Math.max(-ENEMY.maxFall, this.vy - ENEMY.gravity * SIM_DT);

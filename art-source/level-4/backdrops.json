@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "level": "level-4",
+  "layers": {
+    "skyline": {
+      "source": "background.png",
+      "erase": [
+        {
+          "x": 2652,
+          "y": 1370,
+          "w": 106,
+          "h": 108,
+          "mode": "fill"
+        }
+      ]
+    },
+    "street": {
+      "source": "foreground.png",
+      "key": {
+        "color": "#fd6cf7",
+        "tolerance": 96
+      },
+      "lossless": false,
+      "quality": 90,
+      "edgeFade": 0.05,
+      "erase": [
+        {
+          "x": 2652,
+          "y": 1370,
+          "w": 106,
+          "h": 108,
+          "mode": "fill"
+        }
+      ]
+    }
+  }
+}

@@ -100,7 +100,7 @@ Controls (`src/app/keyboard.ts`):
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
-Query flags: `?level=<id>` loads a manifest level (`level-1`, `level-3`, `level-6`; an unknown id is a boot
+Query flags: `?level=<id>` loads a manifest level (`level-1`, `level-3`, `level-4`, `level-6`; an unknown id is a boot
 error); `?edit=1` opens the level editor (keys listed in the panel tooltips and docs/TDD.md section 11; `P`
 playtests, `Ctrl+S` saves through the dev server); `?post=0` disables the post stack (bloom, vignette, grain)
 to isolate a rendering problem; `?dof=1` enables depth of field. Only some poses have their own art; see `PlayerAnimator`
