@@ -27,6 +27,8 @@ export const PATHS = {
   artSource: 'art-source',
   atlases: 'public/assets/atlases',
   backdrops: 'public/assets/backdrops',
+  audio: 'public/assets/audio',
+  audioSource: 'art-source/audio',
   content: 'src/content',
 } as const;
 

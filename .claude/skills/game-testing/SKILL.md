@@ -63,7 +63,11 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `entities` | sprites the entity view is showing: player + enemies + shots + movers |
 | `status` | `playing`, `complete`, or `gameover` |
 | `level` | id of the loaded level |
-| `mode` | `play`, or `edit` while the editor has the sim frozen |
+| `mode` | `play`, `paused` (shell froze the sim: menus, intro card), or `edit` while the editor has it |
+| `screen` | shell screen: `title`, `levelSelect`, `intro`, `playing`, `paused`, `complete`, `gameover`, `credits` |
+| `score` | run score shown in the HUD |
+| `music` | track id requested (`level-1`, `level-2`), null before the shell asks for one |
+| `audio` | true once the AudioContext is running (after the first key or pointer) |
 | `editor` | null, or `{ tool, selection, objects, revision, dirty, lastSave, playing }` while `?edit=1` is attached |
 | `replay(fixture)` | restart and feed a replay fixture (`tests/replay/fixtures/*.json`) instead of the keyboard |
 | `errors` | uncaught errors and unhandled rejections captured in-page |
@@ -74,7 +78,9 @@ A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` a
 
 ### Workflow
 
-1. Navigate to `http://localhost:5173`; wait for `window.__batoman.ready === true`.
+1. Navigate to `http://localhost:5173` for the title (press Enter twice to start Level 1 through the intro
+   card) or `http://localhost:5173/?level=level-1` to start in a level directly; wait for
+   `window.__batoman.ready === true`. `Esc` pauses; menus take Enter/Esc/arrows.
 2. Screenshot the initial state.
 3. Drive input with `keyboard.down` / `keyboard.up` (hold durations matter for variable jump and charge).
 4. Screenshot after each action; compare against the expected state.
@@ -88,9 +94,9 @@ Controls (`src/app/keyboard.ts`):
 | Jump | Up / W / Space (release early for a shorter jump; down + jump drops through one-way platforms) |
 | Crouch / slide | Down / S (slide when moving) |
 | Dash | X / K / Shift |
-| Fire | Z / J (tap; charged shot arrives with combat) |
+| Fire | Z / J tap for plasma; hold 0.8 s and release for a piercing nova |
 | Debug overlay | backtick: stats bottom-left plus collider outlines |
-| Restart | jump after LEVEL COMPLETE / GAME OVER |
+| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx |
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 

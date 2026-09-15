@@ -1,16 +1,23 @@
 {
+  "titleMusic": "level-1",
   "levels": [
     {
       "id": "level-1",
-      "file": "levels/level-1.json"
+      "file": "levels/level-1.json",
+      "name": "Tondo Sublevel Docks",
+      "music": "level-1"
     },
     {
       "id": "level-3",
-      "file": "levels/level-3.json"
+      "file": "levels/level-3.json",
+      "name": "Quiapo Underground Chapel",
+      "music": "level-2"
     },
     {
       "id": "level-6",
-      "file": "levels/level-6.json"
+      "file": "levels/level-6.json",
+      "name": "Abandoned Rooftop Garden",
+      "music": "level-1"
     }
   ]
 }

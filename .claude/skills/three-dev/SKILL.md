@@ -89,6 +89,13 @@ with no screen, it is game.
 
 ## App rules
 
+- The shell (`src/app/shell/`) owns screens, score, save and audio; `screens.ts` is a pure reducer, keep it
+  that way (no DOM, no App calls) and add transitions with a unit test. The App only knows `play | paused |
+  edit` and `replaceLevel`/`restartLevel`; menus never reach into the World.
+- Audio (`src/app/audio/`) subscribes to `WorldEvents` like the particle effects do. New cues are recipes in
+  `sfx.ts`; music tracks are entries in `art-source/audio/music.json` named from the manifest, never files
+  dropped into `public/`.
+
 - Boot is async: `main.ts` awaits `loadAssets` (`src/render/assets.ts`) then constructs `App(canvas, hooks,
   level, assets, opts)`. Fetch through an `AssetSource`; never `fetch` from `render/` directly.
 - The frame loop is `App.frame`. It calls `clock.advance`, steps the world N times, then presents once.

@@ -26,7 +26,7 @@ export interface WorldEvents extends Record<string, unknown> {
   death: { cause: DeathCause };
   respawn: { x: number; y: number; lives: number };
   checkpoint: { id: number };
-  complete: { tick: number };
+  complete: { tick: number; hp: number };
   gameover: Record<string, never>;
   /** A shot ended against a solid or ran out of range. */
   shotEnd: { x: number; y: number; kind: ProjectileKind; hitSolid: boolean };
@@ -359,7 +359,7 @@ export class World {
     }
     if (this.exitOpen && overlapsRect(b, this.level.exit)) {
       this.status = 'complete';
-      this.events.emit('complete', { tick: this.tick });
+      this.events.emit('complete', { tick: this.tick, hp: this.health.hp });
     }
   }
 

@@ -52,6 +52,12 @@ export class Keyboard {
     window.removeEventListener('blur', this.onBlur);
   }
 
+  /** Forget held and latched buttons (after a pause or a screen change, so a key held through it does not fire). */
+  reset(): void {
+    this.held.clear();
+    this.latched.clear();
+  }
+
   frame(): InputFrame {
     const f: Record<InputButton, boolean> = { ...NO_INPUT };
     for (const b of this.held) f[b] = true;

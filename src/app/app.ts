@@ -38,9 +38,14 @@ export interface TestHooks {
   /** Sprites the entity view is currently showing (player, enemies, shots, movers). */
   entities: number;
   status: string;
-  /** Id of the loaded level and whether the sim is running (`play`) or frozen for the editor (`edit`). */
+  /** Id of the loaded level and whether the sim is running (`play`), frozen by the shell (`paused`) or frozen for the editor (`edit`). */
   level: string;
   mode: AppMode;
+  /** Shell screen kind (`title`, `playing`, `paused`, ...), the run score, the music track playing, and whether audio is unlocked. */
+  screen: string;
+  score: number;
+  music: string | null;
+  audio: boolean;
   /** Present only while the editor is attached. */
   editor: EditorHooks | null;
   readonly errors: string[];
@@ -79,6 +84,10 @@ export function installHooks(): TestHooks {
     status: 'playing',
     level: '',
     mode: 'play',
+    screen: '',
+    score: 0,
+    music: null,
+    audio: false,
     editor: null,
     errors: [],
     replay: null,
@@ -89,7 +98,7 @@ export function installHooks(): TestHooks {
   return hooks;
 }
 
-export type AppMode = 'play' | 'edit';
+export type AppMode = 'play' | 'paused' | 'edit';
 
 /** Editor state published for e2e tests while `?edit=1` is active. */
 export interface EditorHooks {
@@ -131,9 +140,11 @@ export class App {
   private readonly keyboard = new Keyboard();
   readonly stage: Stage;
   private levelView: LevelView;
-  private readonly entities: EntityView;
+  private entities: EntityView;
   private readonly effects = new Effects();
   private mode: AppMode = 'play';
+  /** Called with every new World so the shell can subscribe (audio, score, screen changes). */
+  onWorld: ((world: World) => void) | null = null;
   private editorCamera: EditorCamera | null = null;
   private readonly debug: DebugOverlay;
   private readonly hud: Hud;
@@ -142,7 +153,6 @@ export class App {
   private teleported = false;
   /** Frames left of the boss phase-transition freeze (ART: a two-frame hit-stop). */
   private freezeFrames = 0;
-  private jumpWasHeld = false;
   private previous: WorldSnapshot;
   private current: WorldSnapshot;
   private lastTime = 0;
@@ -154,7 +164,7 @@ export class App {
     canvas: HTMLCanvasElement,
     readonly hooks: TestHooks,
     private level: LevelJson,
-    private readonly assets: GameAssets,
+    private assets: GameAssets,
     opts: AppOptions = {},
   ) {
     this.stage = new Stage({ canvas, post: opts.post ?? {} });
@@ -209,26 +219,62 @@ export class App {
     this.levelView = new LevelView(level, this.assets.levelArt);
     this.levelView.setOutlines(this.debug.enabled);
     this.stage.scene.add(this.levelView.group);
-    this.restart();
+    this.restartLevel();
+  }
+
+  /**
+   * Move to another level with its own assets: the shell loads both, then
+   * this disposes the old views and textures and builds new ones. The world
+   * starts frozen (`paused`) so the intro card can show it.
+   */
+  replaceLevel(level: LevelJson, assets: GameAssets): void {
+    this.entities.dispose();
+    this.levelView.dispose();
+    disposeAssets(this.assets);
+    this.assets = assets;
+    this.level = level;
+    this.hooks.level = level.id;
+    this.entities = new EntityView(assets);
+    this.entities.setOutlines(this.debug.enabled);
+    this.levelView = new LevelView(level, assets.levelArt);
+    this.levelView.setOutlines(this.debug.enabled);
+    this.stage.scene.add(this.levelView.group, this.entities.group);
+    this.setMode('paused');
+    this.restartLevel();
   }
 
   get currentLevel(): LevelJson {
     return this.level;
   }
 
+  get currentMode(): AppMode {
+    return this.mode;
+  }
+
+  /** Latest sim snapshot (for the shell's score bonus and result card). */
+  get snapshot(): WorldSnapshot {
+    return this.current;
+  }
+
   /**
    * `edit` freezes the sim (no ticks, keyboard released so the editor can use
-   * it) and points the camera where the editor says; `play` hands both back.
+   * it) and points the camera where the editor says; `paused` freezes it for
+   * the shell with the keyboard kept; `play` runs it. Leaving `edit` restarts
+   * the level so the edited geometry is what plays.
    */
   setMode(mode: AppMode): void {
     if (mode === this.mode) return;
+    const wasEdit = this.mode === 'edit';
     this.mode = mode;
     this.hooks.mode = mode;
     if (mode === 'edit') this.keyboard.detach();
     else {
       this.keyboard.attach();
-      this.editorCamera = null;
-      this.restart();
+      this.keyboard.reset();
+      if (wasEdit) {
+        this.editorCamera = null;
+        this.restartLevel();
+      }
     }
   }
 
@@ -241,18 +287,23 @@ export class App {
     w.events.on('respawn', () => (this.teleported = true));
     w.events.on('bossPhase', () => (this.freezeFrames = PHASE_FREEZE_FRAMES));
     this.effects.attach(w.events);
+    this.onWorld?.(w);
     return w;
   }
 
-  private restart(seed = 1): void {
+  /** Fresh world for the current level; the shell calls it for restarts and retries. */
+  restartLevel(seed = 1): void {
     this.world = this.newWorld(seed);
     this.current = this.world.snapshot();
     this.previous = this.current;
+    this.replay = null;
+    this.publish();
   }
 
   private startReplay(fixture: ReplayInputs): void {
-    this.restart(fixture.seed);
+    this.restartLevel(fixture.seed);
     this.replay = decodeInputs(fixture.inputs);
+    this.setMode('play');
   }
 
   private nextInput(): InputFrame {
@@ -261,11 +312,7 @@ export class App {
       if (!r.done) return r.value;
       this.replay = null;
     }
-    const f = this.keyboard.frame();
-    // Restart on a fresh press only, so a jump held into the exit does not skip the banner.
-    if (this.current.status !== 'playing' && f.jump && !this.jumpWasHeld) this.restart();
-    this.jumpWasHeld = f.jump;
-    return f;
+    return this.keyboard.frame();
   }
 
   private readonly frame = (now: number): void => {
@@ -293,7 +340,7 @@ export class App {
     this.publish();
     this.present(step.alpha);
     this.debug.update(now, this.current, { frameMs, droppedFrames: this.hooks.droppedFrames, entities: this.entities.entityCount });
-    this.hud.update(this.current);
+    this.hud.update(this.current, this.hooks.score);
     this.hooks.frames += 1;
     this.rafId = requestAnimationFrame(this.frame);
   };

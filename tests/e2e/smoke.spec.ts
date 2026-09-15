@@ -24,6 +24,15 @@ test.describe('smoke', () => {
     await page.waitForFunction(() => window.__batoman?.ready === true);
     await waitForFrames(page, 30);
 
+    // The title shows over the frozen first level; Enter starts the run and the sim.
+    const title = await readHooks(page);
+    expect(title!.screen).toBe('title');
+    expect(title!.simTicks).toBe(0);
+    await expect(page.locator('#overlay')).toContainText('BATOMAN');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__batoman?.screen === 'playing');
+    await page.waitForFunction(() => (window.__batoman?.simTicks ?? 0) > 30);
+
     const h = await readHooks(page);
     expect(h).not.toBeNull();
     expect(h!.frames).toBeGreaterThan(30);
@@ -63,7 +72,7 @@ test.describe('smoke', () => {
 
 test.describe('controls', () => {
   test('keyboard drives the sim: run right, tap to hop', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?level=level-1'); // deep link: straight into play, no title
     await waitForFrames(page, 10);
     const start = (await readHooks(page))!.player;
     expect(start.pose).toBe('idle');

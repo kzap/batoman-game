@@ -24,7 +24,7 @@ const ready = (page: Page) => page.waitForFunction(() => window.__batoman?.ready
 
 test.describe('level 1', () => {
   test('holds the frame-time budget while running the sim', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?level=level-1');
     await ready(page);
     const before = await hooks(page);
     const t0 = Date.now();
@@ -49,7 +49,7 @@ test.describe('level 1', () => {
   test('loads the art: sprites and props are drawn, not grey boxes', async ({ page }) => {
     const requests: string[] = [];
     page.on('request', (r) => requests.push(r.url()));
-    await page.goto('/');
+    await page.goto('/?level=level-1');
     await ready(page);
     // Every atlas and backdrop the level references must have arrived; a 404 lands in errors via the boot catch.
     const h = await hooks(page);
@@ -63,7 +63,7 @@ test.describe('level 1', () => {
   });
 
   test('captures baseline screenshots of the start and mid-level, with the debug overlay', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?level=level-1');
     await ready(page);
     await page.screenshot({ path: resolve(SHOTS, 'level-1-start.png') });
     await page.keyboard.press('Backquote');
@@ -83,7 +83,7 @@ test.describe('level 1', () => {
   test('scripted traversal: the browser build replays the Level 1 fixture to the same outcome', async ({ page }) => {
     test.setTimeout(200_000); // 5567 ticks at 120 Hz is 46 s of wall time, more under software GL
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-1-clear.json'), 'utf8')) as Fixture;
-    await page.goto('/');
+    await page.goto('/?level=level-1');
     await ready(page);
     await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
     // Enemies are live sprites from the first frame: five spawns plus the dormant boss.
@@ -106,6 +106,9 @@ test.describe('level 1', () => {
     // The boss is dead and its bar gone; the exit opened.
     expect((await hooks(page)).boss).toBeNull();
     await expect(page.locator('#hud')).not.toContainText('ASWANG PROTOTYPE');
+    // Kills and the clear bonus scored; the HUD shows six digits.
+    expect((await hooks(page)).score).toBeGreaterThan(1000);
+    await expect(page.locator('.hud-score')).toHaveText(/^\d{6}$/);
     const h = await hooks(page);
     expect(h.status).toBe(fixture.expect.status);
     expect(h.simTicks).toBe(fixture.expect.ticks);
@@ -113,11 +116,14 @@ test.describe('level 1', () => {
     expect(Math.round(h.player.x)).toBe(fixture.expect.x);
     await expect(page.locator('#hud')).toContainText(`lives ${fixture.expect.lives}`);
     expect(h.errors).toEqual([]);
-    await expect(page.locator('#hud')).toContainText('LEVEL COMPLETE');
+    // The shell's results card follows, and Enter moves on to the next manifest level.
+    await page.waitForFunction(() => window.__batoman?.screen === 'complete');
+    await expect(page.locator('#overlay')).toContainText('LEVEL CLEAR');
     await page.screenshot({ path: resolve(SHOTS, 'level-1-complete.png') });
-    await page.keyboard.press('Space');
-    await page.waitForFunction(() => window.__batoman?.status === 'playing');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__batoman?.level === 'level-3' && window.__batoman.screen === 'playing', null, { timeout: 20_000 });
     expect((await hooks(page)).simTicks).toBeLessThan(200);
+    expect((await hooks(page)).errors).toEqual([]);
   });
 });
 

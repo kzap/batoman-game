@@ -254,42 +254,101 @@ enables bloom, vignette and grain; DOF is off (11 fps under SwiftShader). `?post
 Camera framing comes from the sim (`CameraController`, section 4.4); the app lerps the centre between
 snapshots and adds the current tick's shake offset unlerped.
 
-## 6. App `[implemented: Phase 3-5]`
+## 6. App `[implemented: Phase 3-7]`
 
 `installHooks()` (`src/app/app.ts`) publishes `window.__batoman` and global error capture before anything
 else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
-`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `status`, `level` (id),
-`mode` (`play` | `edit`), `editor` (section 11, null unless the editor is attached), and `replay(fixture)`,
-which restarts the level and feeds a recorded input sequence instead of the keyboard.
+`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
+`status`, `level` (id), `mode` (`play` | `paused` | `edit`), `screen` (shell screen kind), `score`, `music`
+(track requested), `audio` (context running), `editor` (section 11, null unless the editor is attached), and
+`replay(fixture)`, which restarts the level and feeds a recorded input sequence instead of the keyboard.
 
-`main.ts` picks the level from `?level=<id>` through `src/content/levels.ts` (section 8), loads its assets,
-starts the `App`, and with `?edit=1` imports the editor chunk and attaches it. An unknown id is a boot
+`main.ts` loads the first level's assets, builds the `App`, and wraps it in the `Shell` (section 6.1). `/`
+opens the title over the frozen default level; `?level=<id>` (section 8) starts that level directly, for
+deep links and tests; `?edit=1` also imports the editor chunk and attaches it. An unknown id is a boot
 error, not a fallback to Level 1.
 
 `App` runs the `requestAnimationFrame` loop: advance clock, step the world N times with the next input
 (replay source if active, otherwise `Keyboard.frame()`), keep the last two snapshots, present with
-interpolation, update the debug overlay and HUD. After `complete` or `gameover` the world is frozen (ticks
-stop); a fresh jump press restarts it. On a respawn the previous snapshot is replaced by the current one so
-neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key pressed and released inside one frame so a tap
-still reaches one tick.
+interpolation, update the debug overlay and HUD. After `complete` or `gameover` the world freezes itself;
+the shell decides what happens next. On a respawn the previous snapshot is replaced by the current one so
+neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key
+pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets held keys when a
+screen changes.
 
 `App.loadLevel(level)` swaps the level in place (new `LevelView`, fresh world) for the editor; the prop
 atlas and backdrops stay the ones loaded at boot, so a level cannot change `art.props` at runtime.
-`setMode('edit')` stops ticking and detaches the keyboard; `setMode('play')` reattaches it and restarts the
-world from the spawn. `setEditorCamera({x, y, distance})` overrides the
-sim camera, including the lens distance (`Stage.setCamera` takes it as a third argument for zoom).
+`App.replaceLevel(level, assets)` is the shell's move between levels: it disposes the old views and
+textures, builds new ones, and leaves the world frozen for the intro card. `restartLevel()` makes a fresh
+world; `onWorld` is called with each one so the shell can subscribe. `setMode('edit')` stops ticking and
+detaches the keyboard, `paused` stops ticking with the keyboard kept, `play` runs; leaving `edit` restarts
+the world so the edited geometry is what plays. `setEditorCamera({x, y, distance})` overrides the sim
+camera, including the lens distance (`Stage.setCamera` takes it as a third argument for zoom).
 `Stage.pickPlane(px, py)` unprojects a canvas pixel onto Z=0 for the editor's hit-testing.
 
 `DebugOverlay` (`debug.ts`, backtick): fps and ticks/s over 500 ms windows, frame time, dropped frames,
 entity count, tick, status, player position/size/pose/facing/hp, camera centre and shake. Toggling it also
-shows collider outlines on every collider, static and dynamic. `Hud` (`hud.ts`) is a placeholder: hearts, lives, end-of-run banner.
+shows collider outlines on every collider, static and dynamic. `Hud` (`hud.ts`, PRD 6.2) draws hearts
+top-left with lost ones greyed, lives, the six-digit score top-right, and the boss bar bottom-centre while
+`boss.engaged`; it rebuilds its DOM only when one of those values changes.
+
+Levels 3 and 6 stay grey-box (section 8) and the title, level select and game over cards are text
+(ART.md's silhouettes, thumbnails and salakot need art that does not exist yet); the results card does not
+yet dim or tally (Phase 8 polish).
+
+### 6.1 Shell (`src/app/shell/`)
+
+The shell is the game around the level: title, level select, intro card, pause, results, game over and
+credits. `screens.ts` is a pure reducer: `reduce(screen, event, ctx)` takes a `Screen`
+(`title | levelSelect | intro | playing | paused | complete | gameover | credits`, menus carry their cursor
+`index`), a `ShellEvent` (`confirm | back | up | down | pause | levelComplete | gameOver | timeout`) and the
+level list with what is unlocked, and returns the next screen plus `Effect`s (`startLevel {levelId, newRun}`,
+`restartLevel`, `resume`, `freeze`, `quitToTitle`). Menus wrap; a locked level does not start; the last
+level's clear leads to the credits; game over offers retry or quit. `tests/unit/app/screens.test.ts`
+covers every transition.
+
+`Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
+Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx
+(saved). While playing only Esc and P reach the shell, and nothing does while the editor is attached (its
+playtest owns P and Esc). `startLevel` fetches the level and its assets and calls `replaceLevel` (or
+`restartLevel` when it is the current level); the intro card advances on Enter or after `SHELL_TIMING.intro`
+2.2 s (re-armed while the level is still loading). One timer slot holds the pending delayed event and every
+screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is watched
+for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per type), `complete` (clear bonus 500 + 100 per
+heart from the event's `hp`, result recorded, `levelComplete` after 0.9 s) and `gameover` (`gameOver` after
+1.2 s); a completion or game over that lands while paused still shows its card. The run keeps the total
+score and the current level's share: a restart or retry takes the level's points back, and the save records
+the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the current screen into `#overlay` as
+a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
+hides the HUD on screens without play; `CREDITS` holds the credits text.
+
+`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options }`.
+`loadSave` validates and degrades to the defaults (first level unlocked, music and sfx on) on anything
+unexpected; `recordClear` unlocks the next manifest level and keeps the fewer-tick result; `writeSave`
+swallows storage failures. The store is an injected `KeyValueStore`, so tests use a Map.
+
+### 6.2 Audio (`src/app/audio/`)
+
+`AudioEngine` (`engine.ts`) owns one `AudioContext`, created by `unlock()` on the first key or pointer
+(browsers refuse earlier), with master, music and sfx `GainNode` buses; before unlock every call is a
+no-op. `duck(strength)` pulls the music bus to `AUDIO.duckTo` for `duckHold` and lets it recover over
+`duckOut`; `setPaused` holds it at `pausedTo`. `Sfx` (`sfx.ts`) synthesises every cue on demand from a
+recipe table (`RECIPES`: oscillators with pitch glides and envelopes, filtered deterministic noise, small
+arpeggios), with a per-cue retrigger gap so a burst of hits does not stack; there are no sample files.
+`MusicPlayer` (`music.ts`) streams `assets/audio/<track>.ogg` (section 7.5) through two `<audio>` elements
+on the music bus and crossfades between them over `AUDIO.fade`; a track asked for before unlock starts on
+`resume()`. `GameAudio` (`index.ts`) binds it all and maps `WorldEvents` to cues, the same channel the
+particle effects use: jump/wallJump, land, dash, fire by kind, hit/weakHit, enemyDeath, hurt and death
+(ducked), respawn, checkpoint chime, complete and gameover (ducked), bossPhase and bossDefeated (ducked).
+Menu cues come from the shell. The manifest names each level's track and the title track (section 8).
 
 ## 7. Asset pipeline `[implemented: Phase 1]`
 
-Raw sheets live in `art-source/` and never ship. Each sheet has a committed `*.recipe.json` beside it;
-`npm run assets` (`tools/pack/index.ts`) wipes `public/assets/atlases/` and `public/assets/backdrops/`
-(both gitignored) and regenerates them from the recipes. `npm run build` runs `assets` before `validate`, so
-a clone builds without a manual step.
+Raw sheets and recordings live in `art-source/` and never ship. Each sheet has a committed `*.recipe.json`
+beside it; `npm run assets` (`tools/pack/index.ts`) wipes `public/assets/atlases/`,
+`public/assets/backdrops/` and `public/assets/audio/` (all gitignored) and regenerates them from the recipes
+and `art-source/audio/music.json`. `npm run build` runs `assets` before `validate`, so a clone builds
+without a manual step.
 
 ### 7.1 Segmentation (`tools/recut`)
 
@@ -381,7 +440,17 @@ JSON. A file under `public/assets/atlases/` with no recipe is an error. It then 
 block against the built outputs (`levelArtReferenceProblems`): the prop atlas exists, every decor and mover
 prop names a frame in it, and every backdrop slot names a file under `public/assets/backdrops/<level>/`.
 
-## 8. Content `[implemented: Phase 2-6]`
+### 7.5 Music (`tools/pack/audio.ts`)
+
+`art-source/audio/music.json` lists the tracks: `{ bitrateKbps, tracks: { <id>: { source, title } } }`.
+Each source (mp3 as delivered) is transcoded to Opus in an Ogg container at the spec's bitrate with the
+`ffmpeg` binary from `ffmpeg-static` (a dev dependency with a build per platform, so CI needs no system
+install) and written to `public/assets/audio/<id>.ogg`. At 80 kbps the 191 s Level 1 track is 1.92 MB
+(it shipped as a 4.6 MB mp3 in v1) and the 60 s Level 2 track 620 KB. Chromium, Firefox and Safari 17+
+play Opus in Ogg; the single-audio budget stays 6 MB. The manifest's `music` and `titleMusic` fields must
+name a track in the spec (`npm run validate` checks).
+
+## 8. Content `[implemented: Phase 2-7]`
 
 `src/content/level.ts` defines `LevelJson` (pixels, Y up): `solids`, `oneWay`, `movingSolids` (waypoint
 path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`,
@@ -390,9 +459,11 @@ for drones), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rej
 overlapping blocking geometry, out-of-bounds rectangles, a spawn inside a solid, unknown enumerations and
 duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src/content/manifest.json`.
 
-`src/content/levels.ts` reads the same manifest at runtime: `levelIdFromQuery(search)` resolves `?level=`
-(default: the first manifest entry) and `loadLevelById(id)` imports the level JSON through
-`import.meta.glob`, so each level is its own chunk (Level 1 with its decor is 4 KB). Level files are
+`src/content/manifest.json` lists the levels in play order, each with `id`, `file`, a display `name` and
+its `music` track, plus `titleMusic` for the shell. `src/content/levels.ts` reads it at runtime:
+`levelIdFromQuery(search)` resolves `?level=` (default: the first manifest entry), `manifestEntry(id)`
+returns the entry, and `loadLevelById(id)` imports the level JSON through `import.meta.glob`, so each level
+is its own chunk (Level 1 with its decor is 4 KB). Level files are
 written in the layout of `src/content/format.ts` (`formatLevel`): two-space indent, primitive-only
 objects and point arrays on one line, so rects and decor entries diff line by line.
 
@@ -402,8 +473,9 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet) |
 
-Levels 3 and 6 have no `art` block and render as grey boxes with the zone glows until their art exists
-(PLAN: dressed in Phase 7). Enemy placement follows one rule the routes rely on: a patroller must be
+Levels 3 and 6 have no `art` block and render as grey boxes with the zone glows until their art exists;
+Phase 7 planned to dress them but no source art for either exists (Level 3 has one concept painting,
+Level 6 nothing), so dressing waits on art rather than on code. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
 patroller behind a hop block cannot be shot from the ground, and one that sees a pit jump lands a free hit).
 
@@ -468,7 +540,7 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Single image | 1.5 MB |
 | Single audio | 6 MB |
 
-## 10. Testing `[implemented: Phase 0-6]`
+## 10. Testing `[implemented: Phase 0-7]`
 
 | Layer | Tool | Location | Runs against |
 |---|---|---|---|
@@ -476,7 +548,12 @@ to `dist/` and fails on any breach of `BUDGET`:
 | Replay | Vitest project `replay` | `tests/replay/**` | headless `World` on real level JSON |
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
-E2E specs: `smoke.spec.ts` (boot, pixels drawn, keyboard drives the sim), `editor.spec.ts` (section 11), and `level.spec.ts`: a check that
+E2E specs: `smoke.spec.ts` (boot to the title with the sim frozen, Enter starts it, pixels drawn, keyboard
+drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and locked
+level select, credits, intro card, pause freezing the tick count and resuming, quit; music element playing
+after the first key and M saving the mute; the full loop title to credits by replaying all three fixtures
+in sequence, then a reload showing every level unlocked with best times), and `level.spec.ts` (loading
+`?level=level-1` directly): a check that
 the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
 3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
 written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with the debug overlay and HUD
@@ -485,7 +562,8 @@ checks six enemies and the dormant boss are live sprites from the first frame, s
 fight, one-way, mover and first dash-gap sections, checks the first patroller is gone, waits for the boss
 to engage (HUD bar), reach phase 3 and die (bar gone), and requires the browser build to finish on the same
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
-snapshot's enemy list, boss bar state and sprite count); the same load-and-replay check runs for `level-3` and `level-6` through
+snapshot's enemy list, boss bar state and sprite count), then the results card and Enter moving on to
+Level 3; the same load-and-replay check runs for `level-3` and `level-6` through
 `?level=`, plus a check that an unknown id is a boot error. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.

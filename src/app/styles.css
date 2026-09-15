@@ -43,16 +43,42 @@ body {
   position: absolute;
   top: 12px;
   left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
   font-size: 18px;
   color: var(--amber);
   text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
 }
 
+.hud-hearts {
+  letter-spacing: 2px;
+  font-size: 22px;
+}
+
+.hud-heart {
+  color: var(--magenta);
+  text-shadow: 0 0 8px rgba(255, 45, 120, 0.7);
+}
+
+.hud-heart-lost {
+  color: #4a4a5a;
+  text-shadow: none;
+}
+
+.hud-score {
+  margin-left: auto;
+  color: var(--cyan);
+  letter-spacing: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
 .hud-boss {
   position: absolute;
-  top: 14px;
+  bottom: 28px;
   left: 50%;
-  width: 320px;
+  width: 360px;
   transform: translateX(-50%);
   text-align: center;
   color: var(--magenta);
@@ -75,24 +101,126 @@ body {
   transition: width 120ms linear;
 }
 
-.hud-banner {
+/* Shell overlays (title, level select, pause, results, credits) */
+
+#overlay {
   position: absolute;
-  top: 40%;
-  width: 100%;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#overlay.shell-visible {
+  display: flex;
+}
+
+#overlay.shell-dim {
+  background: rgba(13, 13, 26, 0.72);
+}
+
+body.shell-hide-hud #hud {
+  display: none;
+}
+
+.shell-card {
+  min-width: 420px;
+  padding: 28px 40px;
   text-align: center;
-  font-size: 28px;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: rgba(13, 13, 26, 0.82);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.15);
+}
+
+.shell-title {
+  margin: 0;
+  font-size: 56px;
+  letter-spacing: 8px;
   color: var(--cyan);
-  text-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.7);
+}
+
+.shell-subtitle {
+  margin: 4px 0 24px;
+  font-size: 14px;
+  letter-spacing: 3px;
+  color: var(--amber);
+}
+
+.shell-heading {
+  margin: 0 0 16px;
+  font-size: 28px;
+  letter-spacing: 4px;
+  color: var(--cyan);
+}
+
+.shell-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1.9;
+}
+
+.shell-menu li::before {
+  content: '  ';
+  white-space: pre;
+}
+
+.shell-menu li.shell-selected {
+  color: var(--amber);
+}
+
+.shell-menu li.shell-selected::before {
+  content: '> ';
+}
+
+.shell-menu li.shell-locked {
+  color: #5a5a6a;
+}
+
+.shell-menu .shell-best {
+  margin-left: 12px;
+  font-size: 13px;
+  color: #9a9aaa;
+}
+
+.shell-stats {
+  margin: 12px 0 18px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #e8e4d8;
+}
+
+.shell-hint {
+  margin-top: 18px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #9a9aaa;
+}
+
+.shell-credits {
+  max-height: 70vh;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.9;
+  color: #e8e4d8;
+}
+
+.shell-credits h3 {
+  margin: 18px 0 4px;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--amber);
+}
+
+.shell-credits p {
+  margin: 0;
 }
 
 #debug {
-  top: auto;
-  bottom: 8px;
-  height: auto;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: pre;
-  color: #9ef0a0;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
