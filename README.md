@@ -60,7 +60,7 @@ docs/        PRD.md, TDD.md, ART.md, STORY.md
 Dependencies flow one way: `core <- game <- render/app <- editor`. ESLint fails the build if `core` or `game` import
 Three.js or touch the DOM.
 
-Levels: `?level=level-3` loads another manifest level; `?edit=1` opens the current level in the editor, whose
+Levels: `?level=level-4` loads another manifest level (`level-1`, `level-3`, `level-4`, `level-6`); `?edit=1` opens the current level in the editor, whose
 `Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
 
 Controls: arrows or WASD move, `Space` jumps (down + jump drops through platforms), `Shift` or `X` dashes, `Z` fires; hold

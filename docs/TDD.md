@@ -125,8 +125,8 @@ to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 | Type | Sheet | Behaviour |
 |---|---|---|
 | `patroller` | patroller | 40x60, 3 hp. Walks its spawn +/- `patrolDistance` at 60 px/s, turning at bounds, walls and ledges. Seeing the player ahead within 320 px and 96 px of its height it stops, fires a horizontal shot (300 px/s from 34 px up) 36 ticks into the shoot pose, then patrols with a 150-tick cooldown. A hit knocks it back 120 px/s and restarts the cooldown. |
-| `drone` | drone | 48x28, 2 hp. Hovers 88 px (centre) above its spawn's ground reference with a slow bob, between its patrol bounds. Within 300 px it dives to chest height (40 px above the player's feet, so a grounded shot connects), keeps a 120 px stand-off and fires aimed shots (260 px/s) every 120 ticks; it loses interest beyond `loseRange` 450 px. |
-| `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px, decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px. |
+| `drone` | drone | 48x28, 2 hp. Hovers 88 px (centre) above its spawn's ground reference with a slow bob, between its patrol bounds. Within 300 px horizontally and 128 px vertically (`sightHeight`, centre to centre) it dives to chest height (40 px above the player's feet, so a grounded shot connects), keeps a 120 px stand-off and fires aimed shots (260 px/s) every 120 ticks; it loses interest beyond `loseRange` 450 px or outside the height band. |
+| `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px and on the same storey (feet within `sightHeight` 128 px), decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px or when the player leaves the storey. |
 | `aswang` | patroller at 1.6x, lilac tint | The Level 1 boss, 64x96, 24 hp; see below. |
 | `tikbalang` | tikbalang | Spawn data only; drawn if placed, no behaviour yet. |
 
@@ -405,12 +405,16 @@ and animations `{ fps, loop, frames }`. Frame names are `<animation>_<NN>` for s
 catalogues.
 
 `buildBackdrops` (`backdrops.ts`) reads `art-source/<level>/backdrops.json` and writes one WebP per layer,
-lossy (default quality 82) unless the layer has transparency or sets `lossless: true`. Two per-layer fixes
-run on the raw RGBA before encoding: `erase` rectangles (`mode: 'clear'` zeroes alpha; `mode: 'fill'`
-recolours with the mean of the visible border pixels, keeping alpha) remove the generator's watermark, and
+lossy (default quality 82) unless the layer has transparency or sets `lossless: true`. Three per-layer fixes
+run on the raw RGBA before encoding, in this order: `key` (`{ color: '#rrggbb', tolerance }`) zeroes alpha
+where every channel is within `tolerance` of the key colour, for sources delivered on a solid chroma
+background instead of transparency; `erase` rectangles (`mode: 'clear'` zeroes alpha; `mode: 'fill'`
+recolours with the mean of the visible border pixels, keeping alpha) remove the generator's watermark; and
 `edgeFade` (fraction of width) fades alpha to zero at the left and right edges so a layer can repeat
 horizontally without a seam. Level 1 ships `sky` (opaque, from `background.png`) and `town` (alpha, from
-`foreground.png`, lossy at quality 90, 5% edge fade); the source midground is not used.
+`foreground.png`, lossy at quality 90, 5% edge fade); the source midground is not used. Level 4 ships
+`skyline` (opaque) and `street` (keyed from magenta `#fd6cf7` at tolerance 96, lossy at quality 90); both
+erase the watermark with `fill`.
 
 Atlases are WebP only. KTX2/Basis output needs an encoder dependency and a runtime `KTX2Loader` path; it is
 deferred until a measured GPU-memory or decode-time problem justifies it.
@@ -471,11 +475,14 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 |---|---|---|---|
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies) |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
+| `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet) |
 
 Levels 3 and 6 have no `art` block and render as grey boxes with the zone glows until their art exists;
 Phase 7 planned to dress them but no source art for either exists (Level 3 has one concept painting,
-Level 6 nothing), so dressing waits on art rather than on code. Enemy placement follows one rule the routes rely on: a patroller must be
+Level 6 nothing), so dressing waits on art rather than on code. Level 4 was added in Phase 7b because its
+art does exist; it is the first vertical level and is why drones and stealths got a `sightHeight`, so an
+enemy on one storey does not react to the player climbing past on another. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
 patroller behind a hop block cannot be shot from the ground, and one that sees a pit jump lands a free hit).
 
@@ -504,16 +511,20 @@ tuning or level change that caused it.
 
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
 until its `done` condition holds, then handing over to the next (`run(dir, untilX)`, `jump(dir)`,
-`dashJump(dir)` dashes at the apex, `dropThrough()`, `waitMover(index, {x?, y?})`, `ride(dir, untilX)`,
-`waitUntil(pred)`, `fire()`, and the combat steps). `fight(untilX)` stands still, taps fire every 12 ticks
-while a visible enemy between here and `untilX` is in the plasma line, jumps enemy shots 0.16 s before they
+`dashJump(dir)` dashes at the apex, `dropThrough()`, `waitMover(index, {x?, y?})`,
+`waitMoverSettling(index, y)` (a descending mover within 4 px of `y`, so the bot steps on as it arrives
+rather than after it leaves), `wallClimb(dir, untilY)` (repeated wall kicks between two facing walls until
+grounded at or above `untilY`), `ride(dir, untilX)`,
+`waitUntil(pred)`, `fire()`, and the combat steps). `fight(untilX, dir = 1)` stands still facing `dir`,
+taps fire every 12 ticks while a visible enemy between here and `untilX` and within 160 px of the bot's
+height is in the plasma line, jumps enemy shots 0.16 s before they
 arrive (late enough that a three-shot burst passes under one jump) and finishes when nothing is left ahead
 and no enemy shot is in flight. `bossFight()` adds: jump a rush 0.2 s before contact, back off while the
 boss winds up within 150 px, hold fire for a nova while it is stunned, stop when it dies. Steps keep state,
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
-`level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
+`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
 each manifest level; its World-rules block uses Level 1 without enemies.
 
@@ -564,7 +575,9 @@ to engage (HUD bar), reach phase 3 and die (bar gone), and requires the browser 
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
 snapshot's enemy list, boss bar state and sprite count), then the results card and Enter moving on to
 Level 3; the same load-and-replay check runs for `level-3` and `level-6` through
-`?level=`, plus a check that an unknown id is a boot error. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
+`?level=`, a dressed variant for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
+first balcony, the lift and the roof), plus a check that an unknown id is a boot error. The shell's
+full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
 

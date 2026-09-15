@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import type { Sharp } from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { eraseRects, fadeEdges, parseBackdrops } from '../backdrops.js';
+import { eraseRects, fadeEdges, keyOut, parseBackdrops } from '../backdrops.js';
 import { packAtlas, type PackInput, type Placement } from '../packer.js';
 
 function overlaps(a: Placement, b: Placement, padding: number): boolean {
@@ -54,6 +54,8 @@ describe('parseBackdrops', () => {
     expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', edgeFade: 0.6 } } }, 'spec')).toThrow(/edgeFade/);
     expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', erase: [{ x: 0, y: 0, w: 0, h: 4, mode: 'fill' }] } } }, 'spec')).toThrow(/erase\[0\]/);
     expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', erase: [{ x: 0, y: 0, w: 4, h: 4, mode: 'blur' }] } } }, 'spec')).toThrow(/mode/);
+    expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', key: { color: 'magenta', tolerance: 10 } } } }, 'spec')).toThrow(/key\.color/);
+    expect(() => parseBackdrops({ ...good, layers: { bg: { source: 'x.png', key: { color: '#ff00ff', tolerance: 300 } } } }, 'spec')).toThrow(/key\.tolerance/);
   });
 
   it('accepts edgeFade and erase', () => {
@@ -67,6 +69,21 @@ const pixels = async (img: Sharp): Promise<{ at: (x: number, y: number) => numbe
   const { data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   return { width: info.width, at: (x, y) => Array.from(data.subarray((y * info.width + x) * 4, (y * info.width + x) * 4 + 4)) };
 };
+
+describe('keyOut', () => {
+  it('clears pixels within tolerance of the key colour and keeps the rest opaque', async () => {
+    // Magenta sheet with a dark 2 x 2 block at (3, 1) and a near-magenta pixel at (0, 0).
+    const img = sharp({ create: { width: 8, height: 4, channels: 4, background: { r: 253, g: 108, b: 247, alpha: 1 } } }).composite([
+      { input: { create: { width: 2, height: 2, channels: 4, background: { r: 40, g: 40, b: 50, alpha: 1 } } }, left: 3, top: 1 },
+      { input: { create: { width: 1, height: 1, channels: 4, background: { r: 240, g: 120, b: 240, alpha: 1 } } }, left: 0, top: 0 },
+    ]);
+    const p = await pixels(await keyOut(img, { color: '#fd6cf7', tolerance: 24 }));
+    expect(p.at(6, 3)[3]).toBe(0);
+    expect(p.at(0, 0)[3]).toBe(0); // within tolerance
+    expect(p.at(3, 1)).toEqual([40, 40, 50, 255]);
+    expect(p.at(4, 2)).toEqual([40, 40, 50, 255]);
+  });
+});
 
 describe('eraseRects', () => {
   // 8 x 4 opaque red with a white 2 x 2 "watermark" at (3, 1).

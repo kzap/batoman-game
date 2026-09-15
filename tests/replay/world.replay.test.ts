@@ -14,7 +14,7 @@ import { FIXTURE_DIR, loadLevel, record, replay, toFixture, type ReplayFixture }
  * alters a run, re-record and review the diff.
  */
 /** Every level in the manifest has a recorded clear; the same checks run for each. */
-describe.each(['level-1', 'level-3', 'level-6'])('%s under replay', (id) => {
+describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (id) => {
   const level = loadLevel(id);
 
   it('is completable by the scripted route, taking no damage', () => {

@@ -31,6 +31,18 @@ export interface BackdropLayer {
   readonly edgeFade?: number;
   /** Source-pixel rects to blank out (generator watermarks, captions). Applied before scaling. */
   readonly erase?: readonly EraseRect[];
+  /**
+   * Chroma key: pixels within `tolerance` (max per-channel difference, 0-255) of `color`
+   * become transparent. For layers drawn on a flat key colour instead of alpha. Applied
+   * first, so an erase rect can then fill any keyed hole it overlaps.
+   */
+  readonly key?: ChromaKey;
+}
+
+export interface ChromaKey {
+  /** `#rrggbb`. */
+  readonly color: string;
+  readonly tolerance: number;
 }
 
 export interface EraseRect {
@@ -46,6 +58,7 @@ export interface EraseRect {
 }
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
+const HEX_RE = /^#[0-9a-f]{6}$/i;
 
 export function parseBackdrops(json: unknown, label: string): BackdropsSpec {
   if (typeof json !== 'object' || json === null) throw new Error(`${label}: must be an object`);
@@ -62,6 +75,11 @@ export function parseBackdrops(json: unknown, label: string): BackdropsSpec {
     if (l.scale !== undefined && (typeof l.scale !== 'number' || l.scale <= 0 || l.scale > 1)) throw new Error(`${label}.layers.${name}.scale must be in (0, 1]`);
     if (l.lossless !== undefined && typeof l.lossless !== 'boolean') throw new Error(`${label}.layers.${name}.lossless must be a boolean`);
     if (l.edgeFade !== undefined && (typeof l.edgeFade !== 'number' || l.edgeFade < 0 || l.edgeFade > 0.5)) throw new Error(`${label}.layers.${name}.edgeFade must be in [0, 0.5]`);
+    if (l.key !== undefined) {
+      const k = l.key as Record<string, unknown>;
+      if (typeof k !== 'object' || k === null || typeof k.color !== 'string' || !HEX_RE.test(k.color)) throw new Error(`${label}.layers.${name}.key.color must be #rrggbb`);
+      if (typeof k.tolerance !== 'number' || k.tolerance < 0 || k.tolerance > 255) throw new Error(`${label}.layers.${name}.key.tolerance must be 0-255`);
+    }
     if (l.erase !== undefined) {
       if (!Array.isArray(l.erase)) throw new Error(`${label}.layers.${name}.erase must be an array`);
       l.erase.forEach((r: unknown, i: number) => {
@@ -100,6 +118,17 @@ async function rawRgba(img: Sharp): Promise<{ data: Buffer; width: number; heigh
 }
 
 const fromRaw = (data: Buffer, width: number, height: number): Sharp => sharp(data, { raw: { width, height, channels: 4 } });
+
+/** Zero the alpha of every pixel within the key's tolerance of its colour (max difference over R, G, B). */
+export async function keyOut(img: Sharp, key: ChromaKey): Promise<Sharp> {
+  const { data, width, height } = await rawRgba(img);
+  const target = [1, 3, 5].map((i) => parseInt(key.color.slice(i, i + 2), 16));
+  for (let i = 0; i < data.length; i += 4) {
+    const d = Math.max(Math.abs(data[i] - target[0]), Math.abs(data[i + 1] - target[1]), Math.abs(data[i + 2] - target[2]));
+    if (d <= key.tolerance) data[i + 3] = 0;
+  }
+  return fromRaw(data, width, height);
+}
 
 /** Blank out rects: `clear` zeroes the alpha, `fill` recolours with the mean of the visible one-pixel border, alpha kept. */
 export async function eraseRects(img: Sharp, rects: readonly EraseRect[]): Promise<Sharp> {
@@ -162,6 +191,7 @@ export async function buildBackdrops(specPath: string, outRoot: string): Promise
   for (const [name, layer] of Object.entries(spec.layers)) {
     const src = path.join(path.dirname(specPath), layer.source);
     let img = sharp(src);
+    if (layer.key) img = await keyOut(img, layer.key);
     if (layer.erase?.length) img = await eraseRects(img, layer.erase);
     const lossless = layer.lossless ?? (await hasTransparency(img));
     if (layer.scale && layer.scale < 1) {

@@ -8,7 +8,7 @@ import { FIXTURE_DIR, loadLevel, record, toFixture } from './harness';
  *   npx tsx tests/replay/record.ts
  * Commit the resulting diff together with the tuning change that caused it.
  */
-const runs = ['level-1', 'level-3', 'level-6'].map((level) => ({ name: `${level}-clear`, level, seed: 1 }));
+const runs = ['level-1', 'level-3', 'level-4', 'level-6'].map((level) => ({ name: `${level}-clear`, level, seed: 1 }));
 
 mkdirSync(FIXTURE_DIR, { recursive: true });
 for (const r of runs) {

@@ -145,6 +145,12 @@ export const ENEMY = {
     bobAmplitude: 6,
     bobPeriodTicks: 120,
     sightRange: 300,
+    /**
+     * Vertical band (centre to centre) within which a player is noticed or kept in sight: a
+     * hovering drone sees the floor it patrols above and one jump higher or lower, not a
+     * player several storeys away in a vertical level.
+     */
+    sightHeight: 128,
     /** Gives up the chase beyond this distance and goes back to hovering. */
     loseRange: 450,
     /** Centre height above the player's feet while chasing: chest height, so a grounded shot connects. */
@@ -165,6 +171,8 @@ export const ENEMY = {
     speed: 110,
     /** Player distance that breaks the cloak. */
     ambushRange: 200,
+    /** Feet-to-feet vertical band for noticing and keeping the player; a storey above or below is not an ambush. */
+    sightHeight: 128,
     decloakTicks: 40,
     cloakedAlpha: 0.15,
     /** Gives up the chase beyond this distance and re-cloaks. */

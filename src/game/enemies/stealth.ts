@@ -18,7 +18,7 @@ export class Stealth extends Enemy {
         enter: () => {
           this.vx = 0;
         },
-        update: (ctx) => (!ctx.player.dead && Math.abs(this.toPlayer(ctx)) <= T.ambushRange ? 'decloak' : undefined),
+        update: (ctx) => (!ctx.player.dead && Math.abs(this.toPlayer(ctx)) <= T.ambushRange && this.sameStorey(ctx, T.sightHeight) ? 'decloak' : undefined),
       },
       decloak: {
         enter: (ctx) => this.facePlayer(ctx),
@@ -29,7 +29,7 @@ export class Stealth extends Enemy {
           if (this.hurtTicks > 0) return 'hurt';
           if (this.shotCooldown > 0) this.shotCooldown--;
           const dx = this.toPlayer(ctx);
-          if (ctx.player.dead || Math.abs(dx) > T.chaseRange) return 'cloaked';
+          if (ctx.player.dead || Math.abs(dx) > T.chaseRange || !this.sameStorey(ctx, T.sightHeight)) return 'cloaked';
           this.facePlayer(ctx);
           if (this.shotCooldown === 0 && Math.abs(ctx.player.body.y - this.body.y) <= T.height) return 'shoot';
           if (Math.abs(dx) > T.standoff && this.grounded(ctx.cw) && !this.ledgeAhead(ctx.cw, this.facing, ENEMY.ledgeProbe)) {

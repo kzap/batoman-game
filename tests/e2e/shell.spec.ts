@@ -21,10 +21,11 @@ test.describe('shell', () => {
     await page.keyboard.press('Enter');
     await screen(page, 'levelSelect');
     const items = page.locator('.shell-menu li');
-    await expect(items).toHaveCount(3);
+    await expect(items).toHaveCount(4);
     await expect(items.nth(0)).not.toHaveClass(/shell-locked/);
     await expect(items.nth(1)).toHaveClass(/shell-locked/);
     await expect(items.nth(2)).toHaveClass(/shell-locked/);
+    await expect(items.nth(3)).toHaveClass(/shell-locked/);
     await page.screenshot({ path: resolve(SHOTS, 'shell-level-select.png') });
     // A locked level does not start.
     await page.keyboard.press('ArrowDown');
@@ -121,19 +122,17 @@ test.describe('shell', () => {
     expect(save.options.music).toBe(false);
   });
 
-  test('full loop: title -> three levels -> credits, unlocking as it goes', async ({ page }) => {
-    test.setTimeout(420_000);
+  test('full loop: title -> four levels -> credits, unlocking as it goes', async ({ page }) => {
+    test.setTimeout(540_000);
     await page.goto('/');
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
     await page.keyboard.press('Enter');
     await screen(page, 'playing');
-    for (const [id, next] of [
-      ['level-1', 'level-3'],
-      ['level-3', 'level-6'],
-      ['level-6', null],
-    ] as const) {
+    const order = ['level-1', 'level-3', 'level-4', 'level-6'] as const;
+    for (const [i, id] of order.entries()) {
+      const next = order[i + 1] ?? null;
       expect((await hooks(page)).level).toBe(id);
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
       await screen(page, 'complete', 150_000);
@@ -141,7 +140,7 @@ test.describe('shell', () => {
       await page.keyboard.press('Enter');
       if (next) {
         await screen(page, 'intro', 20_000);
-        await expect(page.locator('#overlay')).toContainText(`LEVEL ${next === 'level-3' ? 2 : 3}`);
+        await expect(page.locator('#overlay')).toContainText(`LEVEL ${i + 2}`);
         await page.keyboard.press('Enter');
         await screen(page, 'playing');
       }

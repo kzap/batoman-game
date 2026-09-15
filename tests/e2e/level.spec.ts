@@ -152,6 +152,36 @@ test.describe('other levels', () => {
     });
   }
 
+  test('level-4 loads dressed from ?level= and replays its fixture up the tower', async ({ page }) => {
+    test.setTimeout(200_000); // 2802 ticks is 23 s of wall time, more under software GL
+    const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-4-clear.json'), 'utf8')) as Fixture;
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(r.url()));
+    await page.goto('/?level=level-4');
+    await ready(page);
+    const h0 = await hooks(page);
+    expect(h0.level).toBe('level-4');
+    expect(h0.errors).toEqual([]);
+    expect(requests.some((u) => u.endsWith('atlases/level-4-props.webp'))).toBe(true);
+    expect(requests.some((u) => u.endsWith('backdrops/level-4/skyline.webp'))).toBe(true);
+    expect(requests.some((u) => u.endsWith('backdrops/level-4/street.webp'))).toBe(true);
+    await page.screenshot({ path: resolve(SHOTS, 'level-4-start.png') });
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+    // Landmarks on the climb: the first balcony, the lift ride, the roof.
+    for (const [name, y] of [['level-4-balcony', 440], ['level-4-lift', 800], ['level-4-roof', 1400]] as const) {
+      await page.waitForFunction((min) => (window.__batoman?.player.y ?? 0) >= min, y, { timeout: 60_000 });
+      await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
+    }
+    await page.waitForFunction(() => window.__batoman?.status !== 'playing', null, { timeout: 100_000 });
+    const h = await hooks(page);
+    expect(h.status).toBe('complete');
+    expect(h.simTicks).toBe(fixture.expect.ticks);
+    expect(h.player.hp).toBe(fixture.expect.hp);
+    expect(Math.round(h.player.x)).toBe(fixture.expect.x);
+    expect(h.errors).toEqual([]);
+    await page.screenshot({ path: resolve(SHOTS, 'level-4-complete.png') });
+  });
+
   test('an unknown level id fails loudly instead of falling back to level 1', async ({ page }) => {
     await page.goto('/?level=level-99');
     await page.waitForFunction(() => (window.__batoman?.errors.length ?? 0) > 0);

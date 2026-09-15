@@ -1,6 +1,6 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-6 merged; Phase 7 in review (Levels 3 and 6 dressing deferred: no source art exists). Phase 7b (Level 4) next. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
+Status: Phases 0-7 merged (Levels 3 and 6 dressing deferred: no source art exists); Phase 7b (Level 4) in review. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
 the `v2` branch one phase per PR, then merges to `main` when playable.
 
 ## Why a remake
@@ -170,6 +170,12 @@ background, foreground, tileset, 27-prop recipe already building), unused since 
 - Route bot and fixture (undamaged clear), e2e load check, TDD level table.
 
 Exit: Level 4 playable and dressed, in the level select after Level 3, fixture green.
+
+Outcome: as planned, plus two things the vertical layout forced. The foreground art came on a solid
+magenta background, so backdrop layers gained a `key` chroma-key option in the pipeline. Drones and
+stealths gained a `sightHeight` (128 px) so an enemy does not react to the player climbing past on another
+storey; the existing fixtures were unaffected. Route DSL gained `wallClimb`, `waitMoverSettling` and a
+direction for `fight`. 86 decor quads; fixture 2802 ticks undamaged.
 
 ### Phase 8 - Polish and performance (`phase/8-polish-perf`)
 

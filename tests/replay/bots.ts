@@ -1,5 +1,5 @@
 import type { Policy } from './harness';
-import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, type Step, waitMover, waitUntil } from './route';
+import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -90,6 +90,44 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     run(1, 2830),
     jump(1), // spikes at 2880
     run(1, 3584),
+  ],
+
+  /** NSA tower: street fight, spikes, scaffold rungs up the face, balcony, lift, ambusher, wall-kick shaft, upper rungs, roof guard. */
+  'level-4': () => [
+    fight(600), // patroller patrolling 440..560, shot from spawn before it can see us
+    run(1, 565),
+    jump(1), // spikes at 608
+    run(1, 690),
+    jump(1), // rung 1 (704..864, top 128)
+    fight(1152), // drone at 960 dives to chest height
+    run(1, 830),
+    jump(1), // rung 2 (896..1024, top 192)
+    run(-1, 930),
+    jump(-1), // rung 3 (704..864, top 256)
+    run(1, 830),
+    jump(1), // rung 4 (896..1024, top 320)
+    run(-1, 930),
+    jump(-1), // rung 5 (704..864, top 384)
+    run(1, 830),
+    jump(1), // balcony 1 (864..1152, top 448)
+    run(1, 960),
+    run(-1, 890), // to the balcony's edge, clear of the lift's path
+    waitMoverSettling(0, 432),
+    run(-1, 862), // onto the lift, at its balcony-side edge
+    waitUntil('lift at the top', (c) => (c.snap.movingSolids[0]?.y ?? 0) >= 812),
+    run(1, 900), // off onto balcony 2
+    fight(1152), // cloaked ambusher at 1100 decloaks as we arrive
+    run(1, 1070), // under the hanging column into the shaft
+    wallClimb(1, 1216), // kick between the column and the tower face up to the rung at 1216
+    run(-1, 1110),
+    jump(-1), // rung at 1280 (896..1024)
+    fight(700, -1), // drone at 900 dives on arrival
+    run(1, 960),
+    jump(1), // rung at 1344 (992..1120)
+    run(1, 1090),
+    jump(1), // roof (top 1408)
+    fight(1600), // roof guard patrolling 1520..1560 in front of the exit
+    run(1, 1600),
   ],
 
   /** Rooftop garden: hop up, dash gap, vent, vertical lift, planter, spikes, drop, planter steps, spikes, exit. */
