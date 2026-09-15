@@ -1,6 +1,6 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-6 merged; Phase 7 in review (Levels 3 and 6 dressing deferred: no source art exists). `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
+Status: Phases 0-6 merged; Phase 7 in review (Levels 3 and 6 dressing deferred: no source art exists). Phase 7b (Level 4) next. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
 the `v2` branch one phase per PR, then merges to `main` when playable.
 
 ## Why a remake
@@ -153,6 +153,23 @@ Exit: Level 1 playable start to boss kill under replay.
 - Menus, DOM HUD, pause, audio buses with ducking, localStorage save. Levels 3 and 6 dressed.
 
 Exit: full loop menu -> three levels -> credits.
+
+Outcome: everything but the dressing shipped; Levels 3 and 6 have no source art (Level 3 one concept
+painting, Level 6 nothing), so they stay grey-box until art exists. Dressing each is a one-day content PR
+once `art-source/level-<n>/` has `background.png`, `foreground.png`, `backdrops.json`, `tileset.png` and a
+props recipe, following Level 1.
+
+### Phase 7b - Level 4, NSA Tower Exterior (`content/level-4`)
+
+Added after Phase 7: the only level besides Level 1 with complete source art (`art-source/level-4/`
+background, foreground, tileset, 27-prop recipe already building), unused since v1.
+
+- Manifest entry (name, music), grey-box layout in the editor: vertical tower exterior with scaffolds,
+  one-way ladders, wall-jump shafts, lifts and drones; no boss (PRD has none for Level 4).
+- `backdrops.json`, `art` block, dressed with `level-4-props`.
+- Route bot and fixture (undamaged clear), e2e load check, TDD level table.
+
+Exit: Level 4 playable and dressed, in the level select after Level 3, fixture green.
 
 ### Phase 8 - Polish and performance (`phase/8-polish-perf`)
 
