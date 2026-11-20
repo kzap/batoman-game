@@ -1,6 +1,6 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-7 and 7b merged. Level 6 source art and data-only dressing are in review (`content/level-6`); the lying-path collider, Tikbalang-X, a second mid layer, and a dedicated music track are still open. Level 3 dressing remains deferred (one concept painting, no pipeline set). `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
+Status: Phases 0-7, 7b, and 8.1 are on `v2`. Level 6 source art and data-only dressing are in review (`content/level-6`); the lying-path collider, Tikbalang-X, a second mid layer, and a dedicated music track are still open. Level 3 source art is on `v2` and the level is still grey-box (no `art` block). `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
 the `v2` branch one phase per PR, then merges to `main` when playable.
 
 ## Why a remake

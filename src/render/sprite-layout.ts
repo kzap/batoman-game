@@ -1,4 +1,5 @@
 import type { AtlasFrame } from '@content/atlas';
+import { PIXELS_PER_UNIT, SIM_PX_PER_ATLAS_PX } from './units';
 
 /**
  * Pure geometry for placing an atlas frame on a unit quad. Kept free of Three
@@ -56,4 +57,20 @@ export function placeFrame(frame: AtlasFrame, scale: number | { x: number; y: nu
     sx: flip ? -w : w,
     sy: h,
   };
+}
+
+/**
+ * `placeFrame` for a sim-pixel anchor. `size` is the rendered size in sim px
+ * (one missing side keeps the aspect). Shared by the single-quad sprites and
+ * the instanced decor so a prop lands on the same point either way.
+ */
+export function framePlacement(
+  frame: AtlasFrame,
+  anchorPx: { x: number; y: number },
+  opts: { flip?: boolean; size?: { w?: number; h?: number }; scale?: number } = {},
+): QuadPlacement {
+  const natural = (SIM_PX_PER_ATLAS_PX * (opts.scale ?? 1)) / PIXELS_PER_UNIT;
+  const { w, h } = opts.size ?? {};
+  const scale = w === undefined && h === undefined ? natural : { x: w !== undefined ? w / frame.w / PIXELS_PER_UNIT : h! / frame.h / PIXELS_PER_UNIT, y: h !== undefined ? h / frame.h / PIXELS_PER_UNIT : w! / frame.w / PIXELS_PER_UNIT };
+  return placeFrame(frame, scale, { x: anchorPx.x / PIXELS_PER_UNIT, y: anchorPx.y / PIXELS_PER_UNIT }, opts.flip ?? false);
 }
