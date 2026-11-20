@@ -1,24 +1,32 @@
 import {
   AdditiveBlending,
   BoxGeometry,
+  ClampToEdgeWrapping,
   EdgesGeometry,
   Group,
+  InstancedMesh,
   LineBasicMaterial,
   LineSegments,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   MirroredRepeatWrapping,
+  Object3D,
   PlaneGeometry,
   RepeatWrapping,
+  type BufferAttribute,
   type Material,
   type Texture,
 } from 'three';
 import type { LevelJson, Rect } from '@content/level';
-import { BACKDROP_SLOTS, type BackdropSlot, type DecorLayer } from '@content/level-art';
+import { CAMERA } from '@game/tuning';
+import type { BackdropMeta } from './backdrop-meta';
+import { decorBatches } from './batches';
+import { BACKDROP_SLOTS, type BackdropSlot, type DecorJson, type DecorLayer } from '@content/level-art';
 import type { LevelArtAssets } from './assets';
-import { backdropPlacement } from './diorama';
-import { atlasMaterial, SpriteQuad } from './sprite';
+import { backdropContentBand, backdropPlacement, backdropTiles, layerViewWidth } from './diorama';
+import { atlasMaterial } from './sprite';
+import { framePlacement, frameUv } from './sprite-layout';
 import { LAYER_Z, PALETTE } from './stage';
 import { rectCenter, toUnits } from './units';
 
@@ -129,31 +137,84 @@ export class LevelView {
   private diorama(level: LevelJson, art: LevelArtAssets): void {
     const spec = level.art!;
     for (const slot of BACKDROP_SLOTS) {
-      const tex = art.backdrops.get(slot);
-      if (tex) this.backdrop(slot, tex, level);
+      const layer = art.backdrops.get(slot);
+      if (layer) this.backdrop(slot, layer.texture, layer.meta, level);
     }
+    this.decor(art, spec.decor);
+  }
+
+  /**
+   * Static props are one instanced draw per (layer, chunk, frame, flip).
+   * A chunk is one view wide, so a long level does not submit every crate on
+   * every frame. Dynamic sprites stay as single quads: a handful of them
+   * change frame every tick, and instancing that just rebuilds a buffer.
+   */
+  private decor(art: LevelArtAssets, decor: readonly DecorJson[]): void {
     const props = this.material(atlasMaterial(art.props.texture));
-    for (const d of spec.decor) {
-      const q = new SpriteQuad(art.props, props, d.prop);
-      const size: { w?: number; h?: number } = {};
-      if (d.w !== undefined) size.w = d.w;
-      if (d.h !== undefined) size.h = d.h;
-      q.place(d.x, d.y, DECOR_Z[d.layer ?? 'prop'], { flip: d.flip ?? false, size });
-      this.group.add(q.mesh);
+    const dummy = new Object3D();
+    const batches = decorBatches(decor, CAMERA.viewW, CAMERA.viewH);
+    for (const batch of batches) {
+      const frame = art.props.json.frames[batch.prop];
+      if (!frame) throw new Error(`prop atlas has no frame "${batch.prop}"`);
+      const geo = new PlaneGeometry(1, 1);
+      const uv = frameUv(frame, art.props.json.width, art.props.json.height);
+      const u0 = batch.flip ? uv.u1 : uv.u0;
+      const u1 = batch.flip ? uv.u0 : uv.u1;
+      const attr = geo.getAttribute('uv') as BufferAttribute;
+      attr.setXY(0, u0, uv.v1);
+      attr.setXY(1, u1, uv.v1);
+      attr.setXY(2, u0, uv.v0);
+      attr.setXY(3, u1, uv.v0);
+      const mesh = new InstancedMesh(geo, props, batch.instances.length);
+      const z = DECOR_Z[batch.layer];
+      batch.instances.forEach((inst, i) => {
+        const size: { w?: number; h?: number } = {};
+        if (inst.w !== undefined) size.w = inst.w;
+        if (inst.h !== undefined) size.h = inst.h;
+        const p = framePlacement(frame, { x: inst.x, y: inst.y }, { flip: inst.flip, size });
+        dummy.position.set(p.cx, p.cy, z);
+        dummy.scale.set(Math.abs(p.sx), p.sy, 1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      this.group.add(mesh);
     }
   }
 
-  private backdrop(slot: BackdropSlot, tex: Texture, level: LevelJson): void {
-    const img = tex.image as { width: number; height: number };
-    const p = backdropPlacement(slot, { width: level.width, height: level.height, floorY: level.spawn.y }, img.width / img.height);
+  private backdrop(slot: BackdropSlot, tex: Texture, meta: BackdropMeta, level: LevelJson): void {
+    const p = backdropPlacement(slot, { width: level.width, height: level.height, floorY: level.spawn.y }, meta.width / meta.height);
+    const band = backdropContentBand(p, meta.height, meta.content.y, meta.content.h);
+    const tiles = backdropTiles(p, layerViewWidth(p.z), band);
+    if (tiles.length === 0) return;
     tex.wrapS = p.mirrored ? MirroredRepeatWrapping : RepeatWrapping;
-    tex.repeat.set(p.repeatX, 1);
+    tex.wrapT = ClampToEdgeWrapping;
+    tex.repeat.set(1, 1);
+    tex.offset.set(0, 0);
     tex.needsUpdate = true;
-    // Same recipe as the sprites: a layer may have cut-out sky (the town does), and the Z order is fixed anyway.
-    const m = this.material(new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, alphaTest: 0.02 }));
-    const mesh = new Mesh(new PlaneGeometry(p.w, p.h), m);
-    mesh.position.set(p.x, p.y, p.z);
-    this.group.add(mesh);
+    // Opaque layers (the far sky) skip the blend and the alpha test. The mid
+    // layer keeps both: its roofs are cut out against the sky.
+    const m = this.material(
+      meta.opaque
+        ? new MeshBasicMaterial({ map: tex, depthWrite: true })
+        : new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, alphaTest: 0.02 }),
+    );
+    for (const t of tiles) {
+      const geo = new PlaneGeometry(t.w, t.h);
+      const attr = geo.getAttribute('uv') as BufferAttribute;
+      const u0 = t.offsetX;
+      const u1 = t.offsetX + t.repeatX;
+      const v0 = t.offsetY;
+      const v1 = t.offsetY + t.repeatY;
+      attr.setXY(0, u0, v1);
+      attr.setXY(1, u1, v1);
+      attr.setXY(2, u0, v0);
+      attr.setXY(3, u1, v0);
+      const mesh = new Mesh(geo, m);
+      mesh.position.set(t.x, t.y, p.z);
+      this.group.add(mesh);
+    }
   }
 
   /** Wireframe boxes for every collider and the zones' bounds, in the debug palette. */

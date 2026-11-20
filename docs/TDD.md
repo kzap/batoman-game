@@ -163,7 +163,7 @@ weaker shake never replaces a stronger one in progress. Hurt and death shake the
 replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
 a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
 
-## 5. Renderer `[implemented: Phase 3-6]`
+## 5. Renderer `[implemented: Phase 3-8]`
 
 `Stage` (`src/render/stage.ts`) owns the `WebGLRenderer`, `Scene`, `PerspectiveCamera` (`LENS`: FOV 30,
 distance 22, looking at Z=0), fog, ambient + key/rim lights, and the optional `PostStack`. `LAYER_Z` fixes
@@ -213,6 +213,24 @@ the texture (mirrored repeat) horizontally. The mid plane is sized to appear one
 bottom sunk 0.8 units below the ground line so the silhouettes sit behind the floor props; it repeats
 horizontally with a 5% edge fade baked into the texture (section 7.3). Backdrop textures use linear
 filtering without mipmaps (mipmap generation on two full-screen layers cost ~10 fps under software GL).
+
+The plane is split into tiles about one view wide (`backdropTiles`) so the part of a long level behind the
+camera is frustum-culled instead of submitted as one level-sized triangle. `backdropContentBand` shrinks a
+layer to the rows the packer recorded in `<layer>.meta.json` (alpha above 8, padded 2px). Level 4's keyed
+street is the bottom third of its image; the empty sky above it is not rasterised. An opaque layer (the far
+skies) is drawn without blending or alpha test.
+
+Decor is instanced (`decorBatches` in `batches.ts`): one `InstancedMesh` per layer, screen-sized chunk,
+frame and flip. The chunk bounds are what the frustum test sees, so crates at the other end of the level
+are not drawn. Flip is its own batch because a negative instance scale is back-face culled inside a batch
+of unflipped copies; the mirrored batch swaps UVs and keeps a positive scale. Placement is `framePlacement`,
+the same function `SpriteQuad` uses. Dynamic sprites are not instanced: a few dozen of them change frame
+every tick, and rebuilding an instance buffer for that is not a win.
+
+The far slot is packed smaller (`farLodDimensions`). At a 720px framebuffer a far texel is about two screen
+pixels on the sharper axis; the texture is never upscaled, and the mid layer stays full resolution. The
+far plane is fogged, so the softer sample reads as depth. Level 1's sky goes from 1408x736 to 1008x528;
+Level 4's skyline from 2816x1536 to 1008x548.
 
 ### 5.3 Entity view and post
 
@@ -416,8 +434,14 @@ horizontally without a seam. Level 1 ships `sky` (opaque, from `background.png`)
 `skyline` (opaque) and `street` (keyed from magenta `#fd6cf7` at tolerance 96, lossy at quality 90); both
 erase the watermark with `fill`.
 
-Atlases are WebP only. KTX2/Basis output needs an encoder dependency and a runtime `KTX2Loader` path; it is
-deferred until a measured GPU-memory or decode-time problem justifies it.
+Atlases stay lossless WebP. Their alpha-tested edges pick up block artefacts under Basis, and they are not
+the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`, Basis Universal via
+`@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. The loader
+(`useCompressedBackdrops`) fetches the KTX2 when the GPU reports S3TC or BC7 and the unmasked renderer is
+not a software implementation (SwiftShader, llvmpipe). Software GL advertises those extensions and then
+decompresses them on the CPU, which is slower than the WebP path, so CI stays on WebP. ETC2 and ASTC are
+not selected: on desktop Linux they are often emulated. The transcoder is the three.js Basis wasm, loaded
+only when a KTX2 is requested.
 
 ### 7.4 Outputs and payload
 
@@ -430,7 +454,10 @@ deferred until a measured GPU-memory or decode-time problem justifies it.
 | `level-1-props` | 24 | 1024x1024 | 769 KB |
 | `level-4-props` | 27 | 1024x1024 | 791 KB |
 
-Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops: `sky` 60 KB, `town` 225 KB.
+Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops, WebP / KTX2: `sky` 35 / 66 KB (far LOD,
+1008x528), `town` 225 / 183 KB. Level 4: `skyline` 57 / 88 KB (far LOD, 1008x548), `street` 166 / 412 KB.
+The KTX2 is what a desktop GPU samples; the WebP is the software-GL fallback. Both are in the payload
+budget because `dist/` carries every file.
 
 The Level 1 set a player downloads today (BatoMan and props atlases with their JSON, two backdrops) is
 1,729,694 bytes; with the patroller and drone atlases Phase 6 adds it is 2,741,238 bytes. v1 loaded
@@ -581,8 +608,18 @@ full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the cre
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
 
-Measured under SwiftShader at 1280x720: grey-box 60 fps; art with the post stack 37-41 fps; `?post=0` about
-38 fps (the two full-screen backdrop layers are the fill cost, not the post stack); `?dof=1` 11 fps.
+Measured under SwiftShader at 1280x720 on a laptop, before Phase 8.1: grey-box 60 fps; art with the post
+stack 37-41 fps; `?post=0` about 38 fps (the two full-screen backdrop layers are the fill cost, not the post
+stack); `?dof=1` 11 fps.
+
+Phase 8.1 remeasured the same viewport with `node tools/perf/frame-budget.mjs` (Playwright Chromium,
+`--use-angle=swiftshader`, 1280x720, `window.__batoman.frames` over 4s after 20 warmup frames, two samples,
+no input). The machine was this cloud VM: no GPU, renderer `SwiftShader Device (Subzero)`. It is not a mid
+laptop, and it does not reach the historical 37-41. On that probe the post-on Level 1 path went from
+5.99/5.24 fps to 11.23/10.98 fps. Level 4 went from 2.66/5.74 fps to 2.42/8.99 fps (the first sample of a
+fresh document still includes a stall). `?post=0` stayed at about 2.5 fps on both builds; that path turns
+MSAA back on, and the backdrop work is not what it is waiting on. A mid-laptop 60 fps figure was not taken:
+this environment has no discrete or integrated GPU to sample.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
 uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.

@@ -70,3 +70,64 @@ export function backdropPlacement(slot: BackdropSlot, level: LevelDims, imageAsp
   const bottom = range.minY + (apparentBottom - range.minY) * grow;
   return { z, x, y: bottom + h / 2, w, h, repeatX: w / (h * imageAspect), mirrored: false };
 }
+
+/** How wide the view is at a backdrop plane, in stage units. One tile of a split backdrop. */
+export function layerViewWidth(z: number): number {
+  return toUnits(CAMERA.viewW) * ((LENS.distance - z) / LENS.distance);
+}
+
+/**
+ * Vertical slice of a backdrop that actually has pixels. `contentY`/`contentH`
+ * are image rows, y down. The mesh shrinks to that band and the UVs follow, so
+ * a keyed skyline does not rasterise the empty sky above the roofs.
+ */
+export interface BackdropBand {
+  readonly y: number;
+  readonly h: number;
+  /** Bottom of the band in texture V (V is bottom-up). */
+  readonly offsetY: number;
+  readonly repeatY: number;
+}
+
+export function backdropContentBand(p: BackdropPlacement, imageH: number, contentY: number, contentH: number): BackdropBand {
+  if (imageH <= 0 || contentH <= 0) return { y: p.y, h: 0, offsetY: 0, repeatY: 0 };
+  const frac = contentH / imageH;
+  const bottomUnused = (imageH - contentY - contentH) / imageH;
+  const h = p.h * frac;
+  const bottom = p.y - p.h / 2 + p.h * bottomUnused;
+  return { y: bottom + h / 2, h, offsetY: bottomUnused, repeatY: frac };
+}
+
+/** One horizontal slice of a backdrop plane. UVs run past 1 where the texture repeats; the mesh itself is only `w` wide so the rest of the level can be frustum-culled. */
+export interface BackdropTile {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly repeatX: number;
+  readonly repeatY: number;
+}
+
+export function backdropTiles(p: BackdropPlacement, tileW: number, band: BackdropBand): BackdropTile[] {
+  if (band.h <= 0 || p.w <= 0) return [];
+  const span = Math.min(Math.max(tileW, 1), p.w);
+  const n = Math.max(1, Math.ceil(p.w / span - 1e-9));
+  const w = p.w / n;
+  const tiles: BackdropTile[] = [];
+  for (let i = 0; i < n; i++) {
+    const repeatX = (w / p.w) * p.repeatX;
+    tiles.push({
+      x: p.x - p.w / 2 + w / 2 + i * w,
+      y: band.y,
+      w,
+      h: band.h,
+      offsetX: (i * w / p.w) * p.repeatX,
+      offsetY: band.offsetY,
+      repeatX,
+      repeatY: band.repeatY,
+    });
+  }
+  return tiles;
+}
