@@ -3,9 +3,10 @@ import type { World } from '@game/world';
 import { HttpAssetSource, loadAssets } from '@render/assets';
 import type { App } from '../app';
 import type { GameAudio } from '../audio';
-import type { Overlay } from './overlay';
+import type { Overlay, OverlayModel } from './overlay';
 import { loadSave, recordClear, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
 import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
+import { tallyAt, tallyPlan } from './results';
 import { clearPoints, killPoints } from './score';
 
 /** Keyboard to shell events; the game's own bindings (arrows, Space, Z, Shift) are separate and read by `Keyboard`. */
@@ -48,10 +49,18 @@ export class Shell {
   private run: Run = { score: 0, levelScore: 0, result: null };
   /** The one pending delayed event (intro timeout, results, game over); cleared on every screen change. */
   private timer = 0;
+  /** Wall-clock start of the results tally, and the frame that advances it. */
+  private tallyStart = 0;
+  private tallyFrame = 0;
+  /** `prefers-reduced-motion` paints the finished tally on the first frame. Not a save option. */
+  private reduceMotion = false;
   private loading: Promise<void> | null = null;
   private readonly levelIds = LEVELS.map((l) => l.id);
   private readonly onKeyDown = (e: KeyboardEvent): void => this.handleKey(e);
   private readonly onPointer = (): void => this.audio.unlock();
+  private readonly onResize = (): void => {
+    if (this.screen.kind === 'complete') this.overlay.render(this.screen, this.overlayModel(this.resultsElapsed()));
+  };
 
   constructor(
     private readonly app: App,
@@ -74,6 +83,7 @@ export class Shell {
   start(directLevelId: string | null): void {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('pointerdown', this.onPointer);
+    window.addEventListener('resize', this.onResize);
     this.app.restartLevel();
     if (directLevelId) {
       this.setScreen({ kind: 'playing', levelId: directLevelId }, [{ type: 'resume' }]);
@@ -132,13 +142,55 @@ export class Shell {
 
   private setScreen(screen: Screen, effects: readonly Effect[]): void {
     clearTimeout(this.timer);
+    cancelAnimationFrame(this.tallyFrame);
+    if (screen.kind === 'complete') {
+      this.tallyStart = performance.now();
+      this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
     this.screen = screen;
     this.app.hooks.screen = screen.kind;
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
     if (screen.kind === 'credits') this.audio.music.play(MANIFEST.titleMusic);
-    this.overlay.render(screen, { levels: LEVELS, save: this.save, score: this.run.score, result: this.run.result });
+    this.overlay.render(screen, this.overlayModel(0));
+    if (screen.kind === 'complete' && !this.reduceMotion) this.armTally();
     this.publishAudio();
+  }
+
+  private overlayModel(elapsedMs: number): OverlayModel {
+    const complete = this.screen.kind === 'complete';
+    return {
+      levels: LEVELS,
+      save: this.save,
+      score: this.run.score,
+      result: this.run.result,
+      results: complete
+        ? {
+            levelScore: this.run.levelScore,
+            elapsedMs: this.resultsElapsed(elapsedMs),
+            player: this.app.hooks.player,
+            camera: this.app.hooks.camera,
+          }
+        : null,
+    };
+  }
+
+  /** Elapsed tally time. Reduced motion jumps to the finished card. */
+  private resultsElapsed(elapsedMs?: number): number {
+    if (this.reduceMotion) return Number.POSITIVE_INFINITY;
+    return elapsedMs ?? performance.now() - this.tallyStart;
+  }
+
+  /** Count the tally up. Enter still leaves the card whenever it arrives; this loop only repaints. */
+  private armTally(): void {
+    const step = (): void => {
+      if (this.screen.kind !== 'complete') return;
+      const elapsed = performance.now() - this.tallyStart;
+      this.overlay.render(this.screen, this.overlayModel(elapsed));
+      const frame = tallyAt(tallyPlan(this.run.score, this.run.levelScore, this.run.result?.hp ?? 0), elapsed);
+      if (!frame.done) this.tallyFrame = requestAnimationFrame(step);
+    };
+    this.tallyFrame = requestAnimationFrame(step);
   }
 
   /** Schedule the one delayed event, replacing any pending one. */

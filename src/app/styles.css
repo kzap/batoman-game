@@ -120,6 +120,22 @@ body {
   background: rgba(13, 13, 26, 0.72);
 }
 
+/* Results card: the same wash, with a hole kept on Ando. The card sits to the left so the exit (the right edge of every level) stays in the pool. */
+#overlay.shell-spotlight {
+  justify-content: flex-start;
+  padding-left: 56px;
+  background: radial-gradient(
+    circle at var(--spot-x, 70%) var(--spot-y, 55%),
+    rgba(13, 13, 26, 0) 0,
+    rgba(13, 13, 26, 0) var(--spot-clear, 140px),
+    rgba(13, 13, 26, 0.72) var(--spot-edge, 260px)
+  );
+}
+
+#overlay.shell-spotlight .shell-card {
+  text-align: left;
+}
+
 body.shell-hide-hud #hud {
   display: none;
 }
@@ -191,6 +207,34 @@ body.shell-hide-hud #hud {
   font-size: 16px;
   line-height: 1.8;
   color: #e8e4d8;
+}
+
+.shell-tally {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  min-width: 280px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-tally li {
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.shell-tally-num,
+.shell-tally-score {
+  color: var(--cyan);
+  letter-spacing: 2px;
+}
+
+.shell-tally-total {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(0, 229, 255, 0.35);
 }
 
 .shell-hint {

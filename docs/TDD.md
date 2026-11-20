@@ -311,8 +311,8 @@ top-left with lost ones greyed, lives, the six-digit score top-right, and the bo
 `boss.engaged`; it rebuilds its DOM only when one of those values changes.
 
 Level 3 stays grey-box and Level 6 is dressed (section 8). The title, level select and game over cards are text
-(ART.md's silhouettes, thumbnails and salakot need art that does not exist yet); the results card does not
-yet dim or tally (Phase 8 polish).
+(ART.md's silhouettes, thumbnails and salakot need art that does not exist yet). The results card dims the
+staged level around a spotlight on Ando and tallies the HUD score (section 6.1).
 
 ### 6.1 Shell (`src/app/shell/`)
 
@@ -339,6 +339,19 @@ score and the current level's share: a restart or retry takes the level's points
 the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the current screen into `#overlay` as
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
+
+The results card (`complete`) does not use that flat dim. `results.ts` is the presentation, pure and
+unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
+lines for this level: kills (whatever remains), the 500 clear bonus, and 100 per heart. `tallyAt` counts
+one non-zero line every 400 ms and the running total lands on the HUD figure; a zero-point line finishes
+immediately, and `Infinity` (what `prefers-reduced-motion: reduce` asks for) paints the finished card.
+Enter still advances during the count — the reducer is unchanged, and the tally does not gate it. The
+overlay paints the same `rgba(13, 13, 26, 0.72)` wash as the other cards, as a radial gradient that stays
+clear for 96 sim pixels around the player's body centre and feathers across the next 80
+(`resultsSpotlight`). The hole is projected with the play lens (`LENS`, distance 22, FOV 30), so it sits on
+Ando at the canvas aspect. The card itself is placed on the left: every exit is at the right edge of its
+level, and that is where the pool of light falls. The HUD stays up, so the counted total can be read
+against the score it is catching.
 
 `save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options }`.
 `loadSave` validates and degrades to the defaults (first level unlocked, music and sfx on) on anything
@@ -602,12 +615,14 @@ checks six enemies and the dormant boss are live sprites from the first frame, s
 fight, one-way, mover and first dash-gap sections, checks the first patroller is gone, waits for the boss
 to engage (HUD bar), reach phase 3 and die (bar gone), and requires the browser build to finish on the same
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
-snapshot's enemy list, boss bar state and sprite count), then the results card and Enter moving on to
+snapshot's enemy list, boss bar state and sprite count), then the results card — dimmed level,
+spotlight on the player, tally equal to the HUD score, screenshot `level-1-complete.png` — and Enter moving on to
 Level 3; the same load-and-replay check runs for `level-3` through
 `?level=`, and dressed variants for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
 first balcony, the lift and the roof) and `level-6` (atlas plus `sky` and `garden`, screenshots the start,
 the lift, the checkpoint roof and the last roof), plus a check that an unknown id is a boot error. The shell's
-full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
+full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits, asserting the
+results card on every clear and screenshotting the first (`shell-results.png`). Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
 

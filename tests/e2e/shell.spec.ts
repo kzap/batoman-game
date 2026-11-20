@@ -5,6 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
 import type { ReplayInputs } from '../../src/core/sim/replay';
 import { advanceUntilDone, withLockstep } from './drive';
+import { expectResultsCard } from './results';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(HERE, '../../e2e-screenshots');
@@ -146,7 +147,8 @@ test.describe('shell', () => {
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
       await advanceUntilDone(page);
       await screen(page, 'complete', 10_000);
-      await expect(page.locator('#overlay')).toContainText('LEVEL CLEAR');
+      await expectResultsCard(page);
+      if (i === 0) await page.screenshot({ path: resolve(SHOTS, 'shell-results.png') });
       await page.keyboard.press('Enter');
       if (next) {
         await screen(page, 'intro', 20_000);
