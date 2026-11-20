@@ -3,7 +3,7 @@ import { AdditiveBlending, BoxGeometry, EdgesGeometry, Group, LineBasicMaterial,
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
-import { PROJECTILE } from '@game/tuning';
+import { ENEMY, PROJECTILE } from '@game/tuning';
 import type { BossSnapshot, EnemySnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
@@ -208,7 +208,12 @@ export class EntityView {
       v.quad.setFrame(v.animator.frameAt(c.pose, tick));
       const pivotY = look.pivot === 'centre' ? y + c.h / 2 : y;
       const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
-      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
+      // The tikbalang's lunge drops the body to `lungeHeight`. Fit the quad to that
+      // live height (feet stay on the pivot) so a jump that clears the hurtbox
+      // also clears the sprite. Every other pose keeps the sheet's own scale.
+      const h = lerp(p.h, c.h, alpha);
+      const lunging = c.type === 'tikbalang' && h < ENEMY.tikbalang.height;
+      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, lunging ? { flip, size: { h } } : { flip, scale: look.scale });
       const flashing = c.flash > 0 && Math.floor(tick / FLASH_HALF_PERIOD_TICKS) % 2 === 0;
       v.material.color.setHex(flashing ? PALETTE.neonMagenta : look.tint);
       v.material.opacity = c.alpha;

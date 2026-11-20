@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AtlasJson } from '@content/atlas';
-import { clipForPose, clipFrameIndex, PlayerAnimator, playerClips, type Clip } from '@render/animator';
+import type { EnemyLook } from '@render/assets';
+import { clipForPose, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from '@render/animator';
 
 const frames = (prefix: string, n: number): string[] => Array.from({ length: n }, (_, i) => `${prefix}${i}`);
 const anim = (prefix: string, n: number, fps: number, loop: boolean) => ({ fps, loop, frames: frames(prefix, n) });
@@ -99,5 +100,44 @@ describe('PlayerAnimator', () => {
     expect(seq[30]!.startsWith('sr')).toBe(true);
     expect(seq[129]).toBe('j4'); // the non-looping jump clip holds its apex frame
     expect(seq[199]).toBe('j7'); // and the fall clip holds its last frame
+  });
+});
+
+describe('enemyClips', () => {
+  const sheet = (animations: AtlasJson['animations']): AtlasJson => ({
+    version: 1,
+    image: 'sheet.webp',
+    width: 64,
+    height: 64,
+    scale: 0.5,
+    frames: {},
+    animations,
+  });
+  const look = (shoot: string, move = 'run'): EnemyLook => ({
+    atlas: 'sheet',
+    scale: 1,
+    tint: 0xffffff,
+    pivot: 'feet',
+    faces: 'right',
+    clips: { idle: 'idle', move, shoot },
+  });
+
+  it('holds the last stomp frame on a tikbalang rush, and speeds the walk for everyone else', () => {
+    const atlas = sheet({
+      idle: anim('i', 2, 6, true),
+      run: anim('r', 4, 12, true),
+      stomp: anim('stomp_', 5, 10, false),
+      shoot: anim('s', 3, 10, false),
+      hurt: anim('h', 2, 10, false),
+      death: anim('d', 3, 8, false),
+    });
+    const clips = enemyClips(atlas, look('stomp'));
+    expect(clips.rush.frames).toEqual(['stomp_4']);
+    expect(clips.rush.loop).toBe(false);
+    expect(clips.shoot.frames).toEqual(frames('stomp_', 5));
+
+    const walker = enemyClips(atlas, look('shoot', 'run'));
+    expect(walker.rush.frames).toEqual(frames('r', 4));
+    expect(walker.rush.fps).toBe(12 * 1.6);
   });
 });

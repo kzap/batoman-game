@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { EnemySpawnJson, LevelJson } from '@content/level';
+import { parseLevel, type EnemySpawnJson, type LevelJson } from '@content/level';
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
 import { spawnEnemy, type Drone, type Patroller, type Stealth, type Tikbalang } from '@game/enemies';
 import { ProjectilePool } from '@game/projectiles';
@@ -385,6 +386,28 @@ describe('Respawn', () => {
     expect(w.boss!.health.hp).toBe(BOSS.hp);
     expect(w.enemies.filter((e) => e.type === 'patroller' && e.alive)).toHaveLength(1);
   });
+
+  it('a checkpoint death brings back a fresh tikbalang at full hp', () => {
+    const w = new World(
+      arena([{ type: 'tikbalang', x: 800, y: 64, patrolDistance: 40 }], { checkpoints: [{ x: 400, y: 64, w: 32, h: 96, id: 1 }] }),
+      1,
+    );
+    const scout = w.enemies[0] as Tikbalang;
+    w.player.body.place(400, 64);
+    w.step();
+    expect(w.snapshot().player.x).toBeGreaterThan(0);
+    scout.hit(2, 1);
+    expect(scout.health.hp).toBe(ENEMY.tikbalang.hp - 2);
+    w.player.body.place(1000, -200);
+    run(w, PLAYER.respawnTicks + 5);
+    const fresh = w.enemies.find((e) => e.type === 'tikbalang') as Tikbalang;
+    expect(fresh).toBeDefined();
+    expect(fresh).not.toBe(scout);
+    expect(fresh.health.hp).toBe(ENEMY.tikbalang.hp);
+    expect(fresh.body.h).toBe(ENEMY.tikbalang.height);
+    expect(fresh.alive).toBe(true);
+    expect(Math.round(w.player.body.x + PLAYER.width / 2)).toBe(416);
+  });
 });
 
 describe('Tikbalang', () => {
@@ -395,6 +418,22 @@ describe('Tikbalang', () => {
     for (; n < max && !pred(); n++) w.step();
     return n;
   };
+
+  it('keeps its Level 6 patrol off the rooftop spikes', () => {
+    const level = parseLevel(JSON.parse(readFileSync(new URL('../../../src/content/levels/level-6.json', import.meta.url), 'utf8')), 'level-6');
+    const spec = level.enemies.find((e) => e.type === 'tikbalang')!;
+    const spikes = level.hazards.find((h) => h.x === 4000)!;
+    const w = new World(level, 1);
+    const e = w.enemies.find((en) => en.type === 'tikbalang')!;
+    // The player starts on the first roof, out of sight, so this is only the patrol.
+    for (let i = 0; i < 2000; i++) {
+      w.step();
+      const overlapsSpikes = e.body.x < spikes.x + spikes.w && e.body.right > spikes.x && e.body.y < spikes.y + spikes.h && e.body.top > spikes.y;
+      expect(overlapsSpikes).toBe(false);
+    }
+    expect(spec.patrolDistance).toBeLessThanOrEqual(36);
+    expect(e.alive).toBe(true);
+  });
 
   it('spawns from a level entry instead of being dropped as data', () => {
     const e = spawnEnemy(1, { type: 'tikbalang', x: 4100, y: 576 });
@@ -468,7 +507,26 @@ describe('Tikbalang', () => {
     expect(dead.state).toBe('patrol');
   });
 
-  it('burst-runs to a standoff, rears, then lunges low; a standing player is hit and a jumped one is not', () => {
+  it('a jump pressed on the first rear clears the lunge', () => {
+    const w = new World(arena([{ type: 'tikbalang', x: 1100, y: 64, patrolDistance: 20 }]), 1);
+    const e = w.enemies[0] as Tikbalang;
+    w.player.body.place(780, 64);
+    let sawRear = false;
+    let sawRush = false;
+    for (let i = 0; i < 600; i++) {
+      const firstRear = !sawRear && e.pose === 'shoot';
+      if (e.pose === 'shoot') sawRear = true;
+      if (e.pose === 'rush') sawRush = true;
+      const rising = w.player.vy > 0;
+      w.step({ ...NO_INPUT, jump: firstRear || (sawRear && rising) });
+      if (sawRush && e.state === 'burst' && e.body.h === T.height) break;
+    }
+    expect(sawRear).toBe(true);
+    expect(sawRush).toBe(true);
+    expect(w.health.hp).toBe(PLAYER.maxHp);
+  });
+
+  it('waits through the rush and the standing player is hit', () => {
     const w = new World(arena([{ type: 'tikbalang', x: 1100, y: 64, patrolDistance: 20 }]), 1);
     const e = w.enemies[0] as Tikbalang;
     w.player.body.place(780, 64);
@@ -481,7 +539,6 @@ describe('Tikbalang', () => {
     });
     expect(sawRun).toBe(true);
     expect(e.body.x).toBeLessThan(chaseStart);
-    expect(e.state).toBe('stomp');
     expect(e.pose).toBe('shoot');
     expect(e.body.h).toBe(T.height);
     const gap = e.body.x - w.player.body.right;
@@ -498,25 +555,9 @@ describe('Tikbalang', () => {
     until(w, () => e.state !== 'stomp', T.lungeTicks + 5);
     expect(hurt).toBe(1);
     expect(w.health.hp).toBe(PLAYER.maxHp - 1);
-    // It stays crouched until it has backed out of the player's column.
     until(w, () => e.body.h === T.height, 40);
     expect(e.body.h).toBe(T.height);
     expect(hurt).toBe(1);
-
-    // Same approach, but the player is standing just above the lunge.
-    // Above the standing body, not merely the lunge: the horse stands back up where it connected.
-    const deck = 64 + T.height + 8;
-    const high = new World(
-      arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 20 }], { oneWay: [{ x: 640, y: deck - 8, w: 220, h: 8 }] }),
-      1,
-    );
-    const h = high.enemies[0] as Tikbalang;
-    high.player.body.place(760, deck);
-    until(high, () => h.state === 'stomp');
-    until(high, () => h.state !== 'stomp', T.windupTicks + T.lungeTicks + 5);
-    until(high, () => h.body.h === T.height, 40);
-    expect(high.health.hp).toBe(PLAYER.maxHp);
-    expect(h.body.h).toBe(T.height);
   });
 
   it('does not cancel a stomp when shot, and waits out the recovery before the next one', () => {
