@@ -128,3 +128,21 @@ to isolate a rendering problem; `?dof=1` enables depth of field. Only some poses
 
 After a session report: what was tested, screenshots captured, contents of `__batoman.errors` and the
 console, pass/fail per feature, and for each failure which layer (sim / render / app) owns it.
+
+## PR screenshots (`npm run shots`)
+
+E2E keeps writing its own frames to `e2e-screenshots/` for the CI artifact. Pull request pictures are a separate command:
+
+```bash
+npm run shots                         # pr-shots/head/: title, level-1-start, level-1-mid, editor, level-1-walk.webm
+npm run shots -- --baseline v2        # same filenames in pr-shots/baseline/
+npm run shots -- --slug my-change     # copy into docs/pr-assets/my-change/ for the PR body
+```
+
+Checkable rules (the same list is in `AGENTS.md`):
+
+- Viewport is 1280×720, SwiftShader, one page at a time. Before and after use the same filenames.
+- Gameplay stills open with `?lockstep=1&ticksPerFrame=0`. If `window.__batoman.advance` exists, the mid shot is `advance(160)` and the start shot is `advance(8)`. If it does not, those flags are ignored and the same inputs are replayed on the production clock. The command must succeed when `advance` is absent.
+- Open PR #27 (`infra/e2e-deterministic`) is what adds `advance`. Do not import it and do not wait on it. After it merges, `advance` lands on the exact tick, so enemy phase matches across machines. Until then, one `npm run shots -- --baseline <ref>` run still lines the pair up: both sides replay, and tick 160 plus a full 8-tick frame still falls before the first enemy shot at tick 172. `manifest.json` records `mode`, `simTicks`, and `playerX`. Compare a pair only when both sides used the same mode.
+- The walk clip omits the lockstep query so the video shows the run on the production clock.
+- Commit the files the body shows under `docs/pr-assets/<slug>/`. Embed a png as `https://github.com/kzap/batoman-game/raw/<branch>/docs/pr-assets/<slug>/<file>.png`. A relative path does not render: GitHub resolves PR-body links against `main`, and these PRs target `v2`. The `e2e-screenshots` artifact zip does not render inline. A webm plays inline only as a GitHub attachment.

@@ -24,7 +24,8 @@
     "ci": "npm run lint && npm run test && npm run test:replay && npm run build && npm run test:e2e",
     "replay:record": "tsx --tsconfig tsconfig.json tests/replay/record.ts",
     "replay:trace": "tsx --tsconfig tsconfig.json tests/replay/trace.ts",
-    "level:from-tiled": "tsx tools/level/from-tiled.ts"
+    "level:from-tiled": "tsx tools/level/from-tiled.ts",
+    "shots": "tsx tools/shots/capture.ts"
   },
   "dependencies": {
     "postprocessing": "^6.39.5",

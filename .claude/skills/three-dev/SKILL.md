@@ -142,6 +142,7 @@ npm run recut <recipe> # segment one sheet and write its preview
 npm run recut:review <recipe>  # browser review UI
 npm run replay:record  # re-record replay fixtures from the scripted bots
 npm run level:from-tiled <map.json> <out.json> --id <id> --name <name>  # convert a Tiled map
+npm run shots          # PR stills and a short walk clip; see AGENTS.md
 ```
 
 ## Three.js 0.186 notes

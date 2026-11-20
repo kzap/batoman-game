@@ -13,6 +13,8 @@ dist/
 # Test artifacts
 test-results/
 e2e-screenshots/
+# Local `npm run shots` output. Commit the PR copies under docs/pr-assets/<slug>/.
+pr-shots/
 playwright-report/
 tests/e2e/**/*-actual.png
 tests/e2e/**/*-diff.png

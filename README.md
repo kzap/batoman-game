@@ -104,3 +104,9 @@ Conventions that matter most:
 | Language | TypeScript 5.9, strict |
 | Bundler | Vite 7 |
 | Tests | Vitest 5, Playwright 1.63 |
+
+---
+
+## PR screenshots
+
+`npm run shots` builds `dist/`, serves it, and writes the title, Level 1 start, Level 1 mid, and the editor to `pr-shots/head/`, plus a short walk clip. `npm run shots -- --baseline <ref>` captures the same frames from another commit so a before/after pair lines up. Commit the pictures a PR body shows under `docs/pr-assets/<slug>/`. How to embed them so GitHub renders them is in [AGENTS.md](AGENTS.md).
