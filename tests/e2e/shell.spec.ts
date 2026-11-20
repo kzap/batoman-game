@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
 import type { ReplayInputs } from '../../src/core/sim/replay';
+import { advanceUntilDone, withLockstep } from './drive';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(HERE, '../../e2e-screenshots');
@@ -43,7 +44,7 @@ test.describe('shell', () => {
   });
 
   test('intro card, pause freezes the sim, resume continues, quit returns to the title', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(withLockstep('/'));
     await ready(page);
     await page.keyboard.press('Enter'); // Start game
     await screen(page, 'intro');
@@ -75,13 +76,21 @@ test.describe('shell', () => {
   });
 
   test('game over: all lives lost shows the card; retry restarts the level with three lives', async ({ page }) => {
-    test.setTimeout(120_000);
-    await page.goto('/?level=level-1');
+    test.setTimeout(30_000);
+    await page.goto(withLockstep('/?level=level-1'));
     await ready(page);
     // Holding right walks into the first patroller's fire and then the first pit, over and over.
+    // Pumped by sim ticks (1601 to game over at seed 1), not by how fast frames render.
+    // The frame loop is blocked during evaluate, so only advance() steps until the world freezes.
     await page.keyboard.down('ArrowRight');
-    await screen(page, 'gameover', 90_000);
+    const status = await page.evaluate(() => {
+      const h = window.__batoman!;
+      for (let i = 0; i < 40 && h.status === 'playing'; i++) h.advance!(100);
+      return h.status;
+    });
+    expect(status).toBe('gameover');
     await page.keyboard.up('ArrowRight');
+    await screen(page, 'gameover', 10_000);
     const over = await hooks(page);
     expect(over.status).toBe('gameover');
     expect(over.mode).toBe('play'); // the world froze itself; the shell did not need to pause it
@@ -123,8 +132,8 @@ test.describe('shell', () => {
   });
 
   test('full loop: title -> four levels -> credits, unlocking as it goes', async ({ page }) => {
-    test.setTimeout(540_000);
-    await page.goto('/');
+    test.setTimeout(120_000);
+    await page.goto(withLockstep('/'));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
@@ -135,7 +144,8 @@ test.describe('shell', () => {
       const next = order[i + 1] ?? null;
       expect((await hooks(page)).level).toBe(id);
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
-      await screen(page, 'complete', 150_000);
+      await advanceUntilDone(page);
+      await screen(page, 'complete', 10_000);
       await expect(page.locator('#overlay')).toContainText('LEVEL CLEAR');
       await page.keyboard.press('Enter');
       if (next) {

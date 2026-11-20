@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "level": "level-3",
+  "layers": {
+    "nave": {
+      "source": "background.png",
+      "erase": [{ "x": 1188, "y": 630, "w": 72, "h": 72, "mode": "fill" }]
+    },
+    "chapel": {
+      "source": "foreground.png",
+      "lossless": false,
+      "quality": 90,
+      "edgeFade": 0.05,
+      "erase": [{ "x": 1197, "y": 639, "w": 54, "h": 54, "mode": "fill" }]
+    }
+  }
+}

@@ -38,7 +38,7 @@ jobs:
             exit 0
           fi
 
-          # Docs-only pull requests skip replay, build, and e2e. Anything else
+          # Docs-only pull requests skip replay, build, e2e, and perf. Anything else
           # is heavy: src/ (including src/content/levels/), art-source/ (tracked
           # pipeline art; public/assets/ is generated and gitignored), tools/,
           # tests/, package.json, package-lock.json, playwright/vite/vitest/
@@ -90,6 +90,9 @@ jobs:
       - run: npm run test
       - run: npm run test:replay
       - run: npm run build
+      - run: npm run check:prod-bundle
+      - run: npm run build:e2e
+      - run: npm run check:e2e-bundle
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -99,7 +102,7 @@ jobs:
   e2e:
     name: Playwright e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
     needs: check
     steps:
       - uses: actions/checkout@v4
@@ -131,18 +134,65 @@ jobs:
             test-results
           retention-days: 7
 
-  # Require this job in branch protection, not check or e2e. Those two are
-  # skipped on a docs-only pull request, and a skipped required check blocks
-  # the merge. Declared after e2e on purpose: #27 appends a perf job at this
-  # same point and changes e2e's timeout, so expect a conflict there. After
-  # that rebase, add perf to needs (it already needs check, so docs PRs skip
-  # it; the gate still has to fail when perf fails).
+  perf:
+    name: Playwright perf
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:perf
+        env:
+          CI: 'true'
+      - name: Write perf job summary
+        if: always()
+        run: |
+          node --input-type=module <<'EOF'
+          import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+          const out = process.env.GITHUB_STEP_SUMMARY;
+          if (!out) process.exit(0);
+          if (!existsSync('perf-results.json')) {
+            appendFileSync(out, '## Frame budget\n\nNo perf-results.json. The measurement did not finish.\n');
+            process.exit(0);
+          }
+          const r = JSON.parse(readFileSync('perf-results.json', 'utf8'));
+          appendFileSync(out, [
+            '## Frame budget',
+            '',
+            '| fps | ticks/s | dropped | lastFrameMs |',
+            '| --- | --- | --- | --- |',
+            `| ${r.fps} | ${r.ticksPerSecond} | ${r.dropped} | ${r.lastFrameMs} |`,
+            '',
+            `Floor: fps > ${r.minFps}, ticks/s > ${r.minTicksPerSecond}.`,
+            '',
+          ].join('\n'));
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perf-results
+          path: perf-results.json
+          retention-days: 14
+
+  # Require this job in branch protection, not check, e2e, or perf. Those are
+  # skipped on a docs-only pull request (e2e and perf need check), and a
+  # skipped required check blocks the merge.
   ci-gate:
     name: ci-gate
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [changes, check, e2e]
+    needs: [changes, check, e2e, perf]
     steps:
       - name: Pass when every needed job succeeded or was skipped
         shell: bash
@@ -150,11 +200,12 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           CHECK: ${{ needs.check.result }}
           E2E: ${{ needs.e2e.result }}
+          PERF: ${{ needs.perf.result }}
         run: |
           set -euo pipefail
-          echo "changes=$CHANGES check=$CHECK e2e=$E2E"
+          echo "changes=$CHANGES check=$CHECK e2e=$E2E perf=$PERF"
           fail=0
-          for result in "$CHANGES" "$CHECK" "$E2E"; do
+          for result in "$CHANGES" "$CHECK" "$E2E" "$PERF"; do
             case "$result" in
               success|skipped) ;;
               *)
