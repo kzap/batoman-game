@@ -1,6 +1,7 @@
 import { DEFAULT_LEVEL_ID, levelIdFromQuery, loadLevelById } from '@content/levels';
 import { HttpAssetSource, loadAssets } from '@render/assets';
-import { App, installHooks, lockstepFromQuery, postOptionsFromQuery } from './app';
+import { App, installHooks, postOptionsFromQuery } from './app';
+import { lockstepFromQuery } from './lockstep';
 import { GameAudio } from './audio';
 import { Overlay } from './shell/overlay';
 import { Shell } from './shell/shell';
@@ -27,7 +28,9 @@ async function boot(): Promise<void> {
   const assets = await loadAssets(level, new HttpAssetSource(base));
   const app = new App(canvas as HTMLCanvasElement, hooks, level, assets, {
     post: postOptionsFromQuery(location.search),
-    lockstep: lockstepFromQuery(location.search),
+    // Folded to null unless this is the e2e build (`VITE_E2E_LOCKSTEP=1`). Pages sets
+    // `VITE_BASE_PATH` and runs `npm run build`, which does not define this flag.
+    lockstep: import.meta.env.VITE_E2E_LOCKSTEP === '1' ? lockstepFromQuery(location.search) : null,
   });
   const audio = new GameAudio(import.meta.env.BASE_URL);
   const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage);

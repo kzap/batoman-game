@@ -1,5 +1,6 @@
 import { lerp } from '@core/math/vec2';
 import { FixedClock, SIM_DT } from '@core/sim/clock';
+import { MAX_ADVANCE_TICKS, type LockstepOptions } from './lockstep';
 import type { InputFrame } from '@core/sim/input';
 import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
@@ -49,8 +50,8 @@ export interface TestHooks {
   /** Present only while the editor is attached. */
   editor: EditorHooks | null;
   /**
-   * True when the page was opened with `?lockstep=1` (or `ticksPerFrame` / `replayTicks`).
-   * The frame loop then steps a fixed tick count and ignores wall-clock deltas.
+   * True when this build was compiled with `VITE_E2E_LOCKSTEP=1` and the page
+   * was opened with `?lockstep=1`. The frame loop then ignores wall-clock deltas.
    */
   lockstep: boolean;
   /**
@@ -142,49 +143,6 @@ export interface AppOptions {
 }
 
 /**
- * Ticks per rendered frame while a person (or nothing) is driving. Small so a
- * jump stays visible across frames when a test is not calling `advance`.
- */
-export const LOCKSTEP_INTERACTIVE_TICKS = 4;
-/**
- * Ticks per rendered frame while a replay feeds inputs. Default 0: the frame loop does not
- * play the replay, so a screenshot or assertion cannot race past a boss phase. Tests call
- * `advance`. Set `?replayTicks=N` to batch on the frame loop instead. A replay batch stops
- * early when boss phase, engagement, or world status changes.
- */
-export const LOCKSTEP_REPLAY_TICKS = 0;
-/** Upper bound for `advance` and for query-string tick counts. */
-const MAX_ADVANCE_TICKS = 10_000;
-
-export interface LockstepOptions {
-  /** Ticks simulated per rendered frame when no replay is feeding inputs. `0` steps only via `advance`. */
-  readonly interactive: number;
-  /** Ticks simulated per rendered frame while a replay is active. */
-  readonly replay: number;
-}
-
-/**
- * `?lockstep=1` steps the sim a fixed number of ticks per frame and ignores wall time.
- * `?ticksPerFrame=N` overrides the interactive budget (`0` means only `advance` steps).
- * `?replayTicks=N` overrides the replay budget. Absent flags leave the production clock alone.
- */
-export function lockstepFromQuery(search: string): LockstepOptions | null {
-  const q = new URLSearchParams(search);
-  if (q.get('lockstep') !== '1' && !q.has('ticksPerFrame') && !q.has('replayTicks')) return null;
-  return {
-    interactive: parseTickCount(q.get('ticksPerFrame'), LOCKSTEP_INTERACTIVE_TICKS),
-    replay: parseTickCount(q.get('replayTicks'), LOCKSTEP_REPLAY_TICKS),
-  };
-}
-
-function parseTickCount(raw: string | null, fallback: number): number {
-  if (raw == null || raw === '') return fallback;
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n < 0 || n > MAX_ADVANCE_TICKS) return fallback;
-  return n;
-}
-
-/**
  * `?post=0` turns the post stack off, `?dof=1` adds depth of field. For
  * profiling and for machines where the composer is the bottleneck.
  */
@@ -228,8 +186,10 @@ export class App {
     private assets: GameAssets,
     opts: AppOptions = {},
   ) {
-    this.lockstep = opts.lockstep ?? null;
-    if (this.lockstep) {
+    // The env compare is a build-time constant. Prod and Pages builds fold this to null
+    // and drop `lockstep.ts`. Only `npm run build:e2e` sets VITE_E2E_LOCKSTEP=1.
+    this.lockstep = import.meta.env.VITE_E2E_LOCKSTEP === '1' ? (opts.lockstep ?? null) : null;
+    if (import.meta.env.VITE_E2E_LOCKSTEP === '1' && this.lockstep) {
       hooks.lockstep = true;
       hooks.advance = (ticks: number): void => this.advance(ticks);
     }
@@ -408,6 +368,7 @@ export class App {
 
   /** Lockstep hook: exactly `ticks` sim steps, then one present. No-op unless the sim is in `play`. */
   private advance(ticks: number): void {
+    if (import.meta.env.VITE_E2E_LOCKSTEP !== '1') return;
     if (!Number.isFinite(ticks) || ticks <= 0 || this.mode !== 'play') return;
     const n = Math.min(Math.floor(ticks), MAX_ADVANCE_TICKS);
     this.frameSeconds = n * SIM_DT;
@@ -424,7 +385,7 @@ export class App {
 
     let alpha = 0;
     const lockstep = this.lockstep;
-    if (lockstep) {
+    if (import.meta.env.VITE_E2E_LOCKSTEP === '1' && lockstep) {
       // Ignore the wall-clock delta. Slow software-GL frames and short rAF deltas
       // both make the production clock run late; tests must not depend on either.
       const budget = this.mode === 'play' && this.freezeFrames === 0 ? (this.replay ? lockstep.replay : lockstep.interactive) : 0;

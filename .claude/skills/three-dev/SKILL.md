@@ -99,8 +99,8 @@ with no screen, it is game.
 - Boot is async: `main.ts` awaits `loadAssets` (`src/render/assets.ts`) then constructs `App(canvas, hooks,
   level, assets, opts)`. Fetch through an `AssetSource`; never `fetch` from `render/` directly.
 - The frame loop is `App.frame`. It calls `clock.advance`, steps the world N times, then presents once.
-  `?lockstep=1` is test-only: the frame ignores wall time and steps a fixed tick count (`lockstepFromQuery`).
-  `hooks.advance(n)` steps n ticks synchronously. Do not raise `MAX_TICKS_PER_FRAME` to speed up tests.
+  `?lockstep=1` is compiled only into `npm run build:e2e` (`VITE_E2E_LOCKSTEP=1`). `npm run build` and Pages
+  (`VITE_BASE_PATH`, still `npm run build`) fold it out. `hooks.advance(n)` steps n ticks. Do not raise `MAX_TICKS_PER_FRAME` to speed up tests.
 - Test hooks live on `window.__batoman` (`TestHooks` in `src/app/app.ts`). Add fields there when e2e tests
   need new visibility; never read private state from tests.
 - HUD is DOM in `#hud`, styled in `src/app/styles.css`. Do not draw text in WebGL.

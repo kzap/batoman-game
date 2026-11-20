@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
@@ -24,9 +24,17 @@ const hooks = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify(wind
 const ready = (page: Page) => page.waitForFunction(() => window.__batoman?.ready === true && window.__batoman.frames > 10);
 
 test.describe('level 1', () => {
-  // Not part of the PR gate. Hosted runners render at about 2-6 fps under SwiftShader, so a fixed
-  // fps / ticks-per-second floor measures the machine, not the game. Run with `npm run test:e2e:perf`.
-  test('reports the frame-time budget while running the sim @perf', async ({ page }) => {
+  /**
+   * Hosted ubuntu-latest + SwiftShader, 2026-11-20: 4.9 fps and 20 ticks/s (last frame 16.5 ms).
+   * The audit's slowest runs were about 2 fps and 7 ticks/s. These floors are about half of that
+   * slowest observation, so a cold runner still passes and a sim that barely steps fails.
+   * Retune from the `perf-results` artifact: set each floor to about half the lowest fps and
+   * ticks/s you see on a current hosted runner (`npm run test:e2e:perf`).
+   */
+  const MIN_FPS = 1;
+  const MIN_TPS = 4;
+
+  test('holds a hosted-runner frame budget while running the sim @perf', async ({ page }) => {
     await page.goto('/?level=level-1'); // production clock: this is the measurement, not a lockstep run
     await ready(page);
     const before = await hooks(page);
@@ -39,15 +47,24 @@ test.describe('level 1', () => {
     const fps = (after.frames - before.frames) / seconds;
     const tps = (after.simTicks - before.simTicks) / seconds;
     const dropped = after.droppedFrames - before.droppedFrames;
+    const report = {
+      fps: Number(fps.toFixed(2)),
+      ticksPerSecond: Number(tps.toFixed(2)),
+      dropped,
+      lastFrameMs: Number(after.lastFrameMs.toFixed(2)),
+      seconds: Number(seconds.toFixed(2)),
+      minFps: MIN_FPS,
+      minTicksPerSecond: MIN_TPS,
+    };
+    writeFileSync(resolve(HERE, '../../perf-results.json'), `${JSON.stringify(report, null, 2)}\n`);
     console.log(`frame budget: ${fps.toFixed(1)} fps, ${tps.toFixed(0)} ticks/s, dropped ${dropped}, lastFrame ${after.lastFrameMs.toFixed(1)} ms`);
     test.info().annotations.push(
       { type: 'fps', description: fps.toFixed(1) },
       { type: 'ticks/s', description: tps.toFixed(0) },
       { type: 'dropped', description: String(dropped) },
     );
-    // A dead loop still fails. The numbers themselves are a trend, not a gate.
-    expect(after.frames).toBeGreaterThan(before.frames);
-    expect(after.simTicks).toBeGreaterThan(before.simTicks);
+    expect(fps).toBeGreaterThan(MIN_FPS);
+    expect(tps).toBeGreaterThan(MIN_TPS);
     expect(after.errors).toEqual([]);
   });
 
