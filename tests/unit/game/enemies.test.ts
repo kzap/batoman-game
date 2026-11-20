@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EnemySpawnJson, LevelJson } from '@content/level';
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
-import type { Drone, Patroller, Stealth } from '@game/enemies';
+import { spawnEnemy, type Drone, type Patroller, type Stealth, type Tikbalang } from '@game/enemies';
 import { ProjectilePool } from '@game/projectiles';
 import { BOSS, ENEMY, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
 import { World } from '@game/world';
@@ -384,6 +384,217 @@ describe('Respawn', () => {
     expect(w.boss).not.toBe(boss);
     expect(w.boss!.health.hp).toBe(BOSS.hp);
     expect(w.enemies.filter((e) => e.type === 'patroller' && e.alive)).toHaveLength(1);
+  });
+});
+
+describe('Tikbalang', () => {
+  const T = ENEMY.tikbalang;
+
+  const until = (w: World, pred: () => boolean, max = 800): number => {
+    let n = 0;
+    for (; n < max && !pred(); n++) w.step();
+    return n;
+  };
+
+  it('spawns from a level entry instead of being dropped as data', () => {
+    const e = spawnEnemy(1, { type: 'tikbalang', x: 4100, y: 576 });
+    expect(e).not.toBeNull();
+    expect(e!.type).toBe('tikbalang');
+    expect(e!.body.y).toBe(576);
+    const level = arena([{ type: 'tikbalang', x: 4100, y: 576 }]);
+    expect(new World(level, 1).enemies.map((en) => en.type)).toEqual(['tikbalang']);
+  });
+
+  it('patrols in bursts between its bounds and turns at a ledge or a wall', () => {
+    const w = new World(arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 100 }]), 1);
+    const e = w.enemies[0] as Tikbalang;
+    const speeds = new Set<number>();
+    const xs: number[] = [];
+    for (let i = 0; i < T.burstTicks + T.pauseTicks + 10; i++) {
+      w.step();
+      speeds.add(e.vx === 0 ? 0 : 1);
+      xs.push(e.body.x);
+    }
+    expect(e.state).toBe('patrol');
+    expect(speeds).toEqual(new Set([0, 1])); // a burst and a pause
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(900 - 1);
+    expect(Math.max(...xs) + e.body.w).toBeLessThanOrEqual(1100 + 1);
+
+    const ledge = arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 400 }], {
+      solids: [
+        { x: 900, y: 0, w: 300, h: 64 },
+        { x: 0, y: 64, w: 16, h: 536 },
+      ],
+    });
+    const onLedge = new World(ledge, 1);
+    run(onLedge, 1500);
+    const body = onLedge.enemies[0]!.body;
+    expect(body.x).toBeGreaterThanOrEqual(900);
+    expect(body.right).toBeLessThanOrEqual(1200);
+
+    const walled = arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 400 }], {
+      solids: [
+        { x: 0, y: 0, w: 2000, h: 64 },
+        { x: 0, y: 64, w: 16, h: 536 },
+        { x: 900, y: 64, w: 32, h: 128 },
+      ],
+    });
+    const byWall = new World(walled, 1);
+    const horse = byWall.enemies[0]!;
+    const facings = new Set<number>();
+    for (let i = 0; i < 500; i++) {
+      byWall.step();
+      facings.add(horse.facing);
+    }
+    expect(horse.body.x).toBeGreaterThanOrEqual(932);
+    expect(facings).toEqual(new Set([-1, 1]));
+  });
+
+  it('ignores a player on another storey and a dead one', () => {
+    const high = 64 + T.sightHeight + 40;
+    const w = new World(arena([{ type: 'tikbalang', x: 800, y: 64, patrolDistance: 40 }], { oneWay: [{ x: 700, y: high - 8, w: 200, h: 8 }] }), 1);
+    const e = w.enemies[0] as Tikbalang;
+    w.player.body.place(760, high);
+    run(w, 40);
+    expect(e.state).toBe('patrol');
+
+    const pit = new World(arena([{ type: 'tikbalang', x: 800, y: 64 }], { deathZones: [{ x: 180, y: 0, w: 80, h: 400 }] }), 1);
+    const dead = pit.enemies[0] as Tikbalang;
+    pit.player.body.place(200, 64);
+    pit.step();
+    expect(pit.player.dead).toBe(true);
+    pit.player.body.place(700, 64);
+    run(pit, 30);
+    expect(dead.state).toBe('patrol');
+  });
+
+  it('burst-runs to a standoff, rears, then lunges low; a standing player is hit and a jumped one is not', () => {
+    const w = new World(arena([{ type: 'tikbalang', x: 1100, y: 64, patrolDistance: 20 }]), 1);
+    const e = w.enemies[0] as Tikbalang;
+    w.player.body.place(780, 64);
+    until(w, () => e.state === 'burst');
+    const chaseStart = e.body.x;
+    let sawRun = false;
+    until(w, () => {
+      if (e.pose === 'move') sawRun = true;
+      return e.state === 'stomp';
+    });
+    expect(sawRun).toBe(true);
+    expect(e.body.x).toBeLessThan(chaseStart);
+    expect(e.state).toBe('stomp');
+    expect(e.pose).toBe('shoot');
+    expect(e.body.h).toBe(T.height);
+    const gap = e.body.x - w.player.body.right;
+    expect(gap).toBeGreaterThan(0);
+    expect(gap).toBeLessThanOrEqual(T.standoff + Math.ceil(T.burstSpeed / 120) + 1);
+
+    // The tick that entered `stomp` only ran `enter`; the lunge starts windupTicks updates later.
+    const windupLeft = until(w, () => e.pose === 'rush');
+    expect(windupLeft).toBe(T.windupTicks + 1);
+    expect(e.body.h).toBe(T.lungeHeight);
+
+    let hurt = 0;
+    w.events.on('hurt', () => hurt++);
+    until(w, () => e.state !== 'stomp', T.lungeTicks + 5);
+    expect(hurt).toBe(1);
+    expect(w.health.hp).toBe(PLAYER.maxHp - 1);
+    // It stays crouched until it has backed out of the player's column.
+    until(w, () => e.body.h === T.height, 40);
+    expect(e.body.h).toBe(T.height);
+    expect(hurt).toBe(1);
+
+    // Same approach, but the player is standing just above the lunge.
+    // Above the standing body, not merely the lunge: the horse stands back up where it connected.
+    const deck = 64 + T.height + 8;
+    const high = new World(
+      arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 20 }], { oneWay: [{ x: 640, y: deck - 8, w: 220, h: 8 }] }),
+      1,
+    );
+    const h = high.enemies[0] as Tikbalang;
+    high.player.body.place(760, deck);
+    until(high, () => h.state === 'stomp');
+    until(high, () => h.state !== 'stomp', T.windupTicks + T.lungeTicks + 5);
+    until(high, () => h.body.h === T.height, 40);
+    expect(high.health.hp).toBe(PLAYER.maxHp);
+    expect(h.body.h).toBe(T.height);
+  });
+
+  it('does not cancel a stomp when shot, and waits out the recovery before the next one', () => {
+    const w = new World(arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 20 }]), 1);
+    const e = w.enemies[0] as Tikbalang;
+    w.player.body.place(780, 64);
+    until(w, () => e.state === 'stomp');
+    expect(e.hit(1, -1)).toBe(1);
+    expect(e.health.hp).toBe(T.hp - 1);
+    expect(e.state).toBe('stomp');
+    until(w, () => e.pose === 'rush');
+    expect(e.state).toBe('stomp');
+    until(w, () => e.state === 'burst', T.lungeTicks + 5);
+    expect(e.state).toBe('burst');
+    let waited = 0;
+    until(w, () => {
+      waited++;
+      return e.state === 'stomp';
+    }, T.recoverTicks + 80);
+    expect(e.state).toBe('stomp');
+    // Backing out to the standoff spends part of the wait; it still does not chain.
+    expect(waited).toBeGreaterThan(T.recoverTicks / 2);
+  });
+
+  it('gives up the chase off the storey or past lose range, and only a patrol flinches', () => {
+    const ledgeY = 64 + T.sightHeight + 40;
+    const w = new World(arena([{ type: 'tikbalang', x: 1000, y: 64, patrolDistance: 40 }], { oneWay: [{ x: 700, y: ledgeY - 8, w: 200, h: 8 }] }), 1);
+    const e = w.enemies[0] as Tikbalang;
+    w.step(); // player still at the spawn, well outside sight
+    expect(e.state).toBe('patrol');
+    const x = e.body.x;
+    e.hit(1, 1);
+    w.step();
+    expect(e.state).toBe('hurt');
+    w.step();
+    expect(e.body.x).toBeGreaterThan(x);
+
+    w.player.body.place(800, 64);
+    until(w, () => e.state === 'burst');
+    expect(e.hit(1, 1)).toBe(1);
+    w.step();
+    expect(e.state).toBe('burst');
+    w.player.body.place(100, 64);
+    run(w, T.hurtTicks + 8); // a hit still owed from the chase plays out once the chase ends
+    expect(e.state).toBe('patrol');
+
+    w.player.body.place(800, 64);
+    until(w, () => e.state === 'burst');
+    w.player.body.place(800, ledgeY);
+    run(w, 8);
+    expect(e.state).toBe('patrol');
+  });
+
+  it('stops a lunge at a ledge instead of falling, and dies to the last point of damage', () => {
+    const ledge = arena([{ type: 'tikbalang', x: 1200, y: 64, patrolDistance: 20 }], {
+      solids: [
+        { x: 1000, y: 0, w: 600, h: 64 },
+        { x: 760, y: 0, w: 160, h: 64 },
+      ],
+    });
+    const w = new World(ledge, 1);
+    const e = w.enemies[0] as Tikbalang;
+    // The player is across a gap. Chasing them would mean stepping off the lip.
+    w.player.body.place(800, 64);
+    run(w, 500);
+    expect(e.body.x).toBeGreaterThanOrEqual(1000);
+    expect(e.body.y).toBe(64);
+    expect(e.alive).toBe(true);
+
+    const open = new World(arena([{ type: 'tikbalang', x: 900, y: 64, patrolDistance: 20 }]), 1);
+    const horse = open.enemies[0] as Tikbalang;
+    open.player.body.place(700, 64);
+    until(open, () => horse.state === 'burst');
+    while (horse.alive) horse.hit(1, -1);
+    expect(horse.pose).toBe('death');
+    expect(horse.body.h).toBe(T.height);
+    run(open, T.deathTicks + 1);
+    expect(open.enemies).toHaveLength(0);
   });
 });
 

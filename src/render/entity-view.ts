@@ -197,7 +197,7 @@ export class EntityView {
       let v = this.enemies.get(c.id);
       if (!v) {
         const fresh = this.takeEnemyView(c.type);
-        if (!fresh) continue; // no sheet loaded for this type (tikbalang spawn data)
+        if (!fresh) continue; // this level did not load a sheet for the type
         v = fresh;
         this.enemies.set(c.id, v);
       }
