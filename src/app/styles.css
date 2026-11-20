@@ -200,6 +200,29 @@ body.shell-hide-hud #hud {
   color: #9a9aaa;
 }
 
+.shell-card[data-screen='controls'] {
+  min-width: 480px;
+}
+
+.shell-controls li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+}
+
+.shell-controls .shell-action {
+  flex: 1;
+}
+
+.shell-controls .shell-keys {
+  color: #9a9aaa;
+}
+
+.shell-controls li.shell-selected .shell-keys {
+  color: var(--amber);
+}
+
 .shell-credits {
   max-height: 70vh;
   overflow: hidden;

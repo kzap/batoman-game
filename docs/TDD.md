@@ -157,11 +157,41 @@ so the design view (`viewW x viewH`) never shows outside it; levels smaller than
 `shake(amplitude, ticks)` draws per-tick offsets from the world RNG with linearly decaying amplitude; a
 weaker shake never replaces a stronger one in progress. Hurt and death shake the camera; respawn snaps it.
 
-### 4.5 Input (`src/core/sim/input.ts`, `src/app/keyboard.ts`)
+### 4.5 Input (`src/core/sim/input.ts`, `src/app/bindings.ts`, `src/app/keyboard.ts`) `[implemented: Phase 8.2]`
 
-`InputFrame` is seven booleans; `InputEdges` derives presses and releases from consecutive frames so a
-replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
-a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
+`InputFrame` is seven booleans (`left`, `right`, `up`, `down`, `jump`, `fire`, `dash`). `InputEdges`
+derives presses and releases from consecutive frames, so a replay stores only held state. `packInput` /
+`unpackInput` store a frame as one bit per button in `INPUT_BUTTONS` order. That packed form is the sim's
+only input API: rebinding a key does not change it, and existing clear fixtures stay valid.
+`window.__batoman.replay` feeds those bits straight into `World.step` and never consults the keyboard map.
+
+The binding table maps each button to one to four `KeyboardEvent.code` values (`MAX_BINDS`). Defaults,
+matching the README: Left/A left, Right/D right, Up up, Down/S down, Space/W/Up jump, Z/J fire, X/K/both
+Shifts dash. ArrowUp is listed under both Move up and Jump, which is why Up jumps. Nothing in the sim
+treats one button as another: a frame with only `up` set does not jump. The player reads left/right
+(axis), down (crouch, drop-through), jump, fire and dash. `up` is its own bit so a later ladder or aim
+can use it; today it only matters because the default jump binding shares ArrowUp.
+
+`Keyboard` tracks physical codes, not buttons, so two keys bound to the same action can be held and
+released independently. `frame()` unions the held set with codes latched since the previous call, which
+keeps a tap shorter than one render frame. `attach` is idempotent. `setBindings` swaps the table and
+forgets a code the new table dropped, including one still physically down. `reset()` clears held and
+latched keys when the app mode changes.
+
+The Controls screen (last title item, and the pause menu) toggles keys: Enter, then a key, adds it to the
+selected action or removes it if it was already there. An action keeps at least one key and at most four.
+Escape cancels a capture; Escape again leaves. Reset to defaults restores the table above. A code may sit
+on more than one action (ArrowUp does, by default); toggling it on one action leaves the others.
+`Escape`, `Enter`, `P`, `M`, `N` and backtick are reserved for the shell and the debug overlay and cannot
+be bound, so a remap cannot trap pause or the menus. Menu cursor keys stay on the arrows and W/S
+regardless of the gameplay map. Gamepad mapping is out of scope.
+
+Bindings persist in the v1 save (`batoman.v2.save`) as `bindings`. A missing or invalid table loads as the
+defaults and does not discard unlocked levels or best times. `tests/replay/fixtures/input-remap.json` is a
+105-tick Level 1 run whose bits are exactly what the default keys produce for right, then right+jump, then
+right. The same bits fall out of a rebound layout (the test rebinds right and jump), and the fixture
+replays to a pinned undamaged outcome. `npm run replay:record` does not regenerate it; the four
+level-clear fixtures are unchanged.
 
 ## 5. Renderer `[implemented: Phase 3-6]`
 
@@ -272,9 +302,9 @@ error, not a fallback to Level 1.
 (replay source if active, otherwise `Keyboard.frame()`), keep the last two snapshots, present with
 interpolation, update the debug overlay and HUD. After `complete` or `gameover` the world freezes itself;
 the shell decides what happens next. On a respawn the previous snapshot is replaced by the current one so
-neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key
-pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets held keys when a
-screen changes.
+neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`, section 4.5)
+latches a key pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets
+held keys when the mode changes, and `setBindings` installs the saved key table. Replays skip the keyboard.
 
 `App.loadLevel(level)` swaps the level in place (new `LevelView`, fresh world) for the editor; the prop
 atlas and backdrops stay the ones loaded at boot, so a level cannot change `art.props` at runtime.
@@ -309,8 +339,10 @@ covers every transition.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
 Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx
-(saved). While playing only Esc and P reach the shell, and nothing does while the editor is attached (its
-playtest owns P and Esc). `startLevel` fetches the level and its assets and calls `replaceLevel` (or
+(saved). The title menu and the pause menu open Controls (section 4.5). While playing only Esc and P reach
+the shell, and nothing does while the editor is attached (its playtest owns P and Esc). A controls row
+that is listening consumes the next key before those shortcuts, so M and N are not toggled by accident
+while rebinding. `startLevel` fetches the level and its assets and calls `replaceLevel` (or
 `restartLevel` when it is the current level); the intro card advances on Enter or after `SHELL_TIMING.intro`
 2.2 s (re-armed while the level is still loading). One timer slot holds the pending delayed event and every
 screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is watched
@@ -322,10 +354,12 @@ the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the curre
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
 
-`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options }`.
-`loadSave` validates and degrades to the defaults (first level unlocked, music and sfx on) on anything
-unexpected; `recordClear` unlocks the next manifest level and keeps the fewer-tick result; `writeSave`
-swallows storage failures. The store is an injected `KeyValueStore`, so tests use a Map.
+`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
+`bindings` is optional on read; a missing or rejected table becomes the defaults in section 4.5 and the
+rest of the save is kept. The version stays 1 so a Phase 7 save still loads. `loadSave` validates and
+degrades to the defaults (first level unlocked, music and sfx on, default bindings) on anything unexpected;
+`recordClear` unlocks the next manifest level and keeps the fewer-tick result; `writeSave` swallows
+storage failures. The store is an injected `KeyValueStore`, so tests use a Map.
 
 ### 6.2 Audio (`src/app/audio/`)
 
@@ -506,8 +540,8 @@ other Tiled maps.
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
 (`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by
 scripted routes (`bots.ts`) that read the live world; only the inputs are saved, and `expect` pins status,
-tick count, lives, hp and final x. `npm run replay:record` re-records all of them; commit the diff with the
-tuning or level change that caused it.
+tick count, lives, hp and final x. `npm run replay:record` re-records the level-clear fixtures; commit the diff
+with the tuning or level change that caused it. `input-remap.json` is not a route recording (section 4.5).
 
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
 until its `done` condition holds, then handing over to the next (`run(dir, untilX)`, `jump(dir)`,
@@ -524,7 +558,9 @@ boss winds up within 150 px, hold fire for a nova while it is stunned, stop when
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
+`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `input-remap` (section 4.5) is a separate
+105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
+alone. `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
 each manifest level; its World-rules block uses Level 1 without enemies.
 
