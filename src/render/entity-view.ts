@@ -1,5 +1,4 @@
-import type { MeshBasicMaterial } from 'three';
-import { AdditiveBlending, BoxGeometry, EdgesGeometry, Group, LineBasicMaterial, LineSegments, Mesh, MeshStandardMaterial, type Object3D } from 'three';
+import { AdditiveBlending, BoxGeometry, EdgesGeometry, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Object3D } from 'three';
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
@@ -94,6 +93,8 @@ export class EntityView {
   private readonly enemyPool = new Map<EnemyType, EnemyView[]>();
   private readonly core: Mesh;
   private readonly coreMaterial: MeshBasicMaterial;
+  /** Placeholder prints for the Sigbin's backward trail. One material each so they can fade independently. */
+  private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
   private readonly movers = new Map<number, MoverView>();
   private readonly unitBox = new BoxGeometry(1, 1, 1);
   private readonly moverMaterial = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.7 });
@@ -123,9 +124,15 @@ export class EntityView {
     const core = new SpriteQuad(assets.batoman, this.coreMaterial, this.orbFrame);
     this.core = core.mesh;
     this.core.visible = false;
-    // The player's collider outline is a sibling, not a child: the quad's scale is the art size, not the hitbox.
     this.playerOutline = this.outline(this.outlineMaterial);
-    this.group.add(this.player.mesh, this.playerOutline, this.chargeGlow.mesh, this.core);
+    for (let i = 0; i < 8; i++) {
+      const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
+      const mesh = new Mesh(this.unitBox, material);
+      mesh.visible = false;
+      mesh.name = 'footprint';
+      this.prints.push({ mesh, material });
+    }
+    this.group.add(this.player.mesh, this.playerOutline, this.chargeGlow.mesh, this.core, ...this.prints.map((p) => p.mesh));
   }
 
   /** Enemy shots use the first loaded enemy sheet that has a projectile clip (the sheets share the look). */
@@ -160,6 +167,7 @@ export class EntityView {
     this.presentPlayer(prev.player, cur.player, cur.tick, alpha);
     this.syncEnemies(prev.enemies, cur.enemies, cur.tick, alpha);
     this.presentCore(prev.boss, cur.boss, cur.tick, alpha);
+    this.presentPrints(cur.boss);
     this.syncProjectiles(prev.projectiles, cur.projectiles, cur.tick, alpha);
     this.syncMovers(prev.movingSolids, cur.movingSolids, alpha);
   }
@@ -210,7 +218,9 @@ export class EntityView {
       const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
       v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
       const flashing = c.flash > 0 && Math.floor(tick / FLASH_HALF_PERIOD_TICKS) % 2 === 0;
-      v.material.color.setHex(flashing ? PALETTE.neonMagenta : look.tint);
+      // The placeholder Sigbin sheet is a darkened patroller. The lunge and its telegraph go magenta so the strike reads.
+      const sigbinStrike = c.type === 'sigbin' && (c.pose === 'windup' || c.pose === 'rush');
+      v.material.color.setHex(flashing || sigbinStrike ? PALETTE.neonMagenta : look.tint);
       v.material.opacity = c.alpha;
       this.placeOutline(v.outline, { x, y, w: c.w, h: c.h }, ENEMY_Z);
     }
@@ -261,6 +271,24 @@ export class EntityView {
     this.core.position.set(toUnits(x), toUnits(y), CORE_Z);
     const s = (toUnits(r.h) / 2) * CORE.scale;
     this.core.scale.set(s, s, 1);
+  }
+
+  /**
+   * Sigbin footprints. Placeholder quads until the art lane paints the trail.
+   * The print sits a step toward `dir`, which is opposite the walk, so the
+   * mark points backward. Nothing here reads the World.
+   */
+  private presentPrints(boss: BossSnapshot | null): void {
+    const tells = boss?.tells ?? [];
+    for (let i = 0; i < this.prints.length; i++) {
+      const slot = this.prints[i]!;
+      const t = tells[i];
+      slot.mesh.visible = t !== undefined;
+      if (!t) continue;
+      slot.mesh.position.set(toUnits(t.x + t.dir * 8), toUnits(t.y + 3), ENEMY_Z - 0.02);
+      slot.mesh.scale.set(toUnits(16), toUnits(5), 0.2);
+      slot.material.opacity = 0.2 + 0.65 * t.alpha;
+    }
   }
 
   // ---- Projectiles -----------------------------------------------------------
@@ -381,6 +409,7 @@ export class EntityView {
     this.orbMaterial.dispose();
     this.novaMaterial.dispose();
     this.coreMaterial.dispose();
+    for (const p of this.prints) p.material.dispose();
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();
     this.moverMaterial.dispose();

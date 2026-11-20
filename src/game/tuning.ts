@@ -232,6 +232,69 @@ export const BOSS = {
   summonMaxAlive: 2,
   summonOffset: 104,
   deathTicks: 180,
+  /** HUD label. Kept here so the bar and the e2e check share one string. */
+  label: 'ASWANG PROTOTYPE',
+} as const;
+
+/**
+ * Level 3 boss: the Sigbin Unit. Half the 378 px camera tall. It stalks
+ * backward, lunges, then drops its core into the standing shot line. Damage
+ * lands only on that core while the recovery window is open. Numbers are ticks
+ * at 120 Hz. Each phase is the same pattern, faster.
+ */
+export const SIGBIN = {
+  width: 192,
+  /** 188 / 378 is half the camera, within a pixel. ART.md's 64×48 is retired. */
+  height: 188,
+  hp: 18,
+  /** HUD label. */
+  label: 'SIGBIN UNIT',
+  /** Dormant until the player is this close, on the same storey. */
+  engageRange: 420,
+  /** Feet-to-feet band for the engage check. The nave below the gallery is not the fight. */
+  sightHeight: 160,
+  /** Hp at which phases 2 and 3 begin. One nova-or-three-plasma punish per phase. */
+  phaseHp: [12, 6] as readonly number[],
+  /** Invulnerable pause between phases. The next phase backs off, then telegraphs; it does not lunge from where the last one stopped. */
+  phaseShiftTicks: 72,
+  /** Walk speed while cloaked, per phase (px/s). */
+  stalkSpeed: [80, 110, 140] as readonly number[],
+  /** Gives up a stalk that has not reached the rear pocket and telegraphs anyway. */
+  stalkMaxTicks: [200, 160, 130] as readonly number[],
+  /** How far past the leading foot counts as a ledge, so a stalk does not walk off the gallery. */
+  stalkProbe: 8,
+  /** Pocket behind the player (opposite their facing) the stalk walks to. Far enough that the 98 px lunge stops short of a standing player. */
+  rearOffset: 280,
+  /** Close enough to that pocket to start the telegraph. */
+  rearSlack: 12,
+  /** Decloak. Alpha ramps to solid and the facing locks to the lunge. Per phase. */
+  telegraphTicks: [72, 56, 48] as readonly number[],
+  lungeSpeed: 420,
+  /** 420 px/s × 28 ticks is 98 px: a short pounce, not a screen-wide charge. */
+  lungeTicks: 28,
+  /** Punish window, including the ticks the core spends dropping into reach. Per phase. */
+  exposedTicks: [180, 160, 140] as readonly number[],
+  /** Spine, above a standing shot. Shown while it is not yet in reach. */
+  weakPointRaised: { y: 128, h: 24 },
+  /**
+   * Where the core rests during the punish: feet+26, 16 px tall. A standing
+   * plasma (muzzle at 30, 6 px tall) crosses it; a shot at the feet does not.
+   */
+  weakPoint: { y: 26, h: 16 },
+  /** Ticks for the core to travel from the spine down to `weakPoint`. */
+  coreSettleTicks: 40,
+  /** Core hits during the window deal this times the shot. Everything else deals 0. */
+  weakPointMultiplier: 2,
+  /** Cloak shimmer bounds. The low end is a hint, not a silhouette. */
+  cloakedAlpha: 0.08,
+  shimmerAlpha: 0.28,
+  shimmerPeriod: 40,
+  /** A print every this many cloaked steps. */
+  footprintEvery: 16,
+  footprintLife: 96,
+  footprintCap: 5,
+  hurtTicks: 8,
+  deathTicks: 180,
 } as const;
 
 /**

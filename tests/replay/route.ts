@@ -1,6 +1,6 @@
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
 import type { Player } from '@game/player';
-import { BOSS, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
+import { BOSS, NOVA, PLAYER, PROJECTILE, SIGBIN } from '@game/tuning';
 import type { EnemySnapshot, WorldSnapshot } from '@game/world';
 import type { Policy } from './harness';
 
@@ -298,6 +298,55 @@ export function bossFight(): Step {
         return { ...nudge, fire: true };
       }
       return nudge;
+    },
+    done: (c) => c.snap.boss === null || c.snap.boss.hp <= 0,
+  };
+}
+
+/**
+ * The Level 3 boss. The bot holds a spot on the gallery, clear of the spikes,
+ * facing away so the lunge comes from the boss's side and stops short. When
+ * the core has dropped into the standing shot line it steps in, lands three
+ * plasma hits (6 damage, one phase) and returns to that spot.
+ */
+export function sigbinFight(): Step {
+  let sinceTap = TAP_EVERY;
+  let shotsThisWindow = 0;
+  let wasExposed = false;
+  // Body left edge. Right of the gallery spikes (2880..2944), left of the boss.
+  const home = 3060;
+  const minX = 3000;
+  return {
+    name: 'sigbin fight',
+    input: (c) => {
+      sinceTap++;
+      const boss = c.snap.boss;
+      const body = c.snap.enemies.find((e) => e.type === 'sigbin');
+      if (!boss || !body || boss.hp <= 0) return {};
+      const bossMid = body.x + body.w / 2;
+      const hold = (x: number): Partial<InputFrame> | null => {
+        if (c.x < x - 6) return { right: true };
+        if (c.x > x + 16) return { left: true };
+        return null;
+      };
+      if (boss.exposed) {
+        if (!wasExposed) shotsThisWindow = 0;
+        wasExposed = true;
+        const pocket = SIGBIN.width / 2 + PLAYER.width / 2 + 48;
+        const coreLow = boss.weakPoint.y <= body.y + SIGBIN.weakPoint.y + 1;
+        const want = Math.max(minX, bossMid - pocket - PLAYER.width / 2);
+        if (!coreLow || shotsThisWindow >= 3) return hold(home) ?? {};
+        const step = hold(want);
+        if (step) return step;
+        if (sinceTap >= TAP_EVERY) {
+          sinceTap = 0;
+          shotsThisWindow++;
+          return { ...faceToward(c, bossMid), fire: true };
+        }
+        return faceToward(c, bossMid);
+      }
+      wasExposed = false;
+      return hold(home) ?? faceToward(c, c.x - 20);
     },
     done: (c) => c.snap.boss === null || c.snap.boss.hp <= 0,
   };

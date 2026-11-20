@@ -44,7 +44,7 @@ export class Hud {
       bar.className = 'hud-boss';
       const label = document.createElement('div');
       label.className = 'hud-boss-label';
-      label.textContent = `ASWANG PROTOTYPE - phase ${boss.phase}`;
+      label.textContent = `${boss.label} - phase ${boss.phase}`;
       const track = document.createElement('div');
       track.className = 'hud-boss-track';
       const fill = document.createElement('div');
