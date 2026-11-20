@@ -273,11 +273,11 @@ Each level uses 4 background layers at different scroll speeds:
 #### Level 6 — Abandoned Rooftop Garden
 | Element | Detail |
 |---------|--------|
-| Sky | Night rain; heavy overcast; city glow diffused through clouds |
-| Structures | Overgrown rooftop planters, collapsed greenhouse frames, rusted irrigation pipes |
-| Lighting sources | Distant city ambient (blue-purple), bioluminescent mutant plants, rain shimmer |
-| Dominant colors | Dark wet green, night blue, occasional warm amber from a surviving grow light |
-| Ambient detail | Overgrown vegetables and vines through concrete cracks; broken salakot hats left behind by old farmers; dripping pipes |
+| Sky | Bright day, soft clouds, hazy Neo-Maynila skyline. An earlier night-rain direction was dropped for the approved brightness rule: paint this level sunny, in the Level 1 inked-painterly style |
+| Structures | Lush rooftop farm: greenhouses, water tanks, shacks, planter beds, bunting. The mid layer is one 2560-wide row followed by its mirror so the repeat has no seam |
+| Lighting sources | Open daylight. The paintings carry their own light, the same rule as Level 1 |
+| Dominant colors | Sunlit green, warm cream and yellow walls, sky blue, terracotta and teal |
+| Ambient detail | Sunflowers, salakot, laundry, flags. A wrong-way scarecrow and a horseshoe on the spawn roof are the way-finding hints |
 
 #### Level 7 — Laboratoryo Zero Entrance
 | Element | Detail |
