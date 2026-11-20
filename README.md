@@ -109,4 +109,4 @@ Conventions that matter most:
 
 ## PR screenshots
 
-`npm run shots` builds `dist/`, serves it, and writes the title, Level 1 start, Level 1 mid, and the editor to `pr-shots/head/`, plus a short walk clip. `npm run shots -- --baseline <ref>` captures the same frames from another commit so a before/after pair lines up. Commit the pictures a PR body shows under `docs/pr-assets/<slug>/`. How to embed them so GitHub renders them is in [AGENTS.md](AGENTS.md).
+`npm run shots` builds `dist/`, serves it, and writes the title, Level 1 start, Level 1 mid, and the editor to `pr-shots/head/`, plus a short walk clip. `npm run shots -- --baseline <ref>` captures the same frames from another commit so a before/after pair lines up. Commit the pictures a PR body shows under `docs/pr-assets/<slug>/`, then `npm run shots -- --links <slug>` prints markdown pinned to that commit's SHA. How to embed them so GitHub renders them is in [AGENTS.md](AGENTS.md).

@@ -20,7 +20,7 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type Page } from '@playwright/test';
@@ -29,9 +29,10 @@ import {
   CLIP,
   clipSchedule,
   DEFAULT_PORT,
+  linkMarkdown,
   midSchedule,
   parseShotArgs,
-  prImageUrl,
+  uncommittedLinksHelp,
   beforeName,
   RIGHT_BITS,
   spawnSchedule,
@@ -52,15 +53,19 @@ const USAGE = `npm run shots -- [options]
   --baseline <git-ref>   also capture that ref into --baseline-out
   --baseline-out <dir>   default pr-shots/baseline
   --slug <name>          copy shots into docs/pr-assets/<name>/ for the PR body
+  --links <name>         print permalink markdown for a slug already committed
   --port <n>             vite preview port (default ${DEFAULT_PORT})
   --no-clip              skip the walk clip
   --skip-build           use the existing dist/ for the head capture
   --help
 
-Commit the pngs the PR body shows. Embed each one as
-  https://github.com/kzap/batoman-game/raw/<branch>/docs/pr-assets/<slug>/level-1-mid.png
-A relative path does not render in the PR body. A CI artifact zip does not
-either. The webm plays inline only after it is uploaded as a GitHub attachment.`;
+Commit the pngs the PR body shows, then run --links. It prints markdown whose
+URLs use that commit's full SHA:
+  https://github.com/kzap/batoman-game/raw/<40-char-sha>/docs/pr-assets/<slug>/level-1-mid.png
+A branch name in that URL breaks when the branch is deleted after merge, and
+it changes if the branch is force-pushed. A relative path does not render in
+the PR body. A CI artifact zip does not either. The webm URL is a download
+link; inline playback needs a GitHub attachment.`;
 
 interface Snap {
   x: number;
@@ -80,6 +85,10 @@ async function main(): Promise<void> {
     return;
   }
   assertRepoRoot();
+  if (args.links) {
+    process.exitCode = await printLinks(args.links);
+    return;
+  }
   const head = await captureTree(process.cwd(), args.out, args, args.skipBuild);
   const baseline = args.baseline
     ? await captureBaseline(args.baseline, args.baselineOut, args)
@@ -431,9 +440,76 @@ async function publishSlug(args: ShotArgs, manifest: ShotManifest): Promise<void
   }
   await writeFile(path.join(dest, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   console.info(`copied into ${dest}`);
-  for (const file of files.filter((name) => name.endsWith('.png'))) {
-    console.info(prImageUrl('<branch>', slug, file));
+  // A just-copied slug is rarely committed yet. printLinks explains the
+  // commit, then `npm run shots -- --links`, instead of inventing a URL.
+  await printLinks(slug);
+}
+
+/**
+ * Permalink markdown for a slug, or the two-step commit flow.
+ * Returns 0 when the markdown was printed. Returns 1 when the folder is
+ * missing or HEAD does not contain those files yet.
+ */
+async function printLinks(slug: string): Promise<number> {
+  const present = await mediaFiles(slug);
+  if (present.length === 0) {
+    console.error(`no png or webm in ${ASSET_ROOT}/${slug}`);
+    return 1;
   }
+  const sha = await committedSha(slug);
+  if (!sha) {
+    console.info(uncommittedLinksHelp(slug));
+    return 1;
+  }
+  console.info(`Paste this into the PR body. URLs are pinned to ${sha}.`);
+  console.info('The webm line is a download link. Inline playback needs a GitHub attachment.');
+  console.info(linkMarkdown(sha, slug, present));
+  return 0;
+}
+
+async function mediaFiles(slug: string): Promise<string[]> {
+  const dir = path.join(ASSET_ROOT, slug);
+  if (!existsSync(dir)) return [];
+  const names = await readdir(dir);
+  return names.filter((name) => name.endsWith('.png') || name.endsWith('.webm'));
+}
+
+/**
+ * Full HEAD SHA when every png and webm in the slug is tracked and unmodified.
+ * `manifest.json` may still be dirty; the permalinks are for the pictures.
+ */
+async function committedSha(slug: string): Promise<string | null> {
+  const present = await mediaFiles(slug);
+  if (present.length === 0) return null;
+  const dir = path.join(ASSET_ROOT, slug);
+  for (const name of present) {
+    const file = path.join(dir, name);
+    const porcelain = await gitText(['status', '--porcelain', '--', file]);
+    if (porcelain.trim() !== '') return null;
+    const tracked = (await gitText(['ls-files', '--', file])).trim();
+    if (tracked === '') return null;
+  }
+  const sha = (await gitText(['rev-parse', 'HEAD'])).trim();
+  return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+}
+
+function gitText(cmdArgs: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', cmdArgs, { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    child.stdout?.on('data', (chunk: Buffer) => {
+      out += chunk.toString();
+    });
+    child.stderr?.on('data', (chunk: Buffer) => {
+      err += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) resolve(out);
+      else reject(new Error(`git ${cmdArgs.join(' ')} exited ${code}\n${err}`));
+    });
+  });
 }
 
 async function waitForHttp(url: string, child: ChildProcess): Promise<void> {

@@ -15,8 +15,10 @@ import {
   clipSchedule,
   midSchedule,
   parseShotArgs,
+  linkMarkdown,
   prImageUrl,
   spawnSchedule,
+  uncommittedLinksHelp,
   stillUrl,
 } from '../../../tools/shots/plan';
 
@@ -48,20 +50,37 @@ describe('shot plan', () => {
     expect(stillUrl(CLIP.path, CLIP.lockstep)).toBe('/?level=level-1');
   });
 
-  it('builds a raw URL with the branch slash intact', () => {
-    expect(prImageUrl('infra/pr-format', 'pr-format', 'level-1-mid.png')).toBe(
-      'https://github.com/kzap/batoman-game/raw/infra/pr-format/docs/pr-assets/pr-format/level-1-mid.png',
+  it('builds a raw URL pinned to the full commit SHA', () => {
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    expect(prImageUrl(sha, 'pr-format', 'level-1-mid.png')).toBe(
+      `https://github.com/kzap/batoman-game/raw/${sha}/docs/pr-assets/pr-format/level-1-mid.png`,
     );
     expect(beforeName('level-1-mid.png')).toBe('level-1-mid-before.png');
     expect(beforeName('level-1-walk.webm')).toBe('level-1-walk-before.webm');
   });
 
-  it('rejects slugs, files, and refs that would escape the asset folder', () => {
-    expect(() => prImageUrl('infra/pr-format', '../x', 'title.png')).toThrow(/slug/);
-    expect(() => prImageUrl('a/../b', 'ok', 'title.png')).toThrow(/branch/);
-    expect(() => prImageUrl('v2', 'ok', 'nope.gif')).toThrow(/asset file/);
+  it('prints image markdown for pngs and a link for the webm', () => {
+    const sha = '0123456789abcdef0123456789abcdef01234567';
+    const md = linkMarkdown(sha, 'pr-format', ['level-1-mid.png', 'title.png', 'level-1-walk.webm']);
+    expect(md).toBe(
+      [
+        `![Title](https://github.com/kzap/batoman-game/raw/${sha}/docs/pr-assets/pr-format/title.png)`,
+        `![Level 1 mid](https://github.com/kzap/batoman-game/raw/${sha}/docs/pr-assets/pr-format/level-1-mid.png)`,
+        `[Level 1 walk](https://github.com/kzap/batoman-game/raw/${sha}/docs/pr-assets/pr-format/level-1-walk.webm)`,
+      ].join('\n'),
+    );
+  });
+
+  it('rejects a branch name where a SHA belongs, and explains the commit step', () => {
+    expect(() => prImageUrl('infra/pr-format', 'pr-format', 'title.png')).toThrow(/SHA/);
+    expect(() => prImageUrl('0123456789abcdef0123456789abcdef01234567', '../x', 'title.png')).toThrow(/slug/);
+    expect(() => prImageUrl('0123456789abcdef0123456789abcdef01234567', 'ok', 'nope.gif')).toThrow(/asset file/);
+    expect(uncommittedLinksHelp('pr-format')).toMatch(/git commit -s/);
+    expect(uncommittedLinksHelp('pr-format')).toMatch(/--links pr-format/);
     expect(() => parseShotArgs(['--baseline'])).toThrow(/needs a value/);
     expect(() => parseShotArgs(['--slug', 'Has Space'])).toThrow(/slug/);
+    expect(() => parseShotArgs(['--links'])).toThrow(/needs a value/);
+    expect(() => parseShotArgs(['--links', 'a', '--slug', 'b'])).toThrow(/different folders/);
     expect(() => parseShotArgs(['--baseline', 'v2;rm'])).toThrow(/refusing/);
   });
 
@@ -73,9 +92,11 @@ describe('shot plan', () => {
       slug: null,
       clip: true,
       skipBuild: false,
+      links: null,
       port: 4173,
       help: false,
     });
+    expect(parseShotArgs(['--links', 'pr-format'])).toMatchObject({ links: 'pr-format', slug: null });
     expect(parseShotArgs(['--baseline', 'v2', '--slug', 'pr-format', '--no-clip', '--skip-build', '--port', '4174'])).toMatchObject({
       baseline: 'v2',
       slug: 'pr-format',

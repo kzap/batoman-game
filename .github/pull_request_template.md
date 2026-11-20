@@ -19,16 +19,19 @@ Capture:
     npm run shots -- --baseline <git-ref> --slug <name>
 
 That writes `pr-shots/head/` (and `pr-shots/baseline/` with the same filenames).
-`--slug` copies them to `docs/pr-assets/<name>/`. Commit those files.
+`--slug` copies them to `docs/pr-assets/<name>/`. Commit those files, then
+`npm run shots -- --links <name>` prints ready-to-paste markdown.
 
-Embed each png with an absolute raw URL so GitHub renders it. A relative path
-resolves against `main` and does not render on a PR into `v2`. A CI artifact
-zip does not render inline either.
+Embed each png with an absolute raw URL pinned to the full commit SHA. A branch
+name in that URL breaks when the branch is deleted after merge, and it changes
+if the branch is force-pushed. A relative path resolves against `main` and does
+not render on a PR into `v2`. A CI artifact zip does not render inline either.
 
-    ![Level 1 mid](https://github.com/kzap/batoman-game/raw/BRANCH/docs/pr-assets/SLUG/level-1-mid.png)
+    ![Level 1 mid](https://github.com/kzap/batoman-game/raw/SHA/docs/pr-assets/SLUG/level-1-mid.png)
 
+`SHA` is 40 hex characters from `git rev-parse HEAD` after the asset commit.
 The walk clip (`level-1-walk.webm`) plays inline only as a GitHub attachment
-(drag it onto the body). A raw URL of the webm is a download link.
+(drag it onto the body). The `--links` line for the webm is a download link.
 
 Delete this section when nothing visible changed.
 -->

@@ -103,21 +103,72 @@ export function beforeName(file: string): string {
   return `${file.slice(0, dot)}-before${file.slice(dot)}`;
 }
 
+const SHA_RE = /^[0-9a-f]{40}$/;
+
 /**
- * Absolute raw URL. GitHub renders this in a PR body on this public repo.
- * A relative path resolves against the default branch (`main`), not the PR
- * head, and these PRs target `v2`.
+ * Raw URL pinned to a full commit SHA. GitHub keeps serving that object after
+ * the branch is deleted, and a force-push does not move it. A branch name in
+ * the same spot does both. A relative path resolves against `main`, and these
+ * PRs target `v2`.
  */
-export function prImageUrl(branch: string, slug: string, file: string): string {
-  const segments = branch.split('/');
-  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
-    throw new Error(`branch is not a single ref path: ${branch}`);
+export function prImageUrl(sha: string, slug: string, file: string): string {
+  if (!SHA_RE.test(sha)) {
+    throw new Error(`permalink needs the full 40-character commit SHA, not a branch: ${sha}`);
   }
   assertSlug(slug);
   if (!/^[a-z0-9][a-z0-9.-]*\.(png|webm)$/.test(file)) {
     throw new Error(`asset file must be one png or webm name: ${file}`);
   }
-  return `${REPO_RAW_BASE}/${branch}/${ASSET_ROOT}/${slug}/${file}`;
+  return `${REPO_RAW_BASE}/${sha}/${ASSET_ROOT}/${slug}/${file}`;
+}
+
+const ALT: Readonly<Record<string, string>> = {
+  'title.png': 'Title',
+  'title-before.png': 'Title, before',
+  'level-1-start.png': 'Level 1 start',
+  'level-1-start-before.png': 'Level 1 start, before',
+  'level-1-mid.png': 'Level 1 mid',
+  'level-1-mid-before.png': 'Level 1 mid, before',
+  'editor.png': 'Editor',
+  'editor-before.png': 'Editor, before',
+  'level-1-walk.webm': 'Level 1 walk',
+  'level-1-walk-before.webm': 'Level 1 walk, before',
+};
+
+/** Before-image, then the current image, for each scene, then the clips. */
+export function orderedAssetFiles(present: readonly string[]): string[] {
+  const want = [
+    ...STILLS.flatMap((scene) => [beforeName(scene.file), scene.file]),
+    beforeName(CLIP.file),
+    CLIP.file,
+  ];
+  const have = new Set(present);
+  return want.filter((file) => have.has(file));
+}
+
+/** Ready-to-paste PR markdown. Pngs are images. A webm is a download link. */
+export function linkMarkdown(sha: string, slug: string, present: readonly string[]): string {
+  const files = orderedAssetFiles(present);
+  if (files.length === 0) throw new Error(`no png or webm to embed for ${slug}`);
+  return files
+    .map((file) => {
+      const url = prImageUrl(sha, slug, file);
+      const alt = ALT[file] ?? file;
+      return file.endsWith('.webm') ? `[${alt}](${url})` : `![${alt}](${url})`;
+    })
+    .join('\n');
+}
+
+/** Printed when `--slug` copied files that HEAD does not contain yet. */
+export function uncommittedLinksHelp(slug: string): string {
+  assertSlug(slug);
+  return [
+    `docs/pr-assets/${slug}/ is not committed at HEAD, so a permalink would 404.`,
+    `1. git add docs/pr-assets/${slug} && git commit -s`,
+    `2. npm run shots -- --links ${slug}`,
+    'Step 2 prints ready-to-paste markdown. Each URL uses that commit\'s full SHA.',
+    'A branch name in the URL breaks when the branch is deleted after merge, and it changes if the branch is force-pushed.',
+  ].join('\n');
 }
 
 export interface ShotArgs {
@@ -125,6 +176,8 @@ export interface ShotArgs {
   readonly baseline: string | null;
   readonly baselineOut: string;
   readonly slug: string | null;
+  /** Print permalink markdown for this slug and do not capture. */
+  readonly links: string | null;
   readonly clip: boolean;
   readonly skipBuild: boolean;
   readonly port: number;
@@ -136,6 +189,7 @@ export function parseShotArgs(argv: readonly string[]): ShotArgs {
   let baseline: string | null = null;
   let baselineOut = DEFAULT_BASELINE_OUT;
   let slug: string | null = null;
+  let links: string | null = null;
   let clip = true;
   let skipBuild = false;
   let port = DEFAULT_PORT;
@@ -165,6 +219,11 @@ export function parseShotArgs(argv: readonly string[]): ShotArgs {
       case '--slug':
         slug = take(flag, i);
         assertSlug(slug);
+        i += 1;
+        break;
+      case '--links':
+        links = take(flag, i);
+        assertSlug(links);
         i += 1;
         break;
       case '--port': {
@@ -197,8 +256,9 @@ export function parseShotArgs(argv: readonly string[]): ShotArgs {
     throw new Error(`refusing baseline ref: ${baseline}`);
   }
   if (baseline?.split('/').includes('..')) throw new Error(`refusing baseline ref: ${baseline}`);
+  if (links && slug && links !== slug) throw new Error('--links and --slug name different folders');
 
-  return { out, baseline, baselineOut, slug, clip, skipBuild, port, help };
+  return { out, baseline, baselineOut, slug, links, clip, skipBuild, port, help };
 }
 
 export interface ShotMeasure {

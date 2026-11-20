@@ -40,13 +40,20 @@ Checkable:
 
 ### Embedding so GitHub renders the picture
 
-Commit the pngs under `docs/pr-assets/<slug>/`. In the PR body, use an absolute raw URL that includes the head branch:
+Commit the pngs under `docs/pr-assets/<slug>/`. In the PR body, use an absolute raw URL pinned to the full 40-character commit SHA that contains those files:
 
 ```markdown
-![Level 1 mid](https://github.com/kzap/batoman-game/raw/<branch>/docs/pr-assets/<slug>/level-1-mid.png)
+![Level 1 mid](https://github.com/kzap/batoman-game/raw/<40-char-sha>/docs/pr-assets/<slug>/level-1-mid.png)
 ```
 
-That renders on this public repo as soon as the branch is pushed.
+That object stays available after the branch is deleted, and a force-push does not move it. A branch name in the same position breaks on delete and shifts on force-push.
+
+`npm run shots -- --slug <name>` copies the files and, when they are not in HEAD yet, prints this two-step flow instead of a URL:
+
+1. `git add docs/pr-assets/<name> && git commit -s`
+2. `npm run shots -- --links <name>`
+
+Step 2 prints ready-to-paste markdown using `git rev-parse HEAD`. Run it only after that commit. The webm line is a download link. Inline playback still needs a GitHub attachment (drag the file onto the body).
 
 A relative path such as `docs/pr-assets/<slug>/level-1-mid.png` does not render in a PR body. GitHub resolves it against the default branch, `main`, and PRs here target `v2`.
 
@@ -66,8 +73,8 @@ The title and the Level 1 spawn now use the dressed docks, so the first screen m
 - Rebuilt the title backdrop and the Level 1 spawn view.
 - No sim or control changes.
 
-![Title, before](https://github.com/kzap/batoman-game/raw/v2/docs/pr-assets/example/title-before.png)
-![Title, after](https://github.com/kzap/batoman-game/raw/v2/docs/pr-assets/example/title.png)
+![Title, before](https://github.com/kzap/batoman-game/raw/0123456789abcdef0123456789abcdef01234567/docs/pr-assets/example/title-before.png)
+![Title, after](https://github.com/kzap/batoman-game/raw/0123456789abcdef0123456789abcdef01234567/docs/pr-assets/example/title.png)
 
 ```mermaid
 flowchart LR
@@ -77,4 +84,4 @@ flowchart LR
 ```
 ```
 
-The image paths in that fence are the shape of the URL. Replace `v2`, `example`, and the filenames with the branch, slug, and files from the PR.
+The image paths in that fence are the shape of the URL. Replace the SHA, `example`, and the filenames with the commit, slug, and files from `npm run shots -- --links <name>`.
