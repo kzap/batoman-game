@@ -20,8 +20,10 @@ npm run ci            # lint, unit, replay, build, e2e gate
 
 E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`, `shell.spec.ts`, `editor.spec.ts`). They run against `vite preview`
 on port 4173 with software WebGL (`--use-angle=swiftshader`) so they behave the same on CI runners, one
-worker at a time. `level.spec.ts` writes screenshots to `e2e-screenshots/` (start, debug overlay, one-way,
-mover and dash sections, Level 3 and 6 start/complete, editor open/created); look at them after a render change.
+worker at a time (parallel SwiftShader pages halve each other's frame rate). `level.spec.ts` writes
+screenshots to `e2e-screenshots/` (start, debug overlay, one-way, mover and dash sections, Level 3
+start/complete, Level 4 balcony/lift/roof, Level 6 start/lift/checkpoint/boss-roof/complete, editor
+open/created); look at them after a render change.
 
 **Assert on ticks, never on milliseconds.** Hosted runners render at about 2-6 fps, so `waitForTimeout` plus a
 position check measures the machine. `?lockstep=1` only exists in the e2e build (`npm run build:e2e`); `npm run dev`,
