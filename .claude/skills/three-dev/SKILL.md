@@ -136,9 +136,6 @@ with no screen, it is game.
   and call `advance(n)` when the test must step a known number of ticks. Replay checks stay exact
   (`simTicks === fixture.expect.ticks`). One smoke test stays on the real-time clock. The frame budget is
   `@perf` (`npm run test:e2e:perf`), a report, not a PR gate.
-- DCO is required. `git commit -s` adds the `Signed-off-by:` trailer. If the commit is still local,
-  `git commit --amend -s` adds a missing trailer. If it is already on the remote, do not force-push;
-  ask a maintainer to handle the unsigned commit.
 
 ## Commands
 
