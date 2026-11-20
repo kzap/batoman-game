@@ -386,5 +386,3 @@ The HUD should feel like it's **Ando's own cobbled-together tech**, not NSA-clea
 - Dr. Epal playable sprite (cutscene portrait only)
 - Full controller UI iconography
 - Localization font variants
-
-<!-- ci path-filter probe after the v2 merge (throwaway) -->
