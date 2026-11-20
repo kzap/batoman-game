@@ -4,6 +4,8 @@
 **Setting:** Neo-Maynila, 2147
 **Genre:** Action Side-Scrolling Platformer
 
+**Level plan:** [VISION.md](VISION.md) is the current game: five levels, a boss on each. Palettes below for Divisoria, the skyway, Laboratoryo Zero, the floodgates, and the arcology stay as reference for the cut appendix. The destroyed-block row (old "Level 10") is the finale's look. The Manananggal sheet is the tower boss reference, not the docks. Mood and palette notes still apply; the v0.1 pixel-grid spec does not describe the v2 remake.
+
 ---
 
 ## Visual Identity

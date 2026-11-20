@@ -7,8 +7,8 @@ NSA-controlled districts to dismantle Project ASWANG and confront Dr. Epal.
 
 This branch (`v2`) is a ground-up remake as a 2.5D platformer: a deterministic 2D simulation rendered with
 Three.js. The original Phaser build is preserved at the `v1-archive` tag and on `main` until v2 is
-playable. See [PLAN.md](PLAN.md) for the phase plan and current status. The ten-district vision, pending
-creative approval, is in [docs/VISION.md](docs/VISION.md).
+playable. See [PLAN.md](PLAN.md) for the phase plan and current status. The five-level vision, pending
+the remaining creative calls, is in [docs/VISION.md](docs/VISION.md).
 
 ---
 
