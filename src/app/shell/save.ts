@@ -1,8 +1,10 @@
 /**
- * Progress and options in localStorage. Pure functions over a `SaveData`
- * value plus a tiny storage interface, so tests use a Map and a corrupt or
- * outdated blob degrades to defaults instead of breaking boot.
+ * Progress, options and keyboard bindings in localStorage. Pure functions over
+ * a `SaveData` value plus a tiny storage interface, so tests use a Map and a
+ * corrupt or outdated blob degrades to defaults instead of breaking boot.
  */
+
+import { DEFAULT_BINDINGS, parseBindings, type Bindings } from '../bindings';
 
 export interface LevelResult {
   readonly ticks: number;
@@ -16,6 +18,8 @@ export interface SaveData {
   /** Best (fewest ticks) clear per level. */
   readonly best: Readonly<Record<string, LevelResult>>;
   readonly options: { readonly music: boolean; readonly sfx: boolean };
+  /** Gameplay key table. Missing or invalid on disk becomes {@link DEFAULT_BINDINGS}. */
+  readonly bindings: Bindings;
 }
 
 export interface KeyValueStore {
@@ -26,7 +30,13 @@ export interface KeyValueStore {
 export const SAVE_KEY = 'batoman.v2.save';
 
 export function defaultSave(levels: readonly string[]): SaveData {
-  return { version: 1, unlocked: levels.length ? [levels[0]!] : [], best: {}, options: { music: true, sfx: true } };
+  return {
+    version: 1,
+    unlocked: levels.length ? [levels[0]!] : [],
+    best: {},
+    options: { music: true, sfx: true },
+    bindings: DEFAULT_BINDINGS,
+  };
 }
 
 /** Read and validate; anything unexpected yields the defaults (the first level unlocked). */
@@ -56,6 +66,7 @@ export function loadSave(store: KeyValueStore, levels: readonly string[]): SaveD
     unlocked: [...new Set([...base.unlocked, ...unlocked])],
     best,
     options: { music: opts['music'] !== false, sfx: opts['sfx'] !== false },
+    bindings: parseBindings(o['bindings']) ?? DEFAULT_BINDINGS,
   };
 }
 
@@ -79,4 +90,12 @@ export function recordClear(data: SaveData, levels: readonly string[], levelId: 
 
 export function setOption(data: SaveData, key: keyof SaveData['options'], value: boolean): SaveData {
   return { ...data, options: { ...data.options, [key]: value } };
+}
+
+export function setBindings(data: SaveData, bindings: Bindings): SaveData {
+  return { ...data, bindings };
+}
+
+export function resetBindings(data: SaveData): SaveData {
+  return setBindings(data, DEFAULT_BINDINGS);
 }

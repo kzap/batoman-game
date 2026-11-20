@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSave, loadSave, recordClear, SAVE_KEY, setOption, writeSave, type KeyValueStore } from '@app/shell/save';
+import { DEFAULT_BINDINGS, toggleBinding } from '@app/bindings';
+import { defaultSave, loadSave, recordClear, resetBindings, SAVE_KEY, setBindings, setOption, writeSave, type KeyValueStore } from '@app/shell/save';
 import { clearPoints, formatScore, killPoints } from '@app/shell/score';
 
 const levels = ['level-1', 'level-3', 'level-6'];
@@ -33,6 +34,29 @@ describe('save', () => {
     expect(s.unlocked).toEqual(['level-1', 'level-3']);
     expect(s.best).toEqual({});
     expect(s.options).toEqual({ music: true, sfx: true });
+    expect(s.bindings).toEqual(DEFAULT_BINDINGS);
+  });
+
+  it('keeps progress when bindings are missing or rejected, and round-trips a custom table', () => {
+    const store = memory();
+    store.setItem(SAVE_KEY, JSON.stringify({ version: 1, unlocked: ['level-1', 'level-3'], options: { music: false } }));
+    const legacy = loadSave(store, levels);
+    expect(legacy.unlocked).toEqual(['level-1', 'level-3']);
+    expect(legacy.options.music).toBe(false);
+    expect(legacy.bindings).toEqual(DEFAULT_BINDINGS);
+
+    store.setItem(SAVE_KEY, JSON.stringify({ version: 1, unlocked: ['level-3'], bindings: { jump: ['Escape'] } }));
+    const corrupt = loadSave(store, levels);
+    expect(corrupt.unlocked).toEqual(['level-1', 'level-3']);
+    expect(corrupt.bindings).toEqual(DEFAULT_BINDINGS);
+
+    const custom = setBindings(defaultSave(levels), toggleBinding(DEFAULT_BINDINGS, 'jump', 'KeyQ')!);
+    writeSave(store, custom);
+    expect(loadSave(store, levels).bindings.jump).toEqual(['Space', 'KeyW', 'ArrowUp', 'KeyQ']);
+    const cleared = recordClear(custom, levels, 'level-1', { ticks: 10, score: 1 });
+    expect(cleared.bindings).toEqual(custom.bindings);
+    expect(resetBindings(cleared).bindings).toEqual(DEFAULT_BINDINGS);
+    expect(resetBindings(cleared).best['level-1']).toEqual({ ticks: 10, score: 1 });
   });
 
   it('a clear unlocks the next level and keeps the faster result', () => {
