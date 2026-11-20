@@ -7,6 +7,18 @@ import { Overlay } from './shell/overlay';
 import { Shell } from './shell/shell';
 
 const hooks = installHooks();
+showBuildStamp();
+
+/** Corner label plus a console line so a playtester can see which commit is deployed. */
+function showBuildStamp(): void {
+  const sha = __BUILD_SHA__;
+  const short = sha === 'dev' ? 'dev' : sha.slice(0, 7);
+  const when = __BUILD_TIME__.replace(/:\d{2}(?:\.\d+)?Z$/, 'Z').replace('T', ' ');
+  console.info(`BatoMan ${__APP_VERSION__} ${short}${when ? ` ${when}` : ''}`);
+  const el = document.getElementById('build-stamp');
+  if (!el || sha === 'dev') return;
+  el.textContent = when ? `${short} · ${when}` : short;
+}
 
 const canvas = document.getElementById('game-canvas');
 if (!(canvas instanceof HTMLCanvasElement)) {

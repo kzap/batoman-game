@@ -1,8 +1,9 @@
 import type { ManifestEntry } from '@content/levels';
+import { SIM_HZ } from '@core/sim/clock';
+import { ACTION_LABELS, CONTROL_ROWS, keyLabel } from '../bindings';
 import type { SaveData } from './save';
 import { GAMEOVER_ITEMS, PAUSE_ITEMS, TITLE_ITEMS, type Screen } from './screens';
 import { formatScore } from './score';
-import { SIM_HZ } from '@core/sim/clock';
 
 /** What the overlay needs besides the screen: level names, progress, the run's numbers. */
 export interface OverlayModel {
@@ -59,6 +60,7 @@ const PRESENTATION: Readonly<Record<Screen['kind'], { readonly dim: boolean; rea
   complete: { dim: false, hideHud: false },
   gameover: { dim: true, hideHud: false },
   credits: { dim: true, hideHud: true },
+  controls: { dim: true, hideHud: true },
 };
 
 /** Renders one screen into `#overlay`; screens that show the level behind them leave the canvas undimmed. */
@@ -121,6 +123,23 @@ export class Overlay {
           for (const line of s.lines) c.append(el('p', '', line));
         }
         card.append(c, hint('Enter back to title'));
+        break;
+      }
+      case 'controls': {
+        card.dataset['listening'] = screen.listening ? '1' : '0';
+        const ul = el('ul', 'shell-menu shell-controls');
+        CONTROL_ROWS.forEach((row, i) => {
+          const li = el('li', i === screen.index ? 'shell-selected' : '');
+          li.dataset['action'] = row;
+          if (row === 'reset') {
+            li.append(el('span', 'shell-action', 'Reset to defaults'));
+          } else {
+            const listening = screen.listening && i === screen.index;
+            li.append(el('span', 'shell-action', ACTION_LABELS[row]), el('span', 'shell-keys', listening ? 'press a key…' : m.save.bindings[row].map(keyLabel).join('  ')));
+          }
+          ul.append(li);
+        });
+        card.append(el('h2', 'shell-heading', 'CONTROLS'), ul, hint('Enter toggles a key  ·  Esc back  ·  one to four keys'));
         break;
       }
     }

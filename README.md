@@ -68,10 +68,13 @@ Three.js or touch the DOM.
 Levels: `?level=level-4` loads another manifest level (`level-1`, `level-3`, `level-4`, `level-6`); `?edit=1` opens the current level in the editor, whose
 `Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
 
-Controls: arrows or WASD move, `Space` jumps (down + jump drops through platforms), `Shift` or `X` dashes, `Z` fires; hold
-`Z` for 0.8 s and release for a piercing nova. `Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N`
-toggle music and sound effects. Level 1 ends at the ASWANG prototype; the exit opens when it falls.
-Progress (unlocked levels, best times, audio options) is saved in `localStorage`.
+Controls: arrows or A/D move, Down or S crouches, `Space`, `W` or `Up` jumps (down + jump drops through
+platforms), `Shift` or `X` dashes, `Z` or `J` fires; hold `Z` for 0.8 s and release for a piercing nova.
+`Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N` toggle music and sound effects. The title menu
+and the pause menu open Controls, where Enter on an action then a key adds or removes that key (one to four
+keys per action; the last key cannot be removed). Reset to defaults restores the layout above. `Esc`,
+`Enter`, `P`, `M`, `N` and backtick cannot be bound. Level 1 ends at the ASWANG prototype; the exit opens
+when it falls. Progress (unlocked levels, best times, audio options, key bindings) is saved in `localStorage`.
 
 Music sources live in `art-source/audio/` and are transcoded to Opus by `npm run assets` (via
 `ffmpeg-static`); sound effects are synthesised in the browser, so there are no sample files.
