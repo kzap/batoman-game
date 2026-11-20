@@ -7,7 +7,8 @@ NSA-controlled districts to dismantle Project ASWANG and confront Dr. Epal.
 
 This branch (`v2`) is a ground-up remake as a 2.5D platformer: a deterministic 2D simulation rendered with
 Three.js. The original Phaser build is preserved at the `v1-archive` tag and on `main` until v2 is
-playable. See [PLAN.md](PLAN.md) for the phase plan and current status.
+playable. See [PLAN.md](PLAN.md) for the phase plan and current status. The ten-district vision, pending
+creative approval, is in [docs/VISION.md](docs/VISION.md).
 
 ---
 
@@ -54,7 +55,7 @@ tools/       offline asset pipeline and validators (Node)
 tests/       unit/ replay/ e2e/
 art-source/  raw AI art; never served to the browser
 public/      generated assets only (atlases, backdrops, audio; all gitignored, built by `npm run assets`)
-docs/        PRD.md, TDD.md, ART.md, STORY.md
+docs/        VISION.md (full-game plan, pending approval), STORY.md, PRD.md, ART.md, TDD.md
 ```
 
 Dependencies flow one way: `core <- game <- render/app <- editor`. ESLint fails the build if `core` or `game` import
