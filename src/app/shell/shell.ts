@@ -4,7 +4,8 @@ import { HttpAssetSource, loadAssets } from '@render/assets';
 import type { App } from '../app';
 import type { GameAudio } from '../audio';
 import type { Overlay } from './overlay';
-import { loadSave, recordClear, resolveReduceMotion, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
+import { CONTROL_ROWS, toggleBinding } from '../bindings';
+import { loadSave, recordClear, resetBindings, resolveReduceMotion, setBindings, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
 import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { clearPoints, killPoints } from './score';
 
@@ -81,6 +82,7 @@ export class Shell {
     this.save = loadSave(storage, this.levelIds);
     this.sessionOverride = options.reduceMotion ?? null;
     this.systemReduceMotion = systemPrefersReducedMotion();
+    app.setBindings(this.save.bindings);
     audio.engine.setMusicEnabled(this.save.options.music);
     audio.engine.setSfxEnabled(this.save.options.sfx);
     app.onWorld = (w): void => this.watchWorld(w);
@@ -110,6 +112,7 @@ export class Shell {
     this.audio.unlock();
     this.publishAudio();
     if (this.app.currentMode === 'edit' || this.editorPlaytest) return; // the editor owns the keyboard
+    if (this.captureBinding(e)) return;
     if (e.code === 'KeyM') return this.toggleOption('music');
     if (e.code === 'KeyN') return this.toggleOption('sfx');
     if (e.code === 'KeyR') return this.toggleReduceMotion();
@@ -119,6 +122,33 @@ export class Shell {
     if (this.screen.kind === 'playing' && event !== 'pause' && event !== 'back') return;
     e.preventDefault();
     this.dispatch(event);
+  }
+
+  /**
+   * Controls row is waiting for a physical key. Escape cancels; anything else
+   * toggles that key on the action. Returns true when the event was consumed,
+   * so menu keys (including M, N and R) do not also fire.
+   */
+  private captureBinding(e: KeyboardEvent): boolean {
+    if (this.screen.kind !== 'controls' || !this.screen.listening) return false;
+    e.preventDefault();
+    if (e.repeat) return true;
+    if (e.code === 'Escape') {
+      this.dispatch('back');
+      return true;
+    }
+    const row = CONTROL_ROWS[this.screen.index];
+    if (row === undefined || row === 'reset') return true;
+    const next = toggleBinding(this.save.bindings, row, e.code);
+    if (!next) {
+      this.audio.play('menuBack');
+      return true;
+    }
+    this.save = setBindings(this.save, next);
+    writeSave(this.storage, this.save);
+    this.app.setBindings(next);
+    this.dispatch('stopListen');
+    return true;
   }
 
   /** The editor's playtest runs the sim in `play` mode with its own keys (P, Esc); the shell stays out of it. */
@@ -172,6 +202,7 @@ export class Shell {
   }
 
   private menuSound(before: Screen, after: Screen, event: ShellEvent): void {
+    if (event === 'stopListen') return this.audio.play('menuConfirm');
     if (event === 'up' || event === 'down') return this.audio.play('menuMove');
     if (after.kind === 'paused' && before.kind === 'playing') return this.audio.play('pause');
     if (after.kind === 'playing' && before.kind === 'paused') return this.audio.play('unpause');
@@ -238,6 +269,11 @@ export class Shell {
         this.app.setMode('paused');
         this.audio.engine.setPaused(false);
         this.audio.music.play(MANIFEST.titleMusic);
+        break;
+      case 'resetBindings':
+        this.save = resetBindings(this.save);
+        writeSave(this.storage, this.save);
+        this.app.setBindings(this.save.bindings);
         break;
     }
   }

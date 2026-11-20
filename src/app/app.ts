@@ -13,6 +13,7 @@ import type { PostOptions } from '@render/post';
 import { Stage } from '@render/stage';
 import { toUnits } from '@render/units';
 import type { LevelJson } from '@content/level';
+import type { Bindings } from './bindings';
 import { DebugOverlay } from './debug';
 import { Hud } from './hud';
 import { Keyboard } from './keyboard';
@@ -338,6 +339,11 @@ export class App {
     this.stage.setReduceMotion(on);
     this.hooks.reduceMotion = on;
     this.hooks.grain = this.stage.grainEnabled;
+  }
+
+  /** Gameplay key table from the save. Replays ignore it and feed packed frames. */
+  setBindings(bindings: Bindings): void {
+    this.keyboard.setBindings(bindings);
   }
 
   private newWorld(seed: number): World {

@@ -1,7 +1,8 @@
 /**
- * One tick of player intent. Produced by the app from the keyboard (or by a
- * replay file) and consumed by the sim. Held buttons are booleans; presses are
- * derived by the sim from consecutive frames, so a replay needs no extra data.
+ * One tick of player intent. The app resolves the keyboard through its binding
+ * table into these buttons, or a replay supplies them already packed. Presses
+ * are derived from consecutive frames, so a replay stores no key codes and
+ * stays valid when the player rebinds.
  */
 export interface InputFrame {
   readonly left: boolean;

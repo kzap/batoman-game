@@ -57,4 +57,37 @@ test.describe('accessibility', () => {
     expect((await saveOptions(page))?.reduceMotion).toBe(false);
     expect((await hooks(page)).errors).toEqual([]);
   });
+
+  test('R still toggles reduce-motion when gameplay keys are rebound', async ({ page }) => {
+    const bindings = {
+      left: ['KeyA'],
+      right: ['KeyD'],
+      up: ['ArrowUp'],
+      down: ['KeyS'],
+      jump: ['KeyQ'],
+      fire: ['KeyZ'],
+      dash: ['KeyX'],
+    };
+    await page.addInitScript((table) => {
+      localStorage.setItem(
+        'batoman.v2.save',
+        JSON.stringify({
+          version: 1,
+          unlocked: ['level-1'],
+          best: {},
+          options: { music: true, sfx: true, reduceMotion: false },
+          bindings: table,
+        }),
+      );
+    }, bindings);
+    await page.goto('/');
+    await ready(page);
+    expect((await hooks(page)).reduceMotion).toBe(false);
+    await page.keyboard.press('KeyR');
+    expect((await hooks(page)).reduceMotion).toBe(true);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { options?: { reduceMotion?: boolean }; bindings?: { jump?: string[] } });
+    expect(saved.options?.reduceMotion).toBe(true);
+    expect(saved.bindings?.jump).toEqual(['KeyQ']);
+    expect((await hooks(page)).errors).toEqual([]);
+  });
 });

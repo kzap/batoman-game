@@ -1,8 +1,10 @@
 /**
- * Progress and options in localStorage. Pure functions over a `SaveData`
- * value plus a tiny storage interface, so tests use a Map and a corrupt or
- * outdated blob degrades to defaults instead of breaking boot.
+ * Progress, options and keyboard bindings in localStorage. Pure functions over
+ * a `SaveData` value plus a tiny storage interface, so tests use a Map and a
+ * corrupt or outdated blob degrades to defaults instead of breaking boot.
  */
+
+import { DEFAULT_BINDINGS, parseBindings, type Bindings } from '../bindings';
 
 export interface LevelResult {
   readonly ticks: number;
@@ -16,6 +18,8 @@ export interface SaveData {
   /** Best (fewest ticks) clear per level. */
   readonly best: Readonly<Record<string, LevelResult>>;
   readonly options: GameOptions;
+  /** Gameplay key table. Missing or invalid on disk becomes {@link DEFAULT_BINDINGS}. */
+  readonly bindings: Bindings;
 }
 
 export interface GameOptions {
@@ -36,7 +40,13 @@ export interface KeyValueStore {
 export const SAVE_KEY = 'batoman.v2.save';
 
 export function defaultSave(levels: readonly string[]): SaveData {
-  return { version: 1, unlocked: levels.length ? [levels[0]!] : [], best: {}, options: { music: true, sfx: true, reduceMotion: null } };
+  return {
+    version: 1,
+    unlocked: levels.length ? [levels[0]!] : [],
+    best: {},
+    options: { music: true, sfx: true, reduceMotion: null },
+    bindings: DEFAULT_BINDINGS,
+  };
 }
 
 /**
@@ -87,6 +97,7 @@ export function loadSave(store: KeyValueStore, levels: readonly string[]): SaveD
       sfx: opts['sfx'] !== false,
       reduceMotion: typeof opts['reduceMotion'] === 'boolean' ? opts['reduceMotion'] : null,
     },
+    bindings: parseBindings(o['bindings']) ?? DEFAULT_BINDINGS,
   };
 }
 
@@ -110,4 +121,12 @@ export function recordClear(data: SaveData, levels: readonly string[], levelId: 
 
 export function setOption<K extends keyof GameOptions>(data: SaveData, key: K, value: GameOptions[K]): SaveData {
   return { ...data, options: { ...data.options, [key]: value } };
+}
+
+export function setBindings(data: SaveData, bindings: Bindings): SaveData {
+  return { ...data, bindings };
+}
+
+export function resetBindings(data: SaveData): SaveData {
+  return setBindings(data, DEFAULT_BINDINGS);
 }
