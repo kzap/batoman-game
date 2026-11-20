@@ -11,6 +11,8 @@ export interface OverlayModel {
   readonly score: number;
   /** Result of the level just finished (complete screen). */
   readonly result: { readonly ticks: number; readonly hp: number } | null;
+  /** Effective reduce-motion preference, for the hint and `data-reduce-motion`. */
+  readonly reduceMotion: boolean;
 }
 
 export const CREDITS: readonly { readonly heading: string; readonly lines: readonly string[] }[] = [
@@ -71,6 +73,7 @@ export class Overlay {
     const look = PRESENTATION[screen.kind];
     root.classList.toggle('shell-visible', screen.kind !== 'playing');
     root.classList.toggle('shell-dim', look.dim);
+    root.dataset['reduceMotion'] = m.reduceMotion ? 'on' : 'off';
     document.body.classList.toggle('shell-hide-hud', look.hideHud);
     if (screen.kind === 'playing') return;
     const card = el('div', 'shell-card');
@@ -78,7 +81,7 @@ export class Overlay {
     root.append(card);
     switch (screen.kind) {
       case 'title':
-        card.append(el('h1', 'shell-title', 'BATOMAN'), el('p', 'shell-subtitle', 'NEO-MAYNILA, 2147'), menu(TITLE_ITEMS, screen.index), hint('Enter select  ·  Up/Down move  ·  M music  ·  N sfx'));
+        card.append(el('h1', 'shell-title', 'BATOMAN'), el('p', 'shell-subtitle', 'NEO-MAYNILA, 2147'), menu(TITLE_ITEMS, screen.index), hint(`Enter select  ·  Up/Down move  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
       case 'levelSelect':
         card.append(
@@ -102,7 +105,7 @@ export class Overlay {
         break;
       }
       case 'paused':
-        card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint('Esc resume  ·  M music  ·  N sfx'));
+        card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint(`Esc resume  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
       case 'complete': {
         const stats = el('div', 'shell-stats');

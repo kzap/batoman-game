@@ -4,7 +4,7 @@ import { HttpAssetSource, loadAssets } from '@render/assets';
 import type { App } from '../app';
 import type { GameAudio } from '../audio';
 import type { Overlay } from './overlay';
-import { loadSave, recordClear, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
+import { loadSave, recordClear, resolveReduceMotion, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
 import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { clearPoints, killPoints } from './score';
 
@@ -19,6 +19,10 @@ const KEYS: Readonly<Record<string, ShellEvent>> = {
   KeyS: 'down',
 };
 
+function systemPrefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 /** Timings of the shell's own delays, in ms. */
 export const SHELL_TIMING = {
   /** The intro card advances by itself after this long. */
@@ -28,6 +32,11 @@ export const SHELL_TIMING = {
   /** After the last life, before the game over card. */
   gameOver: 1200,
 } as const;
+
+export interface ShellOptions {
+  /** Session override from `?reduceMotion=`. Not written until the player toggles with R. */
+  readonly reduceMotion?: boolean | null;
+}
 
 /** The current run: score so far and the points earned in the level being played. Reset by "Start game" and level select. */
 interface Run {
@@ -50,19 +59,33 @@ export class Shell {
   private timer = 0;
   private loading: Promise<void> | null = null;
   private readonly levelIds = LEVELS.map((l) => l.id);
+  /** `?reduceMotion=` for this page load. Cleared once the player toggles, which writes the save. */
+  private sessionOverride: boolean | null;
+  private systemReduceMotion: boolean;
+  private media: MediaQueryList | null = null;
   private readonly onKeyDown = (e: KeyboardEvent): void => this.handleKey(e);
   private readonly onPointer = (): void => this.audio.unlock();
+  private readonly onMotionPreference = (): void => {
+    this.systemReduceMotion = this.media?.matches ?? false;
+    if (this.sessionOverride !== null || this.save.options.reduceMotion !== null) return;
+    this.applyMotion(true);
+  };
 
   constructor(
     private readonly app: App,
     private readonly overlay: Overlay,
     private readonly audio: GameAudio,
     private readonly storage: KeyValueStore,
+    options: ShellOptions = {},
   ) {
     this.save = loadSave(storage, this.levelIds);
+    this.sessionOverride = options.reduceMotion ?? null;
+    this.systemReduceMotion = systemPrefersReducedMotion();
     audio.engine.setMusicEnabled(this.save.options.music);
     audio.engine.setSfxEnabled(this.save.options.sfx);
     app.onWorld = (w): void => this.watchWorld(w);
+    this.applyMotion(false);
+    this.watchSystemMotion();
   }
 
   /**
@@ -89,6 +112,7 @@ export class Shell {
     if (this.app.currentMode === 'edit' || this.editorPlaytest) return; // the editor owns the keyboard
     if (e.code === 'KeyM') return this.toggleOption('music');
     if (e.code === 'KeyN') return this.toggleOption('sfx');
+    if (e.code === 'KeyR') return this.toggleReduceMotion();
     const event = KEYS[e.code];
     if (!event) return;
     // While playing, arrows move the player and Enter is nothing; only pause keys reach the shell.
@@ -108,6 +132,31 @@ export class Shell {
     if (key === 'music') this.audio.engine.setMusicEnabled(this.save.options.music);
     else this.audio.engine.setSfxEnabled(this.save.options.sfx);
     this.audio.play('menuMove');
+  }
+
+  /** Flip the effective preference, store the boolean, and stop following the OS or the query string. */
+  private toggleReduceMotion(): void {
+    const next = !this.effectiveReduceMotion();
+    this.sessionOverride = null;
+    this.save = setOption(this.save, 'reduceMotion', next);
+    writeSave(this.storage, this.save);
+    this.applyMotion(true);
+    this.audio.play('menuMove');
+  }
+
+  private effectiveReduceMotion(): boolean {
+    return resolveReduceMotion(this.save.options.reduceMotion, this.systemReduceMotion, this.sessionOverride);
+  }
+
+  private applyMotion(render: boolean): void {
+    this.app.setReduceMotion(this.effectiveReduceMotion());
+    if (render) this.renderOverlay();
+  }
+
+  private watchSystemMotion(): void {
+    if (typeof matchMedia !== 'function') return;
+    this.media = matchMedia('(prefers-reduced-motion: reduce)');
+    this.media.addEventListener('change', this.onMotionPreference);
   }
 
   dispatch(event: ShellEvent): void {
@@ -137,8 +186,18 @@ export class Shell {
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
     if (screen.kind === 'credits') this.audio.music.play(MANIFEST.titleMusic);
-    this.overlay.render(screen, { levels: LEVELS, save: this.save, score: this.run.score, result: this.run.result });
+    this.renderOverlay();
     this.publishAudio();
+  }
+
+  private renderOverlay(): void {
+    this.overlay.render(this.screen, {
+      levels: LEVELS,
+      save: this.save,
+      score: this.run.score,
+      result: this.run.result,
+      reduceMotion: this.effectiveReduceMotion(),
+    });
   }
 
   /** Schedule the one delayed event, replacing any pending one. */

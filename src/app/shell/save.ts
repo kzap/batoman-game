@@ -15,7 +15,17 @@ export interface SaveData {
   readonly unlocked: readonly string[];
   /** Best (fewest ticks) clear per level. */
   readonly best: Readonly<Record<string, LevelResult>>;
-  readonly options: { readonly music: boolean; readonly sfx: boolean };
+  readonly options: GameOptions;
+}
+
+export interface GameOptions {
+  readonly music: boolean;
+  readonly sfx: boolean;
+  /**
+   * Explicit reduce-motion choice. `null` follows `prefers-reduced-motion`
+   * until the player toggles it.
+   */
+  readonly reduceMotion: boolean | null;
 }
 
 export interface KeyValueStore {
@@ -26,7 +36,24 @@ export interface KeyValueStore {
 export const SAVE_KEY = 'batoman.v2.save';
 
 export function defaultSave(levels: readonly string[]): SaveData {
-  return { version: 1, unlocked: levels.length ? [levels[0]!] : [], best: {}, options: { music: true, sfx: true } };
+  return { version: 1, unlocked: levels.length ? [levels[0]!] : [], best: {}, options: { music: true, sfx: true, reduceMotion: null } };
+}
+
+/**
+ * `saved` wins when the player has chosen. Otherwise follow the OS preference.
+ * `session` is a `?reduceMotion=` override that has not been written yet.
+ */
+export function resolveReduceMotion(saved: boolean | null, systemPrefersReduced: boolean, session: boolean | null = null): boolean {
+  if (session !== null) return session;
+  return saved ?? systemPrefersReduced;
+}
+
+/** `?reduceMotion=1` or `0`. Anything else, including a missing key, is not an override. */
+export function reduceMotionQuery(search: string): boolean | null {
+  const v = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('reduceMotion');
+  if (v === '1') return true;
+  if (v === '0') return false;
+  return null;
 }
 
 /** Read and validate; anything unexpected yields the defaults (the first level unlocked). */
@@ -55,7 +82,11 @@ export function loadSave(store: KeyValueStore, levels: readonly string[]): SaveD
     version: 1,
     unlocked: [...new Set([...base.unlocked, ...unlocked])],
     best,
-    options: { music: opts['music'] !== false, sfx: opts['sfx'] !== false },
+    options: {
+      music: opts['music'] !== false,
+      sfx: opts['sfx'] !== false,
+      reduceMotion: typeof opts['reduceMotion'] === 'boolean' ? opts['reduceMotion'] : null,
+    },
   };
 }
 
@@ -77,6 +108,6 @@ export function recordClear(data: SaveData, levels: readonly string[], levelId: 
   return { ...data, unlocked, best };
 }
 
-export function setOption(data: SaveData, key: keyof SaveData['options'], value: boolean): SaveData {
+export function setOption<K extends keyof GameOptions>(data: SaveData, key: K, value: GameOptions[K]): SaveData {
   return { ...data, options: { ...data.options, [key]: value } };
 }

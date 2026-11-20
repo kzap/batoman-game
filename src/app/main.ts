@@ -4,6 +4,7 @@ import { App, installHooks, postOptionsFromQuery } from './app';
 import { lockstepFromQuery } from './lockstep';
 import { GameAudio } from './audio';
 import { Overlay } from './shell/overlay';
+import { reduceMotionQuery } from './shell/save';
 import { Shell } from './shell/shell';
 
 const hooks = installHooks();
@@ -33,7 +34,9 @@ async function boot(): Promise<void> {
     lockstep: import.meta.env.VITE_E2E_LOCKSTEP === '1' ? lockstepFromQuery(location.search) : null,
   });
   const audio = new GameAudio(import.meta.env.BASE_URL);
-  const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage);
+  const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage, {
+    reduceMotion: reduceMotionQuery(location.search),
+  });
   app.start();
   shell.start(direct ? levelId : null);
   if (edit) {
