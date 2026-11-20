@@ -68,7 +68,8 @@ test.describe('level editor (?edit=1)', () => {
     await page.keyboard.press('KeyP');
     await page.waitForFunction(() => window.__batoman?.mode === 'play');
     await page.keyboard.down('ArrowRight');
-    await page.waitForTimeout(700);
+    // Wait on the sim, not the wall clock. GitHub's software GL steps far slower than 120 Hz.
+    await page.waitForFunction(() => (window.__batoman?.player.x ?? 0) > 150 && (window.__batoman?.simTicks ?? 0) > 50, undefined, { timeout: 20_000 });
     await page.keyboard.up('ArrowRight');
     const playing = await hooks(page);
     expect(playing.editor!.playing).toBe(true);
