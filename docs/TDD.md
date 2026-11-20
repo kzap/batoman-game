@@ -585,7 +585,10 @@ Measured under SwiftShader at 1280x720: grey-box 60 fps; art with the post stack
 38 fps (the two full-screen backdrop layers are the fill cost, not the post stack); `?dof=1` 11 fps.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
-uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.
+uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally. On a pull
+request, `changes` skips those jobs when every path is documentation (`*.md`, `docs/`, `.claude/`, or the PR template).
+A push to `v2` or `main`, and `workflow_dispatch`, run every job. Require `ci-gate`: it passes when each needed job
+succeeded or was skipped, and fails when one failed or was cancelled.
 
 ## 11. Level editor `[implemented: Phase 5]`
 
