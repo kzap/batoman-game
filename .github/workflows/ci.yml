@@ -35,7 +35,7 @@ jobs:
   e2e:
     name: Playwright e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 8
     needs: check
     steps:
       - uses: actions/checkout@v4
@@ -66,3 +66,26 @@ jobs:
             playwright-report
             test-results
           retention-days: 7
+
+  perf:
+    name: Playwright perf (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: check
+    # Frame time on a hosted runner is a trend, not a merge gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:perf
+        env:
+          CI: 'true'

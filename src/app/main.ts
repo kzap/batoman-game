@@ -1,6 +1,6 @@
 import { DEFAULT_LEVEL_ID, levelIdFromQuery, loadLevelById } from '@content/levels';
 import { HttpAssetSource, loadAssets } from '@render/assets';
-import { App, installHooks, postOptionsFromQuery } from './app';
+import { App, installHooks, lockstepFromQuery, postOptionsFromQuery } from './app';
 import { GameAudio } from './audio';
 import { Overlay } from './shell/overlay';
 import { Shell } from './shell/shell';
@@ -25,7 +25,10 @@ async function boot(): Promise<void> {
   const level = await loadLevelById(levelId);
   const base = `${import.meta.env.BASE_URL}assets/`;
   const assets = await loadAssets(level, new HttpAssetSource(base));
-  const app = new App(canvas as HTMLCanvasElement, hooks, level, assets, { post: postOptionsFromQuery(location.search) });
+  const app = new App(canvas as HTMLCanvasElement, hooks, level, assets, {
+    post: postOptionsFromQuery(location.search),
+    lockstep: lockstepFromQuery(location.search),
+  });
   const audio = new GameAudio(import.meta.env.BASE_URL);
   const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage);
   app.start();

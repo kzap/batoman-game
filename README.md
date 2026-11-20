@@ -34,9 +34,14 @@ npm run dev                        # http://localhost:5173
 | `npm run test:replay` | Headless sim replay tests |
 | `npm run replay:record` | Re-record the replay fixtures from the scripted routes (after a level or tuning change) |
 | `npm run replay:trace -- <level>` | Print where a route's steps finish, for authoring levels and routes |
-| `npm run test:e2e` | Playwright against `dist/` (run `npm run build` first) |
+| `npm run test:e2e` | Playwright gate against `dist/` (run `npm run build` first). Lockstep; asserts on ticks |
+| `npm run test:e2e:perf` | Frame-budget report (fps, ticks/s). Not part of `npm run ci` and not a PR gate |
 | `npm run validate` | Content checks: no raw art or unpipelined images in `public/`, manifest parses |
-| `npm run ci` | Everything above in CI order |
+| `npm run ci` | Lint, unit, replay, build, and the e2e gate |
+
+Gate e2e loads gameplay with `?lockstep=1` and checks sim ticks or player state, not how long a key was held.
+`window.__batoman.advance(n)` steps exactly `n` ticks. One smoke test stays on the real-time clock. The
+frame-budget numbers come from `npm run test:e2e:perf`.
 
 ---
 
@@ -84,6 +89,9 @@ Before opening a PR:
 ```bash
 npm run ci
 ```
+
+Commits must pass the DCO check. `git commit -s` adds the `Signed-off-by:` trailer. A local commit missing
+it can be fixed with `git commit --amend -s`. Do not force-push to rewrite a commit that is already on the remote.
 
 Conventions that matter most:
 

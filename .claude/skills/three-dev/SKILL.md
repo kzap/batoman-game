@@ -99,6 +99,8 @@ with no screen, it is game.
 - Boot is async: `main.ts` awaits `loadAssets` (`src/render/assets.ts`) then constructs `App(canvas, hooks,
   level, assets, opts)`. Fetch through an `AssetSource`; never `fetch` from `render/` directly.
 - The frame loop is `App.frame`. It calls `clock.advance`, steps the world N times, then presents once.
+  `?lockstep=1` is test-only: the frame ignores wall time and steps a fixed tick count (`lockstepFromQuery`).
+  `hooks.advance(n)` steps n ticks synchronously. Do not raise `MAX_TICKS_PER_FRAME` to speed up tests.
 - Test hooks live on `window.__batoman` (`TestHooks` in `src/app/app.ts`). Add fields there when e2e tests
   need new visibility; never read private state from tests.
 - HUD is DOM in `#hud`, styled in `src/app/styles.css`. Do not draw text in WebGL.
@@ -130,6 +132,13 @@ with no screen, it is game.
 - New sim behaviour: unit test first, then a replay test that exercises it in a level.
 - Bug found in browser: reproduce in the lowest layer that can express it (unit > replay > e2e), then fix.
 - e2e specs run against the production build with software WebGL. Keep them few and stable.
+- Gate e2e asserts on sim ticks or player state, never on `waitForTimeout`. Load gameplay with `?lockstep=1`
+  and call `advance(n)` when the test must step a known number of ticks. Replay checks stay exact
+  (`simTicks === fixture.expect.ticks`). One smoke test stays on the real-time clock. The frame budget is
+  `@perf` (`npm run test:e2e:perf`), a report, not a PR gate.
+- DCO is required. `git commit -s` adds the `Signed-off-by:` trailer. If the commit is still local,
+  `git commit --amend -s` adds a missing trailer. If it is already on the remote, do not force-push;
+  ask a maintainer to handle the unsigned commit.
 
 ## Commands
 
