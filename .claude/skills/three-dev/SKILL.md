@@ -99,6 +99,8 @@ with no screen, it is game.
 - Boot is async: `main.ts` awaits `loadAssets` (`src/render/assets.ts`) then constructs `App(canvas, hooks,
   level, assets, opts)`. Fetch through an `AssetSource`; never `fetch` from `render/` directly.
 - The frame loop is `App.frame`. It calls `clock.advance`, steps the world N times, then presents once.
+  `?lockstep=1` is compiled only into `npm run build:e2e` (`VITE_E2E_LOCKSTEP=1`). `npm run build` and Pages
+  (`VITE_BASE_PATH`, still `npm run build`) fold it out. `hooks.advance(n)` steps n ticks. Do not raise `MAX_TICKS_PER_FRAME` to speed up tests.
 - Test hooks live on `window.__batoman` (`TestHooks` in `src/app/app.ts`). Add fields there when e2e tests
   need new visibility; never read private state from tests.
 - HUD is DOM in `#hud`, styled in `src/app/styles.css`. Do not draw text in WebGL.
@@ -130,6 +132,10 @@ with no screen, it is game.
 - New sim behaviour: unit test first, then a replay test that exercises it in a level.
 - Bug found in browser: reproduce in the lowest layer that can express it (unit > replay > e2e), then fix.
 - e2e specs run against the production build with software WebGL. Keep them few and stable.
+- Gate e2e asserts on sim ticks or player state, never on `waitForTimeout`. Load gameplay with `?lockstep=1`
+  and call `advance(n)` when the test must step a known number of ticks. Replay checks stay exact
+  (`simTicks === fixture.expect.ticks`). One smoke test stays on the real-time clock. The frame budget is
+  `@perf` (`npm run test:e2e:perf`), a report, not a PR gate.
 
 ## Commands
 

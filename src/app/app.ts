@@ -1,5 +1,6 @@
 import { lerp } from '@core/math/vec2';
-import { FixedClock } from '@core/sim/clock';
+import { FixedClock, SIM_DT } from '@core/sim/clock';
+import { MAX_ADVANCE_TICKS, type LockstepOptions } from './lockstep';
 import type { InputFrame } from '@core/sim/input';
 import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
@@ -48,6 +49,16 @@ export interface TestHooks {
   audio: boolean;
   /** Present only while the editor is attached. */
   editor: EditorHooks | null;
+  /**
+   * True when this build was compiled with `VITE_E2E_LOCKSTEP=1` and the page
+   * was opened with `?lockstep=1`. The frame loop then ignores wall-clock deltas.
+   */
+  lockstep: boolean;
+  /**
+   * Step the sim exactly `ticks` times and present once. Null unless lockstep is on.
+   * Independent of the render frame rate: tests use this instead of holding a key for N ms.
+   */
+  advance: ((ticks: number) => void) | null;
   readonly errors: string[];
   /**
    * Restart the level and feed a recorded input sequence instead of the
@@ -89,6 +100,8 @@ export function installHooks(): TestHooks {
     music: null,
     audio: false,
     editor: null,
+    lockstep: false,
+    advance: null,
     errors: [],
     replay: null,
   };
@@ -122,6 +135,11 @@ export interface EditorCamera {
 export interface AppOptions {
   /** Post-processing switches; `null` disables the stack (see `postOptionsFromQuery`). */
   readonly post?: PostOptions | null;
+  /**
+   * Test-only fixed stepping. Production leaves this unset: the frame loop follows
+   * the wall clock through `FixedClock`, capped at `MAX_TICKS_PER_FRAME`.
+   */
+  readonly lockstep?: LockstepOptions | null;
 }
 
 /**
@@ -158,6 +176,7 @@ export class App {
   private lastTime = 0;
   private frameSeconds = 0;
   private rafId = 0;
+  private readonly lockstep: LockstepOptions | null;
   private readonly onResize = (): void => this.stage.resize();
 
   constructor(
@@ -167,6 +186,13 @@ export class App {
     private assets: GameAssets,
     opts: AppOptions = {},
   ) {
+    // The env compare is a build-time constant. Prod and Pages builds fold this to null
+    // and drop `lockstep.ts`. Only `npm run build:e2e` sets VITE_E2E_LOCKSTEP=1.
+    this.lockstep = import.meta.env.VITE_E2E_LOCKSTEP === '1' ? (opts.lockstep ?? null) : null;
+    if (import.meta.env.VITE_E2E_LOCKSTEP === '1' && this.lockstep) {
+      hooks.lockstep = true;
+      hooks.advance = (ticks: number): void => this.advance(ticks);
+    }
     this.stage = new Stage({ canvas, post: opts.post ?? {} });
     this.levelView = new LevelView(level, assets.levelArt);
     this.entities = new EntityView(assets);
@@ -205,6 +231,7 @@ export class App {
     this.stage.dispose();
     this.hooks.ready = false;
     this.hooks.replay = null;
+    this.hooks.advance = null;
   }
 
   /**
@@ -315,20 +342,13 @@ export class App {
     return this.keyboard.frame();
   }
 
-  private readonly frame = (now: number): void => {
-    const frameMs = now - this.lastTime;
-    const frameSeconds = frameMs / 1000;
-    this.lastTime = now;
-    this.hooks.lastFrameMs = frameMs;
-    this.frameSeconds = frameSeconds;
-
-    const step = this.clock.advance(frameSeconds);
-    if (step.dropped) this.hooks.droppedFrames += 1;
-
-    // The freeze skips this frame's ticks; the sim resumes from the same state, so replays are unaffected.
-    const ticks = this.mode === 'play' && this.freezeFrames === 0 ? step.ticks : 0;
-    if (this.freezeFrames > 0) this.freezeFrames--;
-    for (let i = 0; i < ticks; i++) {
+  /**
+   * Step up to `count` sim ticks. Replay batches stop when boss phase, engagement,
+   * or world status changes so a published frame still shows that signal.
+   */
+  private applyTicks(count: number, stopOnSignal: boolean): void {
+    for (let i = 0; i < count; i++) {
+      const before = stopOnSignal ? this.observeSignal() : '';
       this.previous = this.current;
       this.world.step(this.nextInput());
       this.current = this.world.snapshot();
@@ -336,9 +356,56 @@ export class App {
         this.previous = this.current;
         this.teleported = false;
       }
+      if (stopOnSignal && this.observeSignal() !== before) break;
+    }
+  }
+
+  /** Boss phase, engagement, and world status: the signals e2e waits on across a replay. */
+  private observeSignal(): string {
+    const boss = this.current.boss;
+    return `${this.current.status}|${boss ? boss.phase : 'x'}|${boss?.engaged ? 1 : 0}`;
+  }
+
+  /** Lockstep hook: exactly `ticks` sim steps, then one present. No-op unless the sim is in `play`. */
+  private advance(ticks: number): void {
+    if (import.meta.env.VITE_E2E_LOCKSTEP !== '1') return;
+    if (!Number.isFinite(ticks) || ticks <= 0 || this.mode !== 'play') return;
+    const n = Math.min(Math.floor(ticks), MAX_ADVANCE_TICKS);
+    this.frameSeconds = n * SIM_DT;
+    this.applyTicks(n, false);
+    this.publish();
+    // Alpha 1 shows the snapshot just simulated, which is what the hooks publish.
+    this.present(1);
+  }
+
+  private readonly frame = (now: number): void => {
+    const frameMs = now - this.lastTime;
+    this.lastTime = now;
+    this.hooks.lastFrameMs = frameMs;
+
+    let alpha = 0;
+    const lockstep = this.lockstep;
+    if (import.meta.env.VITE_E2E_LOCKSTEP === '1' && lockstep) {
+      // Ignore the wall-clock delta. Slow software-GL frames and short rAF deltas
+      // both make the production clock run late; tests must not depend on either.
+      const budget = this.mode === 'play' && this.freezeFrames === 0 ? (this.replay ? lockstep.replay : lockstep.interactive) : 0;
+      if (this.freezeFrames > 0) this.freezeFrames--;
+      this.frameSeconds = budget * SIM_DT;
+      this.applyTicks(budget, this.replay != null);
+      alpha = 1;
+    } else {
+      const frameSeconds = frameMs / 1000;
+      this.frameSeconds = frameSeconds;
+      const step = this.clock.advance(frameSeconds);
+      if (step.dropped) this.hooks.droppedFrames += 1;
+      alpha = step.alpha;
+      // The freeze skips this frame's ticks; the sim resumes from the same state, so replays are unaffected.
+      const ticks = this.mode === 'play' && this.freezeFrames === 0 ? step.ticks : 0;
+      if (this.freezeFrames > 0) this.freezeFrames--;
+      this.applyTicks(ticks, false);
     }
     this.publish();
-    this.present(step.alpha);
+    this.present(alpha);
     this.debug.update(now, this.current, { frameMs, droppedFrames: this.hooks.droppedFrames, entities: this.entities.entityCount });
     this.hud.update(this.current, this.hooks.score);
     this.hooks.frames += 1;
