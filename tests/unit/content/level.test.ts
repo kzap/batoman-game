@@ -32,6 +32,16 @@ describe('levelProblems', () => {
     expect(levelProblems({ ...base, spawn: { x: 100, y: 10 } })).toEqual(['spawn is inside a solid']);
   });
 
+  it('accepts a pickup list and rejects an unknown kind or an out-of-bounds rect', () => {
+    const pickup = { kind: 'hp-up' as const, x: 40, y: 40, w: 16, h: 16 };
+    expect(levelProblems({ ...base, pickups: [pickup] })).toEqual([]);
+    expect(levelProblems({ ...base, pickups: [] })).toEqual([]);
+    expect(levelProblems({ ...base, pickups: [{ ...pickup, kind: 'invincibility' }] })).toEqual([expect.stringMatching(/kind must be one of/)]);
+    expect(levelProblems({ ...base, pickups: [{ ...pickup, x: 630 }] })).toEqual([expect.stringMatching(/leaves the level bounds/)]);
+    expect(levelProblems({ ...base, pickups: [{ ...pickup, y: -1 }] })).toEqual([expect.stringMatching(/leaves the level bounds/)]);
+    expect(levelProblems({ ...base, pickups: 'nope' })).toEqual(['pickups must be an array']);
+  });
+
   it('checks enumerations, ids and paths', () => {
     expect(levelProblems({ ...base, hazards: [{ ...base.hazards[0], kind: 'lava' }] })).toEqual([expect.stringMatching(/kind must be one of/)]);
     expect(levelProblems({ ...base, enemies: [{ type: 'boss', x: 1, y: 1 }] })).toEqual([expect.stringMatching(/type must be one of/)]);

@@ -56,11 +56,11 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `simTicks` | fixed-step sim ticks since boot (120 Hz) |
 | `droppedFrames` | frames where the clock discarded time (stall recovery) |
 | `lastFrameMs` | last frame duration |
-| `player` | `{ x, y, pose, hp }` from the latest snapshot; sim pixels, Y up, feet at `y` |
+| `player` | `{ x, y, pose, hp, maxHp }` from the latest snapshot; sim pixels, Y up, feet at `y`. `maxHp` rises when an HP Up is collected |
 | `camera` | `{ x, y }` camera centre in sim pixels |
 | `enemies` | `[{ type, pose, x, hp }]` live enemies from the latest snapshot (dying ones show `pose: 'death'` until dropped) |
 | `boss` | null, or `{ hp, phase, engaged }`; `engaged` flips when the player reaches the arena and the HUD bar appears |
-| `entities` | sprites the entity view is showing: player + enemies + shots + movers |
+| `entities` | sprites the entity view is showing: player + pickups + enemies + shots + movers |
 | `status` | `playing`, `complete`, or `gameover` |
 | `level` | id of the loaded level |
 | `mode` | `play`, `paused` (shell froze the sim: menus, intro card), or `edit` while the editor has it |

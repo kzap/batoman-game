@@ -30,12 +30,12 @@ export interface TestHooks {
   droppedFrames: number;
   lastFrameMs: number;
   /** Latest sim snapshot fields tests care about; updated every frame. */
-  player: { x: number; y: number; pose: string; hp: number };
+  player: { x: number; y: number; pose: string; hp: number; maxHp: number };
   camera: { x: number; y: number };
   /** Live enemies by type and pose, and the boss bar state (null when the level has no boss). */
   enemies: { type: string; pose: string; x: number; hp: number }[];
   boss: { hp: number; phase: number; engaged: boolean } | null;
-  /** Sprites the entity view is currently showing (player, enemies, shots, movers). */
+  /** Sprites the entity view is currently showing (player, pickups, enemies, shots, movers). */
   entities: number;
   status: string;
   /** Id of the loaded level and whether the sim is running (`play`), frozen by the shell (`paused`) or frozen for the editor (`edit`). */
@@ -76,7 +76,7 @@ export function installHooks(): TestHooks {
     simTicks: 0,
     droppedFrames: 0,
     lastFrameMs: 0,
-    player: { x: 0, y: 0, pose: 'idle', hp: 0 },
+    player: { x: 0, y: 0, pose: 'idle', hp: 0, maxHp: 0 },
     camera: { x: 0, y: 0 },
     enemies: [],
     boss: null,
@@ -348,7 +348,7 @@ export class App {
   private publish(): void {
     const s = this.current;
     this.hooks.simTicks = s.tick;
-    this.hooks.player = { x: s.player.x, y: s.player.y, pose: s.player.pose, hp: s.player.hp };
+    this.hooks.player = { x: s.player.x, y: s.player.y, pose: s.player.pose, hp: s.player.hp, maxHp: s.player.maxHp };
     this.hooks.camera = { x: s.camera.x, y: s.camera.y };
     this.hooks.enemies = s.enemies.map((e) => ({ type: e.type, pose: e.pose, x: e.x, hp: e.hp }));
     this.hooks.boss = s.boss ? { hp: s.boss.hp, phase: s.boss.phase, engaged: s.boss.engaged } : null;

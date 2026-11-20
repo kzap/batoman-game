@@ -75,7 +75,7 @@ speed, so a 3-tile gap is the widest a plain jump clears; wider gaps need a dash
 ### 4.3 World (`src/game/world.ts`)
 
 `World(level, seed)` builds the collision world from the level JSON and spawns the level's enemies, then
-`step(input)` runs one tick: movers, player (or respawn countdown), zones, enemies, projectiles, camera.
+`step(input)` runs one tick: movers, player (or respawn countdown), zones, pickups, enemies, projectiles, camera.
 Zones: death zones and falling below y = 0 kill instantly (`pit`); `crusher` hazards kill; `spikes` deal 1
 damage with knockback away from the hazard; checkpoints move the respawn point; the exit sets
 `status: 'complete'` once `exitOpen` (no boss, or the boss is dead). Death clears projectiles, respawns
@@ -83,9 +83,10 @@ every enemy fresh and the player after `respawnTicks` with one life fewer; at ze
 `status: 'gameover'`. Damage respects `Health` invulnerability (`invulnTicks`) and the dash's i-frames; a
 fatal hit skips hurt-stun.
 
-`snapshot()` is the renderer's only view: player exact position/pose/hp/charge, projectiles (kind, centre,
-velocity), enemies (section 4.6), the boss bar state, moving solids, status and lives. `events` announces
-jump, land, dash, fire (with kind), hurt, death, respawn, checkpoint, complete, gameover, and the combat
+`snapshot()` is the renderer's only view: player exact position/pose/hp/maxHp/charge, projectiles (kind, centre,
+velocity), enemies (section 4.6), the boss bar state, moving solids, uncollected pickups (section 4.7),
+status and lives. `events` announces
+jump, land, dash, fire (with kind), hurt, death, respawn, checkpoint, complete, gameover, `pickup`, and the combat
 events `shotEnd`, `enemyHit`, `enemyDeath`, `bossPhase`, `bossDefeated`, each with a level-pixel position,
 for audio and effects.
 
@@ -144,6 +145,24 @@ opens the exit; the bar hides once the death clip ends.
 
 Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
 route bot clears Level 1 undamaged; they live in `tuning.ts` and nowhere else.
+
+### 4.7 Pickups (`src/game/pickups.ts`, tuning `PICKUP`)
+
+A pickup is a level rect plus a `kind`. `LevelJson.pickups` is optional; omitting it means none.
+`levelProblems()` requires a known kind and a rect inside the level. The World collects by overlap with
+the player body, once. `collected` is not cleared on respawn (enemies are rebuilt; pickups are not). A
+dead player does not collect: pits and other deaths resolve before the overlap check, and `applyPickup`
+refuses a dead collector.
+
+Effects go through `applyPickup(kind, collector)`. The collector is `alive` plus `Health`, so a later
+timed pickup (invincibility) adds a kind, a tuning duration and a collector method without a new loop.
+`hp-up` calls `Health.gainHearts(PICKUP.hpUp.hearts)`: +1 max and +1 current (`hearts: 1`), current
+clamped to the new max. Full HP still takes it, because the cap grows. `Health.max` is no longer fixed;
+`reset()` on respawn refills to the raised cap, so the heart lasts the rest of the level. The `pickup`
+event carries the kind and the hitbox centre. There is no separate SFX yet.
+
+Only `hp-up` is implemented. Plasma Upgrade, Dash Upgrade, Armor Shard and the timed pickups stay listed
+in the PRD.
 
 ### 4.4 Camera (`src/game/camera.ts`, tuning `CAMERA`)
 
@@ -230,7 +249,9 @@ dropped enemies go to a per-type free list and are reused. The boss core is an a
 Projectiles are keyed by kind: plasma is the `orb` frame at 0.4, nova at 0.9 tinted white-hot, enemy shots
 the first loaded enemy sheet's `projectile` clip; their quads are pooled too. A moving solid with `prop`
 set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top edge;
-without `prop` it is a lit box. `present(prev, cur, alpha)` lerps positions between snapshots; collider
+without `prop` it is a lit box. An uncollected pickup is an unlit magenta box (`hp-up`) the size of its
+rect, bobbing a few pixels on the sim tick; the hitbox does not move, and the mesh is dropped when the
+snapshot stops listing it. `present(prev, cur, alpha)` lerps positions between snapshots; collider
 outlines are separate `LineSegments` toggled by `setOutlines`. `loadAssets` fetches the enemy sheets a
 level needs (`enemyAtlasNames`: the types placed, plus drones when a boss is placed) alongside `batoman`.
 
@@ -258,7 +279,7 @@ snapshots and adds the current tick's shake offset unlerped.
 
 `installHooks()` (`src/app/app.ts`) publishes `window.__batoman` and global error capture before anything
 else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
-`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
+`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp, maxHp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
 `status`, `level` (id), `mode` (`play` | `paused` | `edit`), `screen` (shell screen kind), `score`, `music`
 (track requested), `audio` (context running), `editor` (section 11, null unless the editor is attached), and
 `replay(fixture)`, which restarts the level and feeds a recorded input sequence instead of the keyboard.
@@ -289,7 +310,8 @@ camera, including the lens distance (`Stage.setCamera` takes it as a third argum
 `DebugOverlay` (`debug.ts`, backtick): fps and ticks/s over 500 ms windows, frame time, dropped frames,
 entity count, tick, status, player position/size/pose/facing/hp, camera centre and shake. Toggling it also
 shows collider outlines on every collider, static and dynamic. `Hud` (`hud.ts`, PRD 6.2) draws hearts
-top-left with lost ones greyed, lives, the six-digit score top-right, and the boss bar bottom-centre while
+top-left up to `player.maxHp`, with lost ones greyed and a short wobble (`hud-heart-gained`) on a heart
+that just raised the cap, lives, the six-digit score top-right, and the boss bar bottom-centre while
 `boss.engaged`; it rebuilds its DOM only when one of those values changes.
 
 Levels 3 and 6 stay grey-box (section 8) and the title, level select and game over cards are text
@@ -459,7 +481,7 @@ name a track in the spec (`npm run validate` checks).
 `src/content/level.ts` defines `LevelJson` (pixels, Y up): `solids`, `oneWay`, `movingSolids` (waypoint
 path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`,
 `enemies` (`type`, feet `x`/`y`, optional `patrolDistance`; types in section 4.6, `y` is the ground reference
-for drones), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
+for drones), optional `pickups` (`kind` plus a rect; kinds in section 4.7; omitted means none), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
 overlapping blocking geometry, out-of-bounds rectangles, a spawn inside a solid, unknown enumerations and
 duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src/content/manifest.json`.
 
@@ -473,7 +495,7 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 
 | Level | Name | Size | Contents |
 |---|---|---|---|
-| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies) |
+| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet) |
@@ -506,7 +528,7 @@ other Tiled maps.
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
 (`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by
 scripted routes (`bots.ts`) that read the live world; only the inputs are saved, and `expect` pins status,
-tick count, lives, hp and final x. `npm run replay:record` re-records all of them; commit the diff with the
+tick count, lives, hp, final x, and `maxHp` when the run's point is a heart. `npm run replay:record` re-records all of them; commit the diff with the
 tuning or level change that caused it.
 
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
@@ -524,7 +546,8 @@ boss winds up within 150 px, hold fire for a nova while it is stunned, stop when
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
+`level-4-clear` 2802, `level-6-clear` 3954, all without damage, plus `level-1-hp-up` (a jump in place at the
+spawn until the heart is taken; pins hp 4 and maxHp 4). `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
 each manifest level; its World-rules block uses Level 1 without enemies.
 

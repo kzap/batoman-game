@@ -64,6 +64,9 @@
     { "type": "patroller", "x": 5000, "y": 64, "patrolDistance": 40 },
     { "type": "aswang", "x": 6150, "y": 64 }
   ],
+  "pickups": [
+    { "kind": "hp-up", "x": 92, "y": 128, "w": 16, "h": 16 }
+  ],
   "art": {
     "props": "level-1-props",
     "backdrops": { "far": "sky", "mid": "town" },
