@@ -80,15 +80,15 @@ The creatures are not the villains of this story. People in the lower districts 
 
 Five levels. Content ids in the repo are `level-1`, `level-3`, `level-4`, and `level-6`; story order below is 1 through 5. The mapping is in VISION. Beats marked **proposal** are glue. The prototype, the sigbin, the tikbalang, the manananggal, Bakunawa, and the confrontation with Epal stay. Kapre, and the proposed nuno, wakwak, and berberoka, are cut from the walk.
 
-**1. Tondo Sublevel Docks (canon, `level-1`).** Combat. Pre-dawn, the prototype still hunting the piers. He puts it down. That proves a unit can fall, and it does not bring the garden back. The sari-sari shacks point him to the chapel: the people who still write on paper are under Quiapo.
+**1. Tondo Sublevel Docks (canon, `level-1`).** Combat. Golden hour, the prototype still hunting the piers. He puts it down. That proves a unit can fall, and it does not bring the garden back. The sari-sari shacks point him to the chapel: the people who still write on paper are under Quiapo.
 
-**2. Quiapo Underground Chapel (canon, `level-3`).** Stealth. Candles, flooded nave, santos in the alcoves. The Sigbin Unit was sent to silence the record-keepers. **Proposal:** by candlelight he reads the list — Project ASWANG, the garden marked cleared, the tower named as the eye. The sigbin is the price of leaving with the pages.
+**2. Quiapo Underground Chapel (canon, `level-3`).** Stealth, and the dark level. The flooded nave is the main space, with a drier altar as a side chamber ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Santos stay in the alcoves. The Sigbin Unit — about half the screen height, same decision — was sent to silence the record-keepers. **Proposal:** by candlelight he reads the list — Project ASWANG, the garden marked cleared, the tower named as the eye. The sigbin is the price of leaving with the pages.
 
-**3. NSA Tower Exterior (canon place, `level-4`; boss is a proposal).** Vertical climb. He climbs the outside because the list named the tower and the door was never going to open. **Proposal:** Manananggal-7 is bolted to the face. It looks like the building until it splits, and the half that stays on the balcony has to die first or the wings come back. From the roof he can see the garden's dead grow-lights. An old sheet of a hangar stealth-fighter is a different level, and this arc does not use it.
+**3. NSA Tower Exterior (canon place, `level-4`; boss is a proposal).** Vertical climb, at sunset over the skyway. He climbs the outside because the list named the tower and the door was never going to open. **Proposal:** Manananggal-7 is bolted to the face. It looks like the building until it splits, and the half that stays on the balcony has to die first or the wings come back. From the roof the garden is in the sun. An old sheet of a hangar stealth-fighter is a different level, and this arc does not use it.
 
-**4. Abandoned Rooftop Garden (canon, `level-6`).** Traversal. Rain, mutant vines, other farmers' salakot left in the planters. Tikbalang-X bent the paths so the people who lived here cannot find their way back. He breaks the spell. The plants are still dead. **Proposal:** under a collapsed planter, one concrete room holds the file the lab level used to be. Bakunawa-Prime. One night. The three blocks. Epal's portrait, charming, calling the garden contamination.
+**4. Abandoned Rooftop Garden (canon, `level-6`).** Traversal. A sunny, lush farm. A salakot left on a rail is the wound. Tikbalang-X is the mechanical horse from the shipped sheet ([issue #21](https://github.com/kzap/batoman-game/issues/21)), and it bent the paths so the people who lived here cannot find their way back. He breaks the spell. The plants are still growing. **Proposal:** under a planter, one concrete room holds the file the lab level used to be. Bakunawa-Prime, coming up the Pasig, into the three blocks. Epal's portrait, charming, calling the garden contamination.
 
-**5. Destroyed City Block (canon ending, no content id yet).** Gauntlet. The three blocks from the opening, debris of the four places he walked, the Pasig in the street. Bakunawa rises to swallow the moon; the moon-glyph is how it is hurt. **Proposal:** the city's noise — pans, drums — is how the glyph opens. Epal watches from the gallery. He is not a second fight. The morning after, the NSA is still the government. One grow-light comes on in the ruined roofs. The garden is not back. It is no longer hidden.
+**5. Destroyed City Block (canon ending, no content id yet).** Gauntlet. The three blocks from the opening. The rubble carries each place's light — golden dock timber, candle stone, a piece of the sunset tower, sun on a vine — and the arena over the Pasig is the heavier dusk. Bakunawa rises to swallow the moon; the moon-glyph is how it is hurt. **Proposal:** the city's noise — pans, drums — is how the glyph opens. Epal watches from the gallery. He is not a second fight. The NSA is still the government afterward. One grow-light comes on in the roofs. The garden is not hidden.
 
 ---
 
@@ -99,9 +99,9 @@ Each boss is an NSA weapon wearing a folklore name. The prototype has not been g
 | Unit | Basis | Level | Status |
 |---|---|---|---|
 | **ASWANG prototype** | The class itself, before a species | 1 — Tondo docks (`level-1`) | Canon. Shipped. |
-| **Sigbin Unit** | Sigbin, the backward shadow-creature | 2 — Quiapo chapel (`level-3`) | Canon. Not placed. |
+| **Sigbin Unit** | Sigbin, the backward shadow-creature | 2 — Quiapo chapel (`level-3`) | Canon. Not placed. About half the screen height ([issue #21](https://github.com/kzap/batoman-game/issues/21)). |
 | **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Canon unit. **Proposal:** this is where it fights. Sheet shows the tower. Not built. |
-| **Tikbalang-X** | Tikbalang, the trickster that loses travelers | 4 — Rooftop garden (`level-6`) | Canon. Spawn only; the world never creates the actor. |
+| **Tikbalang-X** | Tikbalang, the trickster that loses travelers | 4 — Rooftop garden (`level-6`) | Canon. The mechanical horse on the shipped sheet ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Spawn only; the world never creates the actor. |
 | **Bakunawa-Prime** | Bakunawa, the serpent that swallows the moon | 5 — Destroyed block (no file yet) | Canon. Final boss. |
 
 Nuno-0, Wakwak-4, Kapre-9, and Berberoka-2 are not in this game. They are in VISION's cut appendix.

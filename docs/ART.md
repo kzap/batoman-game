@@ -4,7 +4,9 @@
 **Setting:** Neo-Maynila, 2147
 **Genre:** Action Side-Scrolling Platformer
 
-**Level plan:** [VISION.md](VISION.md) is the current game: five levels, a boss on each. Palettes below for Divisoria, the skyway, Laboratoryo Zero, the floodgates, and the arcology stay as reference for the cut appendix. The destroyed-block row (old "Level 10") is the finale's look. The Manananggal sheet is the tower boss reference, not the docks. Mood and palette notes still apply; the v0.1 pixel-grid spec does not describe the v2 remake.
+**Level plan:** [VISION.md](VISION.md) is the current game: five levels, a boss on each. Palettes below for Divisoria, the skyway, Laboratoryo Zero, the floodgates, and the arcology stay as reference for the cut appendix. The Manananggal sheet is the tower boss reference, not the docks. The v0.1 pixel-grid spec does not describe the v2 remake.
+
+**Look direction (issue [#21](https://github.com/kzap/batoman-game/issues/21)):** new levels follow Level 1's inked-painterly diorama. Most levels are bright. Quiapo is the dark one. The Level 1, 4, 6, and finale rows below are updated to that direction. Tondo's target hour is golden hour; the dressed plates are still night neon. The tower follows the dressed sunset skyway. The garden is a sunny farm. The finale rhymes with those places, and its arena is the heavier dusk. Tikbalang-X is the shipped mechanical horse. The Sigbin Unit is about half the 672×378 screen height. The chapel's main space is the flooded nave, with a drier altar as a side chamber. Cut-district rows are unchanged reference.
 
 ---
 
@@ -146,7 +148,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Aspect | Design |
 |--------|--------|
 | Form | Quadruped, backward-jointed legs, body facing one direction while head points the other; extremely unnatural movement |
-| Size | 64×48 px |
+| Size | About half the screen height on the 672×378 camera. The old 64×48 px cell is retired ([issue #21](https://github.com/kzap/batoman-game/issues/21)) |
 | Materials | Matte black rubber composite over titanium armature; absorbs most light |
 | Signature effect | Active camo shimmer (scanline distortion) — player sees only a slight visual ripple until within 3 tiles |
 | Vulnerable state | Camo flickers off, dorsal spine opens to reveal magenta core |
@@ -159,12 +161,12 @@ Used as anchors across all levels — specific levels deviate within these const
 
 | Aspect | Design |
 |--------|--------|
-| Form | Tall bipedal, disproportionately long legs, horse skull with exposed titanium teeth, mane of frayed fiber optic cables |
+| Form | The shipped mechanical horse: riveted, quadruped, on the `tikbalang` sheet (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`). The tall bipedal skull-head was the old spec ([issue #21](https://github.com/kzap/batoman-game/issues/21)) |
 | Size | 80×96 px |
 | Materials | Carbon fiber bones visible through torn synthetic muscle; neon wire mane flickers |
 | Signature effect | Afterimage decoys — leaves ghost images when it warps; player must hit the solid one |
 | Vulnerable state | Stumbles on landing, mane goes dark, skull visor cracks open |
-| Environment blend | Moves across overgrown rooftop; vines and rain partially obscure it |
+| Environment blend | Moves across a sunny, lush rooftop farm. The path lies. No rain |
 
 ---
 
@@ -229,7 +231,7 @@ Each level uses 4 background layers at different scroll speeds:
 #### Level 1 — Tondo Sublevel Docks
 | Element | Detail |
 |---------|--------|
-| Sky | Pre-dawn amber haze; smog diffuses any light |
+| Sky | Golden hour. The dressed backdrops are still the night neon set; this row is the target hour |
 | Water | Electric-blue Pasig bioluminescence below docks; reflections distorted by boat wake |
 | Structures | Salt-corroded concrete pylons, wooden fishing platforms patched with metal sheeting |
 | Lighting sources | Hanging incandescent bulbs, boat lanterns, NSA patrol drone spotlights |
@@ -249,7 +251,7 @@ Each level uses 4 background layers at different scroll speeds:
 | Element | Detail |
 |---------|--------|
 | Sky | No sky — cave ceiling, crumbling vaulted arches |
-| Structures | Baroque colonial church bones filled with slum additions; candles everywhere; flooded lower sections |
+| Structures | The flooded nave is the main space. A drier altar is a side chamber ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Candles, colonial bones, slum additions |
 | Lighting sources | Candles, bioluminescent fungi, faint light through cracked ceiling |
 | Dominant colors | Deep indigo, warm candlelight gold, teal water glow |
 | Ambient detail | Old santo niño figures with cracked faces, prayer candles half-submerged, religious iconography mixed with circuit boards |
@@ -257,10 +259,10 @@ Each level uses 4 background layers at different scroll speeds:
 #### Level 4 — NSA Tower Exterior
 | Element | Detail |
 |---------|--------|
-| Sky | Night; searchlights sweep across the level from above |
-| Structures | Glass-and-steel tower face; clean, inhuman geometry |
-| Lighting sources | Searchlights, status LEDs, window-light from inside the tower |
-| Dominant colors | Cold grey-blue, hard white light, stark black shadow |
+| Sky | Sunset over the skyway city, matching the dressed far backdrop |
+| Structures | Rusted highway wall and corrugated scaffolds; NSA cyan on the tower itself |
+| Lighting sources | The sun, status LEDs, window-light, warm city haze |
+| Dominant colors | Sunset amber, rust, NSA cyan, the city's warm haze |
 | Ambient detail | NSA logo on every surface, security cameras, air conditioning units, window-washing drone rigs |
 
 #### Level 5 — Skyway Traffic
@@ -275,11 +277,11 @@ Each level uses 4 background layers at different scroll speeds:
 #### Level 6 — Abandoned Rooftop Garden
 | Element | Detail |
 |---------|--------|
-| Sky | Night rain; heavy overcast; city glow diffused through clouds |
-| Structures | Overgrown rooftop planters, collapsed greenhouse frames, rusted irrigation pipes |
-| Lighting sources | Distant city ambient (blue-purple), bioluminescent mutant plants, rain shimmer |
-| Dominant colors | Dark wet green, night blue, occasional warm amber from a surviving grow light |
-| Ambient detail | Overgrown vegetables and vines through concrete cracks; broken salakot hats left behind by old farmers; dripping pipes |
+| Sky | Bright day. A sunny, lush, colorful rooftop farm. No rain |
+| Structures | Living planters, greenhouse frames, irrigation pipes, saturated greens |
+| Lighting sources | The sun. A grow light can stay as a practical, not as the mood |
+| Dominant colors | Sunlit green, flower color, warm wood, one amber practical |
+| Ambient detail | Vegetables and vines in the sun; a salakot left on a rail. The path lies |
 
 #### Level 7 — Laboratoryo Zero Entrance
 | Element | Detail |
@@ -311,7 +313,7 @@ Each level uses 4 background layers at different scroll speeds:
 #### Level 10 — Destroyed City Block
 | Element | Detail |
 |---------|--------|
-| Sky | Exposed pre-dawn sky; dust and smoke in the air; the Pasig River visible at low street level |
+| Sky | Dusk over the Pasig. The rubble carries the other levels' light (golden docks, candle stone, sunset tower, sunlit vine). Not the docks' hour, and not a second chapel |
 | Structures | Complete urban destruction; building cross-sections exposed; infrastructure hanging loose |
 | Lighting sources | Fires, NSA emergency floodlights, Bakunawa's own bioluminescent markings |
 | Dominant colors | Ash grey, fire orange, electric Pasig blue-green, blood magenta |
@@ -356,7 +358,7 @@ The HUD should feel like it's **Ando's own cobbled-together tech**, not NSA-clea
 ### Environment VFX
 | Effect | Description |
 |--------|-------------|
-| Rain (levels 5, 6) | Angled streaks; splash sprites on ground impact; puddle ripple loops |
+| Rain | Not used on the five-level walk. The garden is sunny. The old note assigned rain to levels 5 and 6 |
 | Water (levels 3, 8) | Animated teal surface with bioluminescent glow cycle; bubble particles rising |
 | Fire/explosion | Orange-red-white 8-frame loop; black smoke rising; embers drift up |
 | Dust/debris | Platform crumble particles; grey dust puffs on land impact |

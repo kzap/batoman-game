@@ -15,7 +15,7 @@ The game already has four districts, and the story only needs one more place: th
 
 Ando does not begin as a man with a map. An NSA machine erased three blocks of Tondo, including the rooftop garden his father rebuilt, and that machine is still on the docks. Level 1 is the fight that proves a unit can fall. It has to be first, and it has to be combat, because that is the only question he is asking.
 
-What he does not know yet is that the machine has a name. The people on the docks still keep paper. The only archive the NSA did not index is under Quiapo. Level 3, the chapel, is the second level because it is where a street fight becomes Project ASWANG. The grey-box is already a dark, flooded, cloaked place, and the concept painting already puts the Sigbin in the nave. That is the stealth level. Putting it after the tower would send him up the glass before he knows why.
+What he does not know yet is that the machine has a name. The people on the docks still keep paper. The only archive the NSA did not index is under Quiapo. Level 3, the chapel, is the second level because it is where a street fight becomes Project ASWANG. The grey-box is already a flooded, cloaked nave, and the concept painting already puts the Sigbin in the water. That is the stealth level, and it is the dark one. Putting it after the tower would send him up the face before he knows why.
 
 The list names the tower as the eye. Level 4 is already the only vertical level in the game, and it is already dressed. It is the third level because the climb is how he gets high enough to see the garden, and because the boss that fits this face of the city — Manananggal-7, whose own sheet has an NSA tower in the background — can only be killed by using the shaft. The climb is the challenge. The old bossless reading is retired by direction. The hangar stealth-fighter sheet stays unused: it is a horizontal airport fight, a different level.
 
@@ -84,7 +84,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **Content id:** `level-1`. **Challenge:** combat. **Theme:** the waterfront, and the aswang as a class before it has a species.
 
-**Story.** Pre-dawn, the prototype still on the piers, three blocks already gone. He kills it. The garden does not come back. Someone at a sari-sari shack tells him the people who still write things down are under Quiapo. That is the whole handoff. Divisoria is no longer a stop.
+**Story.** Golden hour on the piers, the prototype still there, three blocks already gone. He kills it. The garden does not come back. Someone at a sari-sari shack tells him the people who still write things down are under Quiapo. That is the whole handoff. Divisoria is no longer a stop.
 
 **What the level already is.** Dash gaps, one-ways, a mover, spikes, patrollers, drones, and a three-phase boss. This is the combat textbook: a telegraph, a rush he jumps, a stun where the weak point doubles damage, then the same duel with drones in the air.
 
@@ -94,7 +94,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **Folded in.** From Divisoria, one shielded patroller on the approach to the arena: plasma fails on the shield, the nova punches it. The market's whole "nova as a key" lesson becomes one combat beat here, where the challenge is already combat. No stalls, no nuno.
 
-**Music and look.** The existing "Tondo Sublevel" cue stays. Look is ART's Level 1 row: rust, amber, electric-blue water. That row is canon and already on screen.
+**Music and look.** The existing "Tondo Sublevel" cue stays. The hour is golden hour: saturated signage, a lively waterfront, warm sun on the rust and the amber, the Pasig still electric blue underneath. The lilac silhouette and the burst-firing patroller read in that light. The dressed backdrops on screen are still the night neon set; they are the current pictures, not the last word on the hour.
 
 ### 2 — Quiapo Underground Chapel
 
@@ -102,43 +102,43 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **Story.** He comes for the rest of the list. The Sigbin Unit was sent because the record-keepers were mapping disappearances on paper. **Proposal:** by candlelight the pages say Project ASWANG, the garden marked cleared, the tower named as the eye. The santos stay in the alcoves. He leaves with the pages, and he leaves upward.
 
-**What the level already is.** A cloaked enemy, a dark nave, a flood pit, a crusher, a one-way shaft. The crusher and the water are pressure. They are not the challenge. The challenge is a threat that is not in front of him until it decides to be.
+**What the level already is.** A cloaked enemy, a crusher, a one-way shaft, and a flood pit. [Issue #21](https://github.com/kzap/batoman-game/issues/21) makes the flooded nave the main space, with a drier altar as a side chamber. The old level-select thumb of a drier chapel can live in that side room. The crusher and the water are pressure. They are not the challenge. The challenge is a threat that is not in front of him until it decides to be. Quiapo is the dark level. The others are not.
 
-**Boss.** Sigbin Unit (canon, not placed). **Proposal for the fight:** it lunges from behind, and the dorsal core (ART) opens only on the recovery, the same punish grammar as the prototype's stun, told as stealth instead of as a rush. The PRD's "specific sequence" was never defined; this is that sequence. It does not fly and it does not warp the room.
+**Boss.** Sigbin Unit (canon, not placed). **Proposal for the fight:** it lunges from behind, and the dorsal core opens only on the recovery, the same punish grammar as the prototype's stun, told as stealth instead of as a rush. The PRD's "specific sequence" was never defined; this is that sequence. It does not fly and it does not warp the room. [Issue #21](https://github.com/kzap/batoman-game/issues/21) sets the scale at about half the screen height on the 672×378 camera. ART.md's 64×48 is retired.
 
 **Early hint.** The stealth enemy already standing in the grey-box is the hint: same cloak, same "not there until you are close." **Proposal on top of that:** prints in the flood that face the wrong way, and a shimmer at the edge of a candle before the scout decloaks. The concept painting, sigbin in the water under the bridge, is the dressing target for the arena, glimpsed as a reflection earlier in the nave.
 
 **Folded in.** One sealed niche, opened by the nova and not by a tap, holding the list. That is Divisoria's lock, used once, so the stealth level still has a single aimed shot. It is not a market, and it is not the exam.
 
-**Music and look.** **Proposal:** a new cue. The Divisoria track on this level today is the wrong district. Direction: a slow procession drum, candle-crackle, the drum phrase played quietly backwards as the sigbin's tell. Look is ART's Level 3 row: indigo, candle gold, teal water. Dressing waits on source art. The painting is the mood.
+**Music and look.** **Proposal:** a new cue. The Divisoria track on this level today is the wrong district. Direction: a slow procession drum, candle-crackle, the drum phrase played quietly backwards as the sigbin's tell. Look stays the dark chapel: indigo, candle gold, teal water in the nave. Dressing waits on source art. The painting is the mood of the flooded main space.
 
 ### 3 — NSA Tower Exterior
 
-**Content id:** `level-4`. **Challenge:** vertical climb. **Theme:** the institution's face. Searchlights, glass, scaffolds, the logo repeating. The boss is the myth the NSA was willing to bolt onto its own building.
+**Content id:** `level-4`. **Challenge:** vertical climb. **Theme:** the institution's face at sunset. A skyway city in the far distance, a rusted highway wall and corrugated scaffolds up close, NSA cyan on the tower itself. The boss is the myth the NSA was willing to bolt onto that face.
 
-**Story.** He climbs the outside because the list named this tower and no ground-floor door was going to open. **Proposal:** Manananggal-7 is posted on the face. It looks like part of the building until it splits: the lower half holds a balcony, the upper half hunts the shaft. From the roof, after it falls, the dead grow-lights of the garden are visible. He goes home across the roofs. There is no skyway level between them.
+**Story.** He climbs the outside because the list named this tower and no ground-floor door was going to open. **Proposal:** Manananggal-7 is posted on the face. It looks like part of the building until it splits: the lower half holds a balcony, the upper half hunts the shaft. From the roof, after it falls, the garden is visible in the sun: planters, color, one salakot left on a rail. He goes home across the roofs. There is no skyway level between them.
 
 **What the level already is.** A dressed vertical climb: rungs, a hanging lift, a wall-jump shaft, enemies that do not aggro across storeys. The wall kick was optional on the docks. Here it is the path.
 
 **Boss.** **Manananggal-7 (proposal for this level).** Canon unit, previously written for the arcology, which is cut. The sheet in `art-source/level-1/concept-art-boss.png` shows the split body — wings, exposed spine, a separate hydraulic lower half — with an NSA tower in the backdrop. That painting is the design reference for this fight, not for the docks. The docks keep the prototype.
 
-The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has to reach. Phase 2 splits: the upper half owns the air of the shaft, the lower half stays planted on a balcony he already passed. Killing the flyer does not stick; it returns while the lower half lives (the folk rule ART already states: destroy the base first). He has to go back down. Phase 3 is the flyer alone, once the balcony half is gone. Wind in the top shaft, folded from the skyway, shoves jumps only, and only after a telegraph of litter and bending searchlights. Standing on a rung is safe.
+The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has to reach. Phase 2 splits: the upper half owns the air of the shaft, the lower half stays planted on a balcony he already passed. Killing the flyer does not stick; it returns while the lower half lives (the folk rule ART already states: destroy the base first). He has to go back down. Phase 3 is the flyer alone, once the balcony half is gone. Wind in the top shaft, folded from the skyway, shoves jumps only, and only after a telegraph of litter and banners bending in the sun. Standing on a rung is safe.
 
-**Early hint (proposal).** In the first shaft, a wing shadow crosses the glass on the searchlight sweep. On the second balcony, before any fight, a hydraulic scrape and a dropped cable mark the perch the lower half will use. A status light on the tower face reads like a floor number and is actually a unit number. He has seen the perch before he is asked to go back to it.
+**Early hint (proposal).** In the first shaft, a wing shadow crosses the tower face, and a window if one is in the sun. On the second balcony, before any fight, a hydraulic scrape and a dropped cable mark the perch the lower half will use. A status light on the tower reads like a floor number and is actually a unit number. He has seen the perch before he is asked to go back to it.
 
 **What this is not.** The hangar stealth-fighter sheet in `art-source/level-4/` is a horizontal runway boss. It does not fit this exterior, and this plan does not use it. Sniper mechs from the old PRD row are not added. The tower's roster stays the one already placed, plus the boss.
 
-**Music and look.** **Proposal:** a new cue, sparse, a searchlight pulse, almost no melody, tearing into a low layer and a high layer when the unit splits. Look is ART's Level 4 row, already shipping: cold grey-blue, hard white, black. The boss is the only warm-red flesh-and-plasma shape on that glass, so it reads before it moves.
+**Music and look.** **Proposal:** a new cue with a pulse and the noise of the city, splitting into a low layer and a high layer when the unit tears. The dressed far backdrop is the sunset skyway. The mid is the rusted wall and the scaffolds. NSA cyan stays on the tower. Manananggal is the warm-red shape against that sunlit city. ART.md's night-glass row described a different hour, and this plan does not use it.
 
 ### 4 — Abandoned Rooftop Garden
 
 **Content id:** `level-6`. **Challenge:** traversal. **Theme:** his father's garden, and the tikbalang that hides the way home.
 
-**Story.** Rain, mutant vines, other farmers' salakot still in the planters (ART). Tikbalang-X bent the paths after the prototype's raid, which is why the garden stayed empty. He breaks the spell in the stumble, then for good. The plants are still dead. **Proposal:** under a collapsed planter the irrigation shaft is a concrete room, not a cistern. One file and one portrait of Epal: Bakunawa-Prime, one night, up the Pasig, into the three blocks. That room is the laboratory. It is not a level. He goes down to the street.
+**Story.** A sunny, lush, colorful rooftop farm. The wound is a salakot left on a rail, and a path that does not go where it looks like it goes. Tikbalang-X bent the paths after the prototype's raid, which is why the farmers could not find their way back. He breaks the spell in the stumble, then for good. The plants are still growing. **Proposal:** under a planter the irrigation shaft is a concrete room, not a cistern. One file and one portrait of Epal: Bakunawa-Prime, coming up the Pasig, into the three blocks. That room is the laboratory. It is not a level. He goes down to the street.
 
 **What the level already is.** Roofs at different heights, a hop, a 128 px dash gap, a vertical lift, a drop, one-way steps, spikes. That is traversal with the kit he has. Crumbling planters stay a possible later pass, in the appendix's sense of "not required to call the challenge true." The grey-box already says it.
 
-**Boss.** Tikbalang-X (canon). **Proposal for the behaviour, on the clips the sheet already has:**
+**Boss.** Tikbalang-X (canon). [Issue #21](https://github.com/kzap/batoman-game/issues/21) makes the shipped sheet the look: a riveted mechanical horse, not the bipedal skull-head in the old ART row. **Proposal for the behaviour, on the clips that horse already has** (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`):
 
 - `run` between points.
 - `projectile` for a straight shot, so the duel starts in the docks' language.
@@ -147,11 +147,11 @@ The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has
 
 It tests traversal. The floor he wants to stand on is the lie. The solid landing is the only place the hit counts. He has already crossed a gap that looked shorter than it was.
 
-**Early hint (proposal).** Two roofs in, a vine bridge reads as a path and is a pit. In the rain ahead of him, one afterimage crosses a gap and does not leave footprints. A stomp, offscreen, shakes the planter he is on. The music, when this level has its own cue, detunes on that shake and locks back when he lands true, a second tell for players who cannot read the fake.
+**Early hint (proposal).** Two roofs in, under the sun, a vine bridge reads as a path and is a pit. Ahead of him, one afterimage of the horse crosses a gap and casts no shadow. A stomp, offscreen, shakes the planter he is on. The music, when this level has its own cue, detunes on that shake and locks back when he lands true, a second tell for players who cannot read the fake.
 
 **Folded in.** Kapre's smoke becomes one greenhouse roof of fog: he crosses by silhouette and edge, a traversal problem, not a second stealth game. Kapre-9 himself is cut. The lab's files are the room after the boss, portrait and text.
 
-**Music and look.** **Proposal:** the Tondo theme with the drums taken out, one instrument and the rain. Today's playback is the docks track unchanged, which is the right family and the wrong arrangement. Look is ART's Level 6 row: wet green, night blue, one amber grow-light, the abandoned hats. No source art exists yet.
+**Music and look.** **Proposal:** the Tondo theme with the drums taken out, one instrument and the sound of leaves. It detunes when the path lies and locks when he lands true. Today's playback is the docks track unchanged, which is the right family and the wrong arrangement. The farm is bright: saturated greens, sun on the planters, cheerful color. No source art exists yet. No rain.
 
 ### 5 — Destroyed City Block
 
@@ -169,7 +169,7 @@ It tests traversal. The floor he wants to stand on is the lie. The solid landing
 
 **Early hint (proposal).** Room one has the moon-glyph scored into a fallen wall, dark. A tide mark on the same wall is wet above the water he can see. Something under the street shifts once, a coil, and the pans in the rubble ring without anyone touching them. The hint and the phase-1 attack are the same picture.
 
-**Music and look.** **Proposal:** pans and the series' kulintang over the Tondo bass. When the serpent falls, one chord, then the docks theme at half density under the last card. Look is ART's Level 10 row, which is this level's palette even though the old document numbered it last of ten: ash, fire, Pasig blue-green, magenta. Pre-dawn, so it rhymes with the docks and is later in the night.
+**Music and look.** **Proposal:** pans and the series' kulintang over the Tondo bass. When the serpent falls, one chord, then the docks theme at half density under the last card, because these are the same blocks, not because it is the same hour. The rubble carries each place's light: golden dock timber, candlelit chapel stone, a shard of the sunset tower in NSA cyan, sun on a garden vine. The arena is the heavier beat — dusk over the Pasig, ash, fire, the river's blue-green — and it is not a second chapel. ART.md's old Level 10 row still has the ash, the fire, and the river. It does not set the hour by matching a night that the docks no longer are.
 
 ### Unlocks (proposal)
 
