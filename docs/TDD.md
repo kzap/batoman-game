@@ -118,7 +118,8 @@ value) fed an `EnemyCtx` (collision world, read-only player, tick, level width, 
 `countAlive`). The base class provides the states every shooter shares: `shootState(t, next, aim)` (stop,
 face, fire once `shotWindupTicks` in, hold as long again, arm the cooldown) and `hurtState(t, next)` (slide
 with the knockback decaying by `ENEMY.knockbackDecay`, then resume with the cooldown restarted); a hit
-interrupts any state into `hurt`. Ground enemies fall under `ENEMY.gravity`. Poses
+interrupts a shooter into `hurt`. The tikbalang's chase and stomp do not flinch. Ground enemies fall under
+`ENEMY.gravity`. Poses
 (`idle | move | shoot | hurt | death | cloaked | windup | rush | stunned | shift`) are what the renderer maps
 to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 
@@ -128,7 +129,7 @@ to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 | `drone` | drone | 48x28, 2 hp. Hovers 88 px (centre) above its spawn's ground reference with a slow bob, between its patrol bounds. Within 300 px horizontally and 128 px vertically (`sightHeight`, centre to centre) it dives to chest height (40 px above the player's feet, so a grounded shot connects), keeps a 120 px stand-off and fires aimed shots (260 px/s) every 120 ticks; it loses interest beyond `loseRange` 450 px or outside the height band. |
 | `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px and on the same storey (feet within `sightHeight` 128 px), decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px or when the player leaves the storey. |
 | `aswang` | patroller at 1.6x, lilac tint | The Level 1 boss, 64x96, 24 hp; see below. |
-| `tikbalang` | tikbalang | Spawn data only; drawn if placed, no behaviour yet. |
+| `tikbalang` | tikbalang | 64x44, 4 hp. The Level 6 scout, not Tikbalang-X: no warp, no perception twist, no stumble-only window (that boss is out of this version; STORY/PRD describe it). Patrols its spawn +/- `patrolDistance` in bursts (36 ticks at 80 px/s, then 24 ticks still), turning at bounds, walls and ledges. A player within 500 px on the same storey (`sightHeight` 128, either direction) is chased at 480 px/s to a 48 px standoff. It then rears for 24 ticks (`shoot` → the sheet's `stomp`) and lunges for up to 18 ticks at 420 px/s with the body lowered to 22 px. `rush` holds the stomp clip's last frame (`stomp_04`), and the view fits that quad to the live body height, so the impact matches the hurtbox a jump clears. The lunge is committed. It backs out to the standoff before standing up, then waits 90 ticks. It gives up past 640 px or off the storey. A hit while it is only patrolling knocks it back at 140 px/s; the chase does not. |
 
 The boss (`boss.ts`) is dormant until the player is within 560 px (`BossSnapshot.engaged` shows the HUD
 bar). Phases by hp: 1 (24-17) walks to a 200 px stand-off and fires bursts of three shots 12 ticks apart at
@@ -566,13 +567,13 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies) |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
-| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
 Level 3 has source art in `art-source/level-3/` (`nave` and `chapel` backdrops, plus a props recipe) and still
 no `art` block, so it renders as grey boxes until it is dressed. Level 6 is dressed from
 `art-source/level-6/` in the Level 1 inked-painterly style, relit as a sunny rooftop farm: `sky` and
 `garden` backdrops and 144 decor quads. Geometry is still the Phase 5 block-out, so the painted lying path
-between roofs is not solid, and the `tikbalang` at 4100 is still a spawn with no behaviour. Level 4 was added in Phase 7b because its
+between roofs is not solid. The tikbalang at 4100 is the scout: it burst-chases and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
 art does exist; it is the first vertical level and is why drones and stealths got a `sightHeight`, so an
 enemy on one storey does not react to the player climbing past on another. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
@@ -693,7 +694,10 @@ MSAA back on, and the backdrop work is not what it is waiting on. A mid-laptop 6
 this environment has no discrete or integrated GPU to sample.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
-uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.
+uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally. On a pull
+request, `changes` skips those jobs and the Playwright perf job when every path is documentation (`*.md`, `docs/`, `.claude/`, or the PR template).
+A push to `v2` or `main`, and `workflow_dispatch`, run every job. Require `ci-gate`: it passes when each needed job
+succeeded or was skipped, and fails when one failed or was cancelled.
 
 ## 11. Level editor `[implemented: Phase 5]`
 
