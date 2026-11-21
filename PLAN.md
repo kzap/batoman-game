@@ -28,8 +28,8 @@ v1's bugs trace to two root causes, neither in gameplay code:
 | Levels for v0.2 | 1 (Tondo docks), 3 (Quiapo chapel), 6 (rooftop garden) + Level 1 boss |
 | Props | Textured quads only; no glTF meshes in v0.2 |
 | Git history | Untouched. No rewrite. New heavy files must not enter `public/` |
-| Branching | Worktree `../batoman-game-v2` on `v2`; `phase/N-slug` branches; PRs target `v2` |
-| Merge gate | PRs opened by the implementer, reviewed with the `code-review` skill first, merged by the owner |
+| Branching | Worktree `../batoman-game-v2` on `v2`; `phase/N-slug`, `content/<level>`, or `infra/...` branches; PRs target `v2` |
+| Merge gate | Author opens the PR. A teammate other than the author posts review feedback. The author merges once that feedback is addressed and CI is green (`npm run ci`, DCO). Andre's OK is not required per merge. See [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Architecture
 
@@ -68,11 +68,14 @@ git checkout -b phase/N-<slug>
 # code-review skill: standards + spec; address findings
 git push -u origin phase/N-<slug>
 gh pr create --base v2 --head phase/N-<slug>
-# stop; owner reviews and merges
+# a teammate other than the author posts review feedback
+# author addresses it, then merges when CI is green
 ```
 
 One PR per phase. If a phase grows too large to review, split into `phase/N.1`, `phase/N.2`, all targeting
-`v2`. No force-push. No history rewrite.
+`v2`. Content and infra work uses the same merge rule from a `content/<level>` or `infra/...` branch.
+No force-push. No history rewrite. Andre's OK is still required for repo settings, changing the default
+branch, deleting branches, and spending money. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Phases
 

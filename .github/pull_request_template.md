@@ -21,6 +21,8 @@
 
 - [ ] `npm run ci` passes locally
 - [ ] Self-reviewed with the `code-review` skill; findings addressed or listed below
+<!-- Posted feedback from a teammate other than the author. Lanes: Quinn (gameplay and QA), Ari (infra and tooling), Sining (art and audio), Tala (docs and plan). -->
+- [ ] Reviewed by: @<teammate>
 - [ ] No raw art added to `public/`; new heavy files went to `art-source/`
 - [ ] Docs updated where behaviour changed
 
