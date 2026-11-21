@@ -29,7 +29,7 @@ v1's bugs trace to two root causes, neither in gameplay code:
 | Props | Textured quads only; no glTF meshes in v0.2 |
 | Git history | Untouched. No rewrite. New heavy files must not enter `public/` |
 | Branching | Worktree `../batoman-game-v2` on `v2`; `phase/N-slug`, `content/<level>`, or `infra/...` branches; PRs target `v2` |
-| Merge gate | Author opens the PR. A teammate other than the author posts review feedback. The author merges once that feedback is addressed and CI is green (`npm run ci`, DCO). Andre's OK is not required per merge. See [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Merge gate | Author opens the PR. A teammate other than the author posts a review or comment on the PR thread. The author squash-merges once that feedback is addressed and hosted checks are green. Andre's OK is not required per merge. See [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Architecture
 
@@ -68,14 +68,15 @@ git checkout -b phase/N-<slug>
 # code-review skill: standards + spec; address findings
 git push -u origin phase/N-<slug>
 gh pr create --base v2 --head phase/N-<slug>
-# a teammate other than the author posts review feedback
-# author addresses it, then merges when CI is green
+# a teammate other than the author posts a review or comment on the PR
+# author addresses it, then squash-merges when hosted checks are green
 ```
 
 One PR per phase. If a phase grows too large to review, split into `phase/N.1`, `phase/N.2`, all targeting
 `v2`. Content and infra work uses the same merge rule from a `content/<level>` or `infra/...` branch.
-No force-push. No history rewrite. Andre's OK is still required for repo settings, changing the default
-branch, deleting branches, and spending money. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Do not rebase or force-push a branch that is already on the remote. Andre's OK is still required for
+repo settings, changing the default branch, deleting branches, and spending money. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Phases
 

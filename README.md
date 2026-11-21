@@ -84,10 +84,11 @@ Music sources live in `art-source/audio/` and are transcoded to Opus by `npm run
 ## Contributing
 
 Every pull request targets `v2`, from a `phase/N-slug`, `content/<level>`, or `infra/...` branch. The
-author merges once a teammate other than the author has posted review feedback, that feedback is
-addressed, and CI is green (`npm run ci`, plus DCO sign-off). Andre's OK is not required for each merge.
-Reviewer lanes and the changes that still need Andre are in [CONTRIBUTING.md](CONTRIBUTING.md). Read
-[PLAN.md](PLAN.md) for the phase you are touching and [docs/TDD.md](docs/TDD.md) for the conventions. The
+author squash-merges once a teammate other than the author has left a review or comment on the PR
+thread, that feedback is addressed, and the hosted checks are green. Andre's OK is not required for
+each merge. What counts as a review, which checks must pass, and the changes that still need Andre
+are in [CONTRIBUTING.md](CONTRIBUTING.md). Read [PLAN.md](PLAN.md) for the phase you are touching and
+[docs/TDD.md](docs/TDD.md) for the conventions. The
 [three-dev](.claude/skills/three-dev/SKILL.md) skill summarises the rules for agents and humans alike.
 
 Before opening a PR:
@@ -97,7 +98,9 @@ npm run ci
 ```
 
 Commits must pass the DCO check. `git commit -s` adds the `Signed-off-by:` trailer. A local commit missing
-it can be fixed with `git commit --amend -s`. Do not force-push to rewrite a commit that is already on the remote.
+it can be fixed with `git commit --amend -s` before the branch is on the remote. Do not rebase or
+force-push a branch that is already on the remote. The squash commit message must keep a
+`Signed-off-by:` line.
 
 Conventions that matter most:
 
