@@ -9,7 +9,7 @@ import { formatScore } from './score';
 export interface OverlayModel {
   readonly levels: readonly ManifestEntry[];
   readonly save: SaveData;
-  /** Level ids the player may start. Wider than `save.unlocked` while `UNLOCK_ALL_LEVELS` is on. */
+  /** Level ids the player may start. The save list while `VITE_UNLOCK_ALL_LEVELS` is off. */
   readonly selectable: readonly string[];
   readonly score: number;
   /** Result of the level just finished (complete screen). */

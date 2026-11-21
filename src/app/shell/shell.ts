@@ -5,7 +5,7 @@ import type { App } from '../app';
 import type { GameAudio } from '../audio';
 import type { Overlay } from './overlay';
 import { CONTROL_ROWS, toggleBinding } from '../bindings';
-import { selectableLevels } from './progression';
+import { selectableLevels, UNLOCK_ALL_LEVELS } from './progression';
 import { loadSave, recordClear, resetBindings, resolveReduceMotion, setBindings, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
 import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { clearPoints, killPoints } from './score';
@@ -38,6 +38,8 @@ export const SHELL_TIMING = {
 export interface ShellOptions {
   /** Session override from `?reduceMotion=`. Not written until the player toggles with R. */
   readonly reduceMotion?: boolean | null;
+  /** Level select. Omit to follow {@link UNLOCK_ALL_LEVELS}. Not written to the save. */
+  readonly unlockAll?: boolean;
 }
 
 /** The current run: score so far and the points earned in the level being played. Reset by "Start game" and level select. */
@@ -61,6 +63,8 @@ export class Shell {
   private timer = 0;
   private loading: Promise<void> | null = null;
   private readonly levelIds = LEVELS.map((l) => l.id);
+  /** Build flag, or `?unlockAll=` for this page load. */
+  private readonly unlockAll: boolean;
   /** `?reduceMotion=` for this page load. Cleared once the player toggles, which writes the save. */
   private sessionOverride: boolean | null;
   private systemReduceMotion: boolean;
@@ -81,6 +85,7 @@ export class Shell {
     options: ShellOptions = {},
   ) {
     this.save = loadSave(storage, this.levelIds);
+    this.unlockAll = options.unlockAll ?? UNLOCK_ALL_LEVELS;
     this.sessionOverride = options.reduceMotion ?? null;
     this.systemReduceMotion = systemPrefersReducedMotion();
     app.setBindings(this.save.bindings);
@@ -197,7 +202,7 @@ export class Shell {
       return;
     }
     const before = this.screen;
-    const unlocked = selectableLevels(this.save.unlocked, this.levelIds);
+    const unlocked = selectableLevels(this.save.unlocked, this.levelIds, this.unlockAll);
     const { screen, effects } = reduce(before, event, { levels: this.levelIds, unlocked });
     this.menuSound(before, screen, event);
     this.setScreen(screen, effects);
@@ -227,7 +232,7 @@ export class Shell {
     this.overlay.render(this.screen, {
       levels: LEVELS,
       save: this.save,
-      selectable: selectableLevels(this.save.unlocked, this.levelIds),
+      selectable: selectableLevels(this.save.unlocked, this.levelIds, this.unlockAll),
       score: this.run.score,
       result: this.run.result,
       reduceMotion: this.effectiveReduceMotion(),

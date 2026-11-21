@@ -43,6 +43,9 @@ npm run dev                        # http://localhost:5173
 Gate e2e loads gameplay with `?lockstep=1` (e2e build only) and checks sim ticks or player state.
 `window.__batoman.advance(n)` steps exactly `n` ticks. One smoke test stays on the real-time clock.
 
+Level select starts every level unless the build sets `VITE_UNLOCK_ALL_LEVELS=false` (or `0`).
+`?unlockAll=0` or `1` overrides that for one page load. The save's unlock list is unchanged either way.
+
 ---
 
 ## Project structure

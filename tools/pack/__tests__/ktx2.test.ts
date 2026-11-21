@@ -1,7 +1,11 @@
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import { buildBackdrops } from '../backdrops.js';
 import { blockSize, encodeBackdropKtx2, padToBlocks } from '../ktx2';
 
 /** RGBA32 from the same Basis transcoder Three's KTX2Loader uses. First row is what WebGL samples at V=0. */
@@ -87,4 +91,41 @@ describe('ktx2 backdrop encode', () => {
     expect(rgba[1], `bottom texel rgb ${rgba[0]},${rgba[1]},${rgba[2]}`).toBeGreaterThan(rgba[0]);
     expect(rgba[last], `top texel rgb ${rgba[last]},${rgba[last + 1]},${rgba[last + 2]}`).toBeGreaterThan(rgba[last + 1]);
   });
+
+  it('decodes level-1 sky.ktx2 with the source PNG top row at the top', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'batoman-sky-'));
+    try {
+      await buildBackdrops('art-source/level-1/backdrops.json', dir);
+      const encoded = readFileSync(join(dir, 'level-1', 'sky.ktx2'));
+      const { rgba, width, height } = await transcodeRgba(encoded);
+      const src = await sharp('art-source/level-1/background.png').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const mean = (data: Uint8Array, w: number, y: number): [number, number, number] => {
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let n = 0;
+        for (let x = 0; x < w; x += 8) {
+          const i = (y * w + x) * 4;
+          r += data[i] ?? 0;
+          g += data[i + 1] ?? 0;
+          b += data[i + 2] ?? 0;
+          n++;
+        }
+        return [r / n, g / n, b / n];
+      };
+      const apart = (a: readonly number[], b: readonly number[]): number => Math.hypot(a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!);
+      // Transcode row 0 is V=0, the bottom of the plane, so the displayed top is the last row.
+      const displayedTop = mean(rgba, width, height - 1);
+      const displayedBottom = mean(rgba, width, 0);
+      const sourceTop = mean(src.data, src.info.width, 0);
+      const sourceBottom = mean(src.data, src.info.width, src.info.height - 1);
+      // A missing Y flip swaps these. The measured gap is about 1 versus 18.
+      expect(apart(displayedTop, sourceTop)).toBeLessThan(12);
+      expect(apart(displayedBottom, sourceBottom)).toBeLessThan(12);
+      expect(apart(displayedTop, sourceTop)).toBeLessThan(apart(displayedTop, sourceBottom));
+      expect(apart(displayedBottom, sourceBottom)).toBeLessThan(apart(displayedBottom, sourceTop));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

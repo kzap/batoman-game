@@ -399,9 +399,11 @@ the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the curre
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
 
-`UNLOCK_ALL_LEVELS` (`src/app/shell/progression.ts`) is on for playtests. `selectableLevels` then hands level
-select every manifest id. `SaveData.unlocked` is still only what `recordClear` wrote, so turning the flag
-off restores that list with no save migration. `save.ts` keeps progress in `localStorage` under
+`VITE_UNLOCK_ALL_LEVELS` (`src/app/shell/progression.ts`) is the playtest switch. Unset is on, so a
+normal `npm run build` still opens every level. `false` or `0` turns it off for that build.
+`?unlockAll=1` or `0` overrides the build for one load. `selectableLevels` is what level select reads.
+`SaveData.unlocked` is still only what `recordClear` wrote, so either switch restores that list with no
+save migration. `save.ts` keeps progress in `localStorage` under
 `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
 `options` holds music, sfx, and `reduceMotion` (`true`, `false`, or `null` to follow the OS). `bindings` is
 optional on read; a missing or rejected table becomes the defaults in section 4.5 and the rest of the save
@@ -661,10 +663,11 @@ to `dist/` and fails on any breach of `BUDGET`:
 
 E2E specs: `smoke.spec.ts` (boot to the title with the sim frozen, Enter starts it, pixels drawn, keyboard
 drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and level
-select, which can start any level while `UNLOCK_ALL_LEVELS` is on and does not write that into the save;
-credits, intro card, pause freezing the tick count and resuming, quit; music element playing
+select under `?unlockAll=1` (any level starts, the save stays unwritten) and `?unlockAll=0` (only the
+first level starts); credits, intro card, pause freezing the tick count and resuming, quit; music element playing
 after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
-in sequence, then a reload showing every level unlocked with best times), `a11y.spec.ts` (the OS
+in sequence, asserting the save gains only the next id after Level 1 and then every id, then a reload with
+`?unlockAll=0` showing those saved unlocks and best times), `a11y.spec.ts` (the OS
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
 `?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that
