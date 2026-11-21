@@ -33,8 +33,8 @@ export interface CheckpointJson extends Rect {
   readonly id: number;
 }
 
-/** `aswang` is the Level 1 boss, `sigbin` the Level 3 boss, `tikbalang` the Level 6 scout. */
-export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang' | 'sigbin';
+/** `aswang` is the Level 1 boss, `sigbin` the Level 3 boss, `manananggal` the Level 4 boss, `tikbalang` the Level 6 scout, `tikbalang-x` the Level 6 boss. */
+export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang' | 'sigbin' | 'manananggal' | 'tikbalang-x';
 
 export interface EnemySpawnJson {
   readonly type: EnemyType;
@@ -70,6 +70,12 @@ export interface LevelJson {
   readonly hazards: readonly HazardJson[];
   /** Instant death (river, void). */
   readonly deathZones: readonly Rect[];
+  /**
+   * Columns the Pasig tide fills. Each rect is the full column bounds; the sim
+   * grows a death volume from `y` up to `tideTop(tick)` each tick. Omitted means
+   * none (every level but the finale).
+   */
+  readonly tideVolumes?: readonly Rect[];
   readonly checkpoints: readonly CheckpointJson[];
   readonly enemies: readonly EnemySpawnJson[];
   /**
@@ -83,7 +89,7 @@ export interface LevelJson {
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 export const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
-export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'stealth', 'tikbalang', 'aswang', 'sigbin'];
+export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'stealth', 'tikbalang', 'aswang', 'sigbin', 'manananggal', 'tikbalang-x'];
 export const PICKUP_KINDS: readonly PickupKind[] = ['hp-up'];
 
 
@@ -146,6 +152,7 @@ export function levelProblems(json: unknown): string[] {
   const movers = rectList('movingSolids');
   rectList('hazards');
   rectList('deathZones');
+  rectList('tideVolumes', false);
   rectList('checkpoints');
 
   const blocking = [...solids, ...oneWay, ...movers];

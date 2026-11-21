@@ -100,7 +100,7 @@ Each boss is an NSA weapon wearing a folklore name. The prototype has not been g
 |---|---|---|---|
 | **ASWANG prototype** | The class itself, before a species | 1 — Tondo docks (`level-1`) | Canon. Shipped. |
 | **Sigbin Unit** | Sigbin, the backward shadow-creature | 2 — Quiapo chapel (`level-3`) | Canon. Not placed. About half the screen height ([issue #21](https://github.com/kzap/batoman-game/issues/21)). |
-| **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Confirmed by Andre. Sheet shows the tower. Not built. |
+| **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Confirmed by Andre. The fight is in. The sheet is not packed. |
 | **Tikbalang-X** | Tikbalang, the trickster that loses travelers | 4 — Rooftop garden (`level-6`) | Canon. The mechanical horse on the shipped sheet ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Spawn only; the world never creates the actor. |
 | **Bakunawa-Prime** | Bakunawa, the serpent that swallows the moon | 5 — Destroyed block (no file yet) | Canon. Final boss. |
 
@@ -114,7 +114,7 @@ BatoMan is **hopeful but grounded**. It doesn't shy away from the real weight of
 
 The ending this plan asks for is the same tone at city scale. He wins the night. He does not redeem the century. The hat stays on his head. One light comes back on a roof.
 
-Story reaches the player as the level itself, plus the portraits and text ART already allows. Animated cutscenes stay out of scope until someone scopes them on purpose.
+Story reaches the player as the level itself, plus the portraits and text ART already allows. **Level-intro dialogs** are in scope: a data-driven shell cutscene (static portrait or a crop from a packed atlas, text, camera pan, timed auto-advance) runs after the LEVEL N card while the sim stays paused. Animated cutscene art and mid-level dialogue stay out of scope.
 
 Think: *neon-soaked Neo-Manila at night, the smell of street food, bass-heavy OPM music, and a plasma cannon pointed at a robot shaped like your worst nightmare.*
 

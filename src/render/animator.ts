@@ -112,9 +112,9 @@ export class PlayerAnimator {
 /**
  * Enemy poses to clips for one look. The idle/move/shoot clip names come from
  * the look (the drone sheet calls its idle "hover"); the boss-only poses
- * borrow: a wind-up holds the first hurt frame, a rush is the walk sped up, a
- * stun holds the second hurt frame, a phase shift and the cloak hold the first
- * idle frame. A stomp sheet (the tikbalang) holds its last stomp frame on
+ * borrow: a wind-up holds the first hurt frame, `commit` plays the shoot clip
+ * (the late "jump now" beat), a rush is the walk sped up, a stun holds the
+ * second hurt frame, a phase shift and the cloak hold the first idle frame. A stomp sheet (the tikbalang) holds its last stomp frame on
  * `rush` instead, the impact, so the lunge does not swap to a gallop. Death
  * clips never loop so the last frame holds until the sim drops the enemy.
  */
@@ -129,9 +129,11 @@ export function enemyClips(atlas: AtlasJson, look: EnemyLook): Record<EnemyPose,
     hurt: anim('hurt'),
     death: { ...anim('death'), loop: false },
     cloaked: still,
-    windup: slice('hurt', 0, 1, { loop: false }),
-    rush:
-      look.clips.shoot === 'stomp'
+    windup: look.clips.stomp ? { ...anim(look.clips.stomp), loop: false } : slice('hurt', 0, 1, { loop: false }),
+    commit: anim(look.clips.shoot),
+    rush: look.clips.stomp
+      ? slice(look.clips.stomp, -1, undefined, { loop: false })
+      : look.clips.shoot === 'stomp'
         ? slice(look.clips.shoot, -1, undefined, { loop: false })
         : { ...move, fps: move.fps * RUSH_FPS_FACTOR },
     stunned: slice('hurt', 1, 2, { loop: false }),

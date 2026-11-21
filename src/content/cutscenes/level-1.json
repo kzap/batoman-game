@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "id": "level-1",
+  "beats": [
+    {
+      "speaker": "Ando",
+      "text": "Golden hour on the piers, and that unit is still hunting.",
+      "portrait": { "atlas": "batoman", "animation": "idle" },
+      "camera": { "x": 6150, "y": 64, "ms": 1600 },
+      "holdMs": 3200
+    },
+    {
+      "speaker": "Sari-sari",
+      "text": "Anak, 'wag diyan. The prototype already leveled three blocks — including the garden.",
+      "portrait": {
+        "backdrop": "town",
+        "crop": { "x": 80, "y": 400, "w": 280, "h": 280 }
+      },
+      "holdMs": 3600
+    },
+    {
+      "speaker": "Ando",
+      "text": "Then one unit can fall. I'll put it down.",
+      "portrait": { "atlas": "batoman", "animation": "idle" },
+      "holdMs": 2800
+    },
+    {
+      "speaker": "Sari-sari",
+      "text": "The people who still write on paper are under Quiapo. After this, punta ka sa chapel.",
+      "portrait": {
+        "backdrop": "town",
+        "crop": { "x": 80, "y": 400, "w": 280, "h": 280 }
+      },
+      "holdMs": 3600
+    },
+    {
+      "speaker": "Ando",
+      "text": "Salamat. I'll finish this first.",
+      "portrait": { "atlas": "batoman", "animation": "idle" },
+      "holdMs": 2800
+    }
+  ]
+}

@@ -24,6 +24,12 @@
       "file": "levels/level-6.json",
       "name": "Abandoned Rooftop Garden",
       "music": "level-1"
+    },
+    {
+      "id": "level-5",
+      "file": "levels/level-5.json",
+      "name": "Destroyed City Block",
+      "music": "level-1"
     }
   ]
 }

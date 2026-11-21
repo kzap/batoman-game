@@ -42,6 +42,12 @@ describe('levelProblems', () => {
     expect(levelProblems({ ...base, pickups: 'nope' })).toEqual(['pickups must be an array']);
   });
 
+  it('accepts optional tide volumes and rejects one that leaves the level', () => {
+    expect(levelProblems({ ...base, tideVolumes: [{ x: 0, y: 0, w: 64, h: 32 }] })).toEqual([]);
+    expect(levelProblems({ ...base })).toEqual([]);
+    expect(levelProblems({ ...base, tideVolumes: [{ x: 600, y: 0, w: 64, h: 32 }] })).toEqual([expect.stringMatching(/leaves the level bounds/)]);
+  });
+
   it('checks enumerations, ids and paths', () => {
     expect(levelProblems({ ...base, hazards: [{ ...base.hazards[0], kind: 'lava' }] })).toEqual([expect.stringMatching(/kind must be one of/)]);
     expect(levelProblems({ ...base, enemies: [{ type: 'boss', x: 1, y: 1 }] })).toEqual([expect.stringMatching(/type must be one of/)]);

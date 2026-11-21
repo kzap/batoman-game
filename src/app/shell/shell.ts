@@ -1,10 +1,12 @@
+import { beatHoldMs, type CutsceneScript } from '@content/cutscene';
+import { cutsceneIds, hasCutscene, loadCutsceneById } from '@content/cutscenes';
 import { LEVELS, loadLevelById, MANIFEST, manifestEntry } from '@content/levels';
 import type { World } from '@game/world';
 import { HttpAssetSource, loadAssets } from '@render/assets';
 import type { App } from '../app';
 import type { GameAudio } from '../audio';
 import { CONTROL_ROWS, toggleBinding } from '../bindings';
-import type { Overlay, OverlayModel } from './overlay';
+import type { CutsceneView, Overlay, OverlayModel } from './overlay';
 import { selectableLevels, UNLOCK_ALL_LEVELS } from './progression';
 import { tallyAt, tallyPlan } from './results';
 import { loadSave, recordClear, resetBindings, resolveReduceMotion, setBindings, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
@@ -41,6 +43,16 @@ export interface ShellOptions {
   readonly reduceMotion?: boolean | null;
   /** Level select. Omit to follow {@link UNLOCK_ALL_LEVELS}. Not written to the save. */
   readonly unlockAll?: boolean;
+  /**
+   * Play level-intro scripts after the LEVEL N card. False when `?cutscene=0`
+   * (title-path tests) or when deep-linking already skips the intro.
+   */
+  readonly cutscenes?: boolean;
+  /**
+   * Auto-advance cutscene lines on holdMs. False when `?cutsceneHold=0` so e2e
+   * can drive Enter/Esc without racing the wall-clock timer.
+   */
+  readonly cutsceneHold?: boolean;
 }
 
 /** The current run: score so far and the points earned in the level being played. Reset by "Start game" and level select. */
@@ -69,12 +81,22 @@ export class Shell {
   private readonly levelIds = LEVELS.map((l) => l.id);
   /** Build flag, or `?unlockAll=` for this page load. */
   private readonly unlockAll: boolean;
+  /** When false, intro cards go straight to play (`?cutscene=0`). */
+  private readonly cutscenesOn: boolean;
+  /** When false, cutscene lines do not auto-advance (`?cutsceneHold=0`). */
+  private readonly cutsceneHoldOn: boolean;
+  /** Loaded scripts keyed by level id. Filled lazily as levels start. */
+  private readonly scripts = new Map<string, CutsceneScript>();
+  /** Beat counts for the reducer; 0 / missing means no cutscene. */
+  private cutsceneBeats: Record<string, number> = {};
   /** `?reduceMotion=` for this page load. Cleared once the player toggles, which writes the save. */
   private sessionOverride: boolean | null;
   private systemReduceMotion: boolean;
   private media: MediaQueryList | null = null;
+  /** Active presentation pan while a cutscene beat runs. */
+  private panRaf = 0;
   private readonly onKeyDown = (e: KeyboardEvent): void => this.handleKey(e);
-  private readonly onPointer = (): void => this.audio.unlock();
+  private readonly onPointer = (e: PointerEvent): void => this.handlePointer(e);
   private readonly onPageHide = (): void => this.stop();
   private readonly onResize = (): void => {
     if (this.screen.kind !== 'complete') return;
@@ -95,6 +117,8 @@ export class Shell {
   ) {
     this.save = loadSave(storage, this.levelIds);
     this.unlockAll = options.unlockAll ?? UNLOCK_ALL_LEVELS;
+    this.cutscenesOn = options.cutscenes !== false;
+    this.cutsceneHoldOn = options.cutsceneHold !== false;
     this.sessionOverride = options.reduceMotion ?? null;
     this.systemReduceMotion = systemPrefersReducedMotion();
     app.setBindings(this.save.bindings);
@@ -103,6 +127,7 @@ export class Shell {
     app.onWorld = (w): void => this.watchWorld(w);
     this.applyMotion(false);
     this.watchSystemMotion();
+    if (this.cutscenesOn) void this.prefetchCutscenes();
   }
 
   /**
@@ -125,6 +150,19 @@ export class Shell {
     }
   }
 
+  private async prefetchCutscenes(): Promise<void> {
+    for (const id of cutsceneIds()) {
+      if (!hasCutscene(id)) continue;
+      try {
+        const script = await loadCutsceneById(id);
+        this.scripts.set(id, script);
+        this.cutsceneBeats[id] = script.beats.length;
+      } catch (e) {
+        this.app.hooks.errors.push(`cutscene ${id}: ${(e as Error).message}`);
+      }
+    }
+  }
+
   private handleKey(e: KeyboardEvent): void {
     this.audio.unlock();
     this.publishAudio();
@@ -133,12 +171,33 @@ export class Shell {
     if (e.code === 'KeyM') return this.toggleOption('music');
     if (e.code === 'KeyN') return this.toggleOption('sfx');
     if (e.code === 'KeyR') return this.toggleReduceMotion();
+    // During a cutscene Esc skips all remaining lines and starts play (not back to title).
+    if (this.screen.kind === 'cutscene' && e.code === 'Escape') {
+      e.preventDefault();
+      this.dispatch('skip');
+      return;
+    }
     const event = KEYS[e.code];
     if (!event) return;
     // While playing, arrows move the player and Enter is nothing; only pause keys reach the shell.
     if (this.screen.kind === 'playing' && event !== 'pause' && event !== 'back') return;
     e.preventDefault();
     this.dispatch(event);
+  }
+
+  /** Unlock audio on every press; on the cutscene card a click/tap also advances. */
+  private handlePointer(e: PointerEvent): void {
+    this.audio.unlock();
+    this.publishAudio();
+    if (this.screen.kind !== 'cutscene') return;
+    if (!(e.target instanceof Node) || !this.overlayRootContains(e.target)) return;
+    e.preventDefault();
+    this.dispatch('confirm');
+  }
+
+  private overlayRootContains(node: Node): boolean {
+    const root = document.getElementById('overlay');
+    return root !== null && root.contains(node);
   }
 
   /**
@@ -221,7 +280,11 @@ export class Shell {
     }
     const before = this.screen;
     const unlocked = selectableLevels(this.save.unlocked, this.levelIds, this.unlockAll);
-    const { screen, effects } = reduce(before, event, { levels: this.levelIds, unlocked });
+    const { screen, effects } = reduce(before, event, {
+      levels: this.levelIds,
+      unlocked,
+      cutsceneBeats: this.cutscenesOn ? this.cutsceneBeats : {},
+    });
     this.menuSound(before, screen, event);
     this.setScreen(screen, effects);
   }
@@ -231,18 +294,23 @@ export class Shell {
     if (event === 'up' || event === 'down') return this.audio.play('menuMove');
     if (after.kind === 'paused' && before.kind === 'playing') return this.audio.play('pause');
     if (after.kind === 'playing' && before.kind === 'paused') return this.audio.play('unpause');
-    if (event === 'back') return this.audio.play('menuBack');
+    if (event === 'back' || event === 'skip') return this.audio.play('menuBack');
     if (event === 'confirm' && before !== after) this.audio.play('menuConfirm');
   }
 
   private setScreen(screen: Screen, effects: readonly Effect[]): void {
     clearTimeout(this.timer);
     cancelAnimationFrame(this.tallyFrame);
+    if (screen.kind !== 'cutscene') this.clearCutscenePan();
     if (screen.kind === 'complete' && this.screen.kind !== 'complete') this.tallyStart = performance.now();
     this.screen = screen;
     this.app.hooks.screen = screen.kind;
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
+    if (screen.kind === 'cutscene' && this.cutsceneHoldOn) {
+      const beat = this.scripts.get(screen.levelId)?.beats[screen.beat];
+      this.arm('timeout', beatHoldMs(beat));
+    }
     if (screen.kind === 'credits') this.audio.music.play(MANIFEST.titleMusic);
     this.renderOverlay();
     if (screen.kind === 'complete' && !this.effectiveReduceMotion()) this.armTally();
@@ -259,6 +327,7 @@ export class Shell {
     this.media = null;
     clearTimeout(this.timer);
     cancelAnimationFrame(this.tallyFrame);
+    this.clearCutscenePan();
   }
 
   private renderOverlay(): void {
@@ -282,7 +351,17 @@ export class Shell {
             camera: this.app.hooks.camera,
           }
         : null,
+      cutscene: this.cutsceneView(),
     };
+  }
+
+  private cutsceneView(): CutsceneView | null {
+    if (this.screen.kind !== 'cutscene') return null;
+    const script = this.scripts.get(this.screen.levelId);
+    const beat = script?.beats[this.screen.beat];
+    if (!beat) return { speaker: '', text: '', portrait: null };
+    const portrait = beat.portrait ? this.app.resolvePortrait(beat.portrait) : null;
+    return { speaker: beat.speaker, text: beat.text, portrait };
   }
 
   /** Elapsed tally time. The effective preference (save, query, then OS) snaps the count. */
@@ -336,6 +415,8 @@ export class Shell {
         this.app.restartLevel();
         break;
       case 'resume':
+        this.clearCutscenePan();
+        this.app.setCutsceneCamera(null);
         this.app.setMode('play');
         this.audio.engine.setPaused(false);
         break;
@@ -344,6 +425,8 @@ export class Shell {
         this.audio.engine.setPaused(true);
         break;
       case 'quitToTitle':
+        this.clearCutscenePan();
+        this.app.setCutsceneCamera(null);
         this.app.setMode('paused');
         this.audio.engine.setPaused(false);
         this.audio.music.play(MANIFEST.titleMusic);
@@ -353,13 +436,47 @@ export class Shell {
         writeSave(this.storage, this.save);
         this.app.setBindings(this.save.bindings);
         break;
+      case 'cutsceneBeat':
+        this.applyCutsceneBeat(fx.levelId, fx.beat);
+        break;
     }
+  }
+
+  /** Snap or ease the presentation camera for the beat; the sim stays at tick 0. */
+  private applyCutsceneBeat(levelId: string, beatIndex: number): void {
+    const beat = this.scripts.get(levelId)?.beats[beatIndex];
+    if (!beat?.camera) return;
+    const { x, y, ms } = beat.camera;
+    const from = this.app.hooks.camera;
+    if (ms <= 0 || this.effectiveReduceMotion()) {
+      this.app.setCutsceneCamera({ x, y });
+      return;
+    }
+    cancelAnimationFrame(this.panRaf);
+    const started = performance.now();
+    const step = (now: number): void => {
+      if (this.screen.kind !== 'cutscene') return;
+      const t = Math.min(1, (now - started) / ms);
+      const ease = t * (2 - t);
+      this.app.setCutsceneCamera({
+        x: from.x + (x - from.x) * ease,
+        y: from.y + (y - from.y) * ease,
+      });
+      if (t < 1) this.panRaf = requestAnimationFrame(step);
+    };
+    this.panRaf = requestAnimationFrame(step);
+  }
+
+  private clearCutscenePan(): void {
+    cancelAnimationFrame(this.panRaf);
+    this.panRaf = 0;
   }
 
   /** Fetch the level and its art, then swap it into the App; the intro card shows the frozen level once it is in. */
   private loadLevel(id: string): void {
     this.audio.music.play(manifestEntry(id).music);
     this.loading = (async (): Promise<void> => {
+      await this.ensureCutscene(id);
       if (this.app.currentLevel.id === id) {
         this.app.setMode('paused');
         this.app.restartLevel();
@@ -376,6 +493,14 @@ export class Shell {
       .finally(() => {
         this.loading = null;
       });
+  }
+
+  /** Ensure a level's intro script (if any) is in {@link cutsceneBeats} before the intro card can leave. */
+  private async ensureCutscene(id: string): Promise<void> {
+    if (!this.cutscenesOn || !hasCutscene(id) || this.scripts.has(id)) return;
+    const script = await loadCutsceneById(id);
+    this.scripts.set(id, script);
+    this.cutsceneBeats[id] = script.beats.length;
   }
 
   /** Per-world subscriptions: audio cues, score, and the screen changes the sim triggers. */

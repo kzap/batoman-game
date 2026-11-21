@@ -51,7 +51,8 @@
   "enemies": [
     { "type": "drone", "x": 1000, "y": 224, "patrolDistance": 140 },
     { "type": "patroller", "x": 2300, "y": 448, "patrolDistance": 60 },
-    { "type": "tikbalang", "x": 4100, "y": 576, "patrolDistance": 36 }
+    { "type": "tikbalang", "x": 4100, "y": 576, "patrolDistance": 36 },
+    { "type": "tikbalang-x", "x": 4300, "y": 576 }
   ],
   "art": {
     "props": "level-6-props",
@@ -80,6 +81,7 @@
       { "prop": "wall_brick", "x": 1180, "y": 96, "w": 138, "h": 98, "layer": "wall" },
       { "prop": "ledge_parapet", "x": 840, "y": 184, "w": 276, "h": 46 },
       { "prop": "platform_roof_garden", "x": 1112, "y": 184, "w": 276, "h": 46 },
+      { "prop": "bridge_rope", "x": 1312, "y": 224, "w": 192 },
       { "prop": "wall_teal_ac", "x": 1443, "y": 0, "w": 136, "h": 98, "layer": "wall" },
       { "prop": "wall_teal_ac", "x": 1578, "y": 0, "w": 136, "h": 98, "layer": "wall" },
       { "prop": "wall_teal_ac", "x": 1712, "y": 0, "w": 136, "h": 98, "layer": "wall" },

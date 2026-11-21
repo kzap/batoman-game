@@ -12,6 +12,8 @@ import { packAtlas } from './packer.js';
 const EXTRUDE = 1;
 /** Empty pixels between extruded cells. */
 const GUTTER = 1;
+/** Never below 90, per art-director review; sharp_yuv worsens Batoman max error. */
+export const ATLAS_WEBP_QUALITY = 90;
 
 interface PreparedFrame {
   readonly name: string;
@@ -118,13 +120,18 @@ export interface WrittenAtlas {
   readonly imageBytes: number;
 }
 
-/** Write <dir>/<name>.webp (lossless, alpha preserved) and <dir>/<name>.json. */
+/**
+ * Write <dir>/<name>.webp and <dir>/<name>.json.
+ * Lossy RGB at {@link ATLAS_WEBP_QUALITY}, alpha quality 100 so a clear texel stays clear.
+ * `sharp_yuv` and `smartSubsample` stay off: the former worsens Batoman's max error,
+ * and the latter is not a global setting (no manananggal sheet in this repo).
+ */
 export async function writeAtlas(built: BuiltAtlas, dir: string): Promise<WrittenAtlas> {
   await mkdir(dir, { recursive: true });
   const name = built.json.image.replace(/\.webp$/, '');
   const imagePath = path.join(dir, built.json.image);
   const jsonPath = path.join(dir, `${name}.json`);
-  const info = await toSharp(built.image).webp({ lossless: true, effort: 6 }).toFile(imagePath);
+  const info = await toSharp(built.image).webp({ quality: ATLAS_WEBP_QUALITY, alphaQuality: 100, effort: 6 }).toFile(imagePath);
   await writeFile(jsonPath, `${JSON.stringify(built.json, null, 2)}\n`);
   return { imagePath, jsonPath, imageBytes: info.size };
 }

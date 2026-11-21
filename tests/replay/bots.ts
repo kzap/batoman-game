@@ -1,6 +1,6 @@
 import { NO_INPUT } from '@core/sim/input';
 import type { Policy } from './harness';
-import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, sigbinFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
+import { bossFight, dashJump, descendTo, dropThrough, fight, jump, manananggal, ride, route, run, sigbinFight, tikbalangBossFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -128,8 +128,39 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // rung at 1344 (992..1120)
     run(1, 1090),
     jump(1), // roof (top 1408)
-    fight(1600), // roof guard patrolling 1520..1560 in front of the exit
+    manananggal('split'), // whole body. Phase 2 plants the half on balcony 2.
+    descendTo(900), // back down the shaft to the perch
+    manananggal('base'), // conduit on the planted half
+    manananggal('dead'), // flyer alone
+    run(1, 1070), // under the hanging column, back into the shaft
+    wallClimb(1, 1216),
+    run(-1, 1110),
+    jump(-1), // rung at 1280
+    fight(700, -1), // the upper drone is already dead; this step ends at once
+    run(1, 960),
+    jump(1), // rung at 1344
+    run(1, 1090),
+    jump(1), // roof again
+    fight(1600), // roof guard, in front of the exit
     run(1, 1600),
+  ],
+
+  /**
+   * Destroyed city block (grey-box, no boss). Tide is watched from the high path;
+   * the low street is not required. Shaft drop is short; the lying gap needs a dash.
+   * Tide period locked in #67 by Andre, Nov 21.
+   */
+  'level-5': () => [
+    fight(500), // patroller at 400; shoot from spawn before it closes
+    run(1, 1000),
+    fight(1400), // stealth at 1200
+    run(1, 1600),
+    run(1, 1720), // first shaft one-way (top 624)
+    run(1, 1820), // second one-way (top 612)
+    jump(1), // across the open shaft to the side exit at 1920
+    run(1, 2260),
+    dashJump(1), // 128 px lying gap at 2304..2432
+    run(1, 4096),
   ],
 
   /** Rooftop garden: hop up, dash gap, vent, vertical lift, planter, spikes, drop, planter steps, spikes, exit. */
@@ -141,7 +172,7 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     run(1, 850),
     fight(1200), // drone at 1000
     run(1, 1210),
-    dashJump(1), // dash gap 1248..1376
+    dashJump(1), // true landing: the rope bridge at 1248..1376 is a pit
     run(1, 1650),
     jump(1), // vent at 1700
     run(1, 2000),
@@ -162,13 +193,65 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // one-way step 2
     run(1, 3600),
     jump(1), // roof 6
-    run(1, 3700), // in the tikbalang's sight, short of its patrol and the spikes
-    fight(4480), // scout at 4100: shoot the burst, jump the stomp
+    tikbalangBossFight(),
     run(1, 3950),
     jump(1), // spikes at 4000
     run(1, 4480),
   ],
 };
+
+/**
+ * Same walk as the clear, then one shot-group per stumble. The boss lives
+ * through phase 3 and dies on the next window. The clear route taps extra
+ * plasma and skips that phase.
+ */
+export const tikbalangPhaseRoute = (): Policy =>
+  route([
+    run(1, 612),
+    jump(1),
+    run(1, 726),
+    jump(1),
+    run(1, 850),
+    fight(1200),
+    run(1, 1210),
+    dashJump(1),
+    run(1, 1650),
+    jump(1),
+    run(1, 2000),
+    waitMover(0, { y: 208 }),
+    run(1, 2080),
+    waitUntil('lift at the top', (c) => (c.snap.movingSolids[0]?.y ?? 0) >= 430),
+    fight(2400),
+    run(1, 2200),
+    run(1, 2350),
+    jump(1),
+    run(1, 2570),
+    jump(1),
+    run(1, 2790),
+    jump(1),
+    run(1, 3340),
+    jump(1),
+    run(1, 3470),
+    jump(1),
+    run(1, 3600),
+    jump(1),
+    tikbalangBossFight(true),
+  ]);
+
+/**
+ * Trust the painted rope bridge. Same opening as the clear route through the
+ * drone, then a walk off roof 2 with no jump. The bridge is not a floor.
+ */
+export const lyingPathRoute = (): Policy =>
+  route([
+    run(1, 612),
+    jump(1), // roof 2 (+32 over a 64 gap)
+    run(1, 726),
+    jump(1), // planter at 760
+    run(1, 850),
+    fight(1200), // drone at 1000
+    run(1, 1600), // off the lip at 1248; the bridge does not hold
+  ]);
 
 /**
  * Hold jump in place. Records the Level 1 HP Up, which sits in the spawn
