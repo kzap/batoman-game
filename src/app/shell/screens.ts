@@ -5,6 +5,8 @@
  * interprets the effects; nothing here touches the sim or the document.
  */
 
+import { CONTROL_ROWS, type ControlRow } from '../bindings';
+
 export type Screen =
   | { readonly kind: 'title'; readonly index: number }
   | { readonly kind: 'levelSelect'; readonly index: number }
@@ -14,16 +16,24 @@ export type Screen =
   | { readonly kind: 'paused'; readonly levelId: string; readonly index: number }
   | { readonly kind: 'complete'; readonly levelId: string }
   | { readonly kind: 'gameover'; readonly levelId: string; readonly index: number }
-  | { readonly kind: 'credits' };
+  | { readonly kind: 'credits' }
+  /** Rebind gameplay keys. `listening` waits for the next physical key. `from` is where Back returns. */
+  | { readonly kind: 'controls'; readonly index: number; readonly listening: boolean; readonly from: ControlsOrigin };
 
-export type ShellEvent = 'confirm' | 'back' | 'up' | 'down' | 'pause' | 'levelComplete' | 'gameOver' | 'timeout';
+/** Menu the Controls screen was opened from, including its cursor, so Back lands on the same row. */
+export type ControlsOrigin =
+  | { readonly kind: 'title'; readonly index: number }
+  | { readonly kind: 'paused'; readonly levelId: string; readonly index: number };
+
+export type ShellEvent = 'confirm' | 'back' | 'up' | 'down' | 'pause' | 'levelComplete' | 'gameOver' | 'timeout' | 'stopListen';
 
 export type Effect =
   | { readonly type: 'startLevel'; readonly levelId: string; readonly newRun: boolean }
   | { readonly type: 'restartLevel' }
   | { readonly type: 'resume' }
   | { readonly type: 'freeze' }
-  | { readonly type: 'quitToTitle' };
+  | { readonly type: 'quitToTitle' }
+  | { readonly type: 'resetBindings' };
 
 export interface ShellCtx {
   /** Manifest order. */
@@ -31,8 +41,8 @@ export interface ShellCtx {
   readonly unlocked: readonly string[];
 }
 
-export const TITLE_ITEMS = ['Start game', 'Level select', 'Credits'] as const;
-export const PAUSE_ITEMS = ['Resume', 'Restart level', 'Quit to title'] as const;
+export const TITLE_ITEMS = ['Start game', 'Level select', 'Credits', 'Controls'] as const;
+export const PAUSE_ITEMS = ['Resume', 'Restart level', 'Controls', 'Quit to title'] as const;
 export const GAMEOVER_ITEMS = ['Retry level', 'Quit to title'] as const;
 
 export const TITLE: Screen = { kind: 'title', index: 0 };
@@ -87,6 +97,8 @@ export function reduce(screen: Screen, event: ShellEvent, ctx: ShellCtx): Transi
     case 'credits':
       if (event === 'confirm' || event === 'back') return stay(TITLE);
       return stay(screen);
+    case 'controls':
+      return controls(screen, event);
   }
 }
 
@@ -103,6 +115,8 @@ function title(screen: Screen & { kind: 'title' }, event: ShellEvent, ctx: Shell
       return stay({ kind: 'levelSelect', index: 0 });
     case 'Credits':
       return stay({ kind: 'credits' });
+    case 'Controls':
+      return stay({ kind: 'controls', index: 0, listening: false, from: { kind: 'title', index: screen.index } });
     default:
       return stay(screen);
   }
@@ -130,11 +144,31 @@ function paused(screen: Screen & { kind: 'paused' }, event: ShellEvent): Transit
       return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
     case 'Restart level':
       return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'restartLevel' }, { type: 'resume' }] };
+    case 'Controls':
+      return stay({ kind: 'controls', index: 0, listening: false, from: { kind: 'paused', levelId: screen.levelId, index: screen.index } });
     case 'Quit to title':
       return { screen: TITLE, effects: [{ type: 'quitToTitle' }] };
     default:
       return stay(screen);
   }
+}
+
+function controls(screen: Screen & { kind: 'controls' }, event: ShellEvent): Transition {
+  if (event === 'stopListen') return stay({ ...screen, listening: false });
+  const moved = moveCursor(screen, event, CONTROL_ROWS.length);
+  if (moved) return stay({ ...moved, listening: false });
+  // Esc backs out of a capture first, and leaves the screen only when nothing is listening.
+  if (event === 'back') return screen.listening ? stay({ ...screen, listening: false }) : stay(originScreen(screen.from));
+  if (event !== 'confirm' || screen.listening) return stay(screen);
+  const row: ControlRow | undefined = CONTROL_ROWS[screen.index];
+  if (row === 'reset') return { screen: { ...screen, listening: false }, effects: [{ type: 'resetBindings' }] };
+  if (row === undefined) return stay(screen);
+  return stay({ ...screen, listening: true });
+}
+
+function originScreen(from: ControlsOrigin): Screen {
+  if (from.kind === 'title') return { kind: 'title', index: from.index };
+  return { kind: 'paused', levelId: from.levelId, index: from.index };
 }
 
 function gameover(screen: Screen & { kind: 'gameover' }, event: ShellEvent): Transition {
