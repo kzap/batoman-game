@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TestHooks } from '../../src/app/app';
-import { withLockstep } from './drive';
+import { advance, withLockstep } from './drive';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(HERE, '../../e2e-screenshots');
@@ -13,7 +13,8 @@ const screen = (page: Page, kind: string, timeout = 15_000) => page.waitForFunct
 test.describe('level-intro cutscene', () => {
   test('title path: Level 1 dialog shows, advances, skips; simTicks stays 0 until play', async ({ page }) => {
     test.setTimeout(60_000);
-    await page.goto(withLockstep('/'));
+    // Manual lockstep: the frame loop presents only, so simTicks stays 0 until play + advance.
+    await page.goto(withLockstep('/', true));
     await ready(page);
     await page.keyboard.press('Enter'); // Start game
     await screen(page, 'intro');
@@ -27,6 +28,8 @@ test.describe('level-intro cutscene', () => {
     await expect(page.locator('.shell-line')).toContainText('Golden hour on the piers');
     expect((await hooks(page)).simTicks).toBe(0);
     expect((await hooks(page)).mode).toBe('paused');
+    // First beat pans to the ASWANG at x≈6150; wait so the PR still shows the look.
+    await page.waitForFunction(() => (window.__batoman?.camera.x ?? 0) > 5000, undefined, { timeout: 5_000 });
     await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-show.png') });
 
     await page.keyboard.press('Enter'); // advance to Sari-sari
@@ -38,7 +41,9 @@ test.describe('level-intro cutscene', () => {
     await page.keyboard.press('Shift'); // skip the rest
     await screen(page, 'playing');
     expect((await hooks(page)).simTicks).toBe(0);
-    await page.waitForFunction(() => (window.__batoman?.simTicks ?? 0) > 5);
+    await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-skip.png') });
+    await advance(page, 12);
+    expect((await hooks(page)).simTicks).toBeGreaterThan(5);
     expect((await hooks(page)).mode).toBe('play');
     expect((await hooks(page)).errors).toEqual([]);
   });
@@ -57,14 +62,16 @@ test.describe('level-intro cutscene', () => {
   });
 
   test('?cutscene=0 skips dialog on the title path', async ({ page }) => {
-    await page.goto(withLockstep('/?cutscene=0'));
+    // Manual lockstep so the first playing frame is still tick 0 until we advance.
+    await page.goto(withLockstep('/?cutscene=0', true));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
     await page.keyboard.press('Enter');
     await screen(page, 'playing');
     expect((await hooks(page)).simTicks).toBe(0);
-    await page.waitForFunction(() => (window.__batoman?.simTicks ?? 0) > 5);
+    await advance(page, 12);
+    expect((await hooks(page)).simTicks).toBeGreaterThan(5);
   });
 
   test('Esc from the cutscene returns to the title with the sim still paused', async ({ page }) => {
