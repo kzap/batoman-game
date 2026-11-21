@@ -3,9 +3,9 @@ import type { AtlasFrame, AtlasJson } from '@content/atlas';
 import { SIGBIN } from '@game/tuning';
 import type { EnemySnapshot, WorldSnapshot } from '@game/world';
 import { EntityView } from '@render/entity-view';
-import { enemyHurtTint } from '@render/motion';
+import { enemyHurtTint, PRESENTATION } from '@render/motion';
 import { PALETTE } from '@render/stage';
-import { Texture } from 'three';
+import { Mesh, MeshBasicMaterial, Texture } from 'three';
 
 /** Placeholder tint from ENEMY_LOOK.sigbin. */
 const ENEMY_TINT = 0x1a1224;
@@ -61,6 +61,18 @@ function snap(extra: Partial<WorldSnapshot> = {}): WorldSnapshot {
   };
 }
 
+/** Atlas quads only. The diamond lives under `weak-point` and is not the lunge tint. */
+function bodyMaterials(v: EntityView): MeshBasicMaterial[] {
+  const found: MeshBasicMaterial[] = [];
+  v.group.traverse((o) => {
+    if (o.parent?.name === 'weak-point') return;
+    if (!(o instanceof Mesh)) return;
+    const mat = o.material;
+    if (mat instanceof MeshBasicMaterial) found.push(mat);
+  });
+  return found;
+}
+
 const sigbinEnemy = (pose: EnemySnapshot['pose']): EnemySnapshot => ({
   id: 1,
   type: 'sigbin',
@@ -108,27 +120,29 @@ describe('Sigbin view', () => {
 
   it('tints the lunge through enemyHurtTint, so reduce-motion does not strobe', () => {
     const v = view();
-    const s = snap({ enemies: [sigbinEnemy('windup')] });
-    v.present(s, s, 0);
-    const tint = enemyHurtTint(true, 0, false, ENEMY_TINT, PALETTE.neonMagenta);
-    const colors: number[] = [];
-    v.group.traverse((o) => {
-      const mesh = o as { material?: { color?: { getHex: () => number } } };
-      const hex = mesh.material?.color?.getHex?.();
-      if (hex !== undefined) colors.push(hex);
-    });
-    expect(colors).toContain(tint);
+    const idle = snap({ enemies: [sigbinEnemy('idle')] });
+    v.present(idle, idle, 0);
+    // The placeholder sheet is the only quad in this tint. The diamond never is.
+    const body = bodyMaterials(v).filter((m) => m.color.getHex() === ENEMY_TINT);
+    expect(body).toHaveLength(1);
+    const sigbin = body[0]!;
+
+    const flashOn = snap({ tick: 0, enemies: [sigbinEnemy('windup')] });
+    v.present(idle, flashOn, 0);
+    expect(sigbin.color.getHex()).toBe(enemyHurtTint(true, 0, false, ENEMY_TINT, PALETTE.neonMagenta));
+
+    const offTick = PRESENTATION.hurtFlash.halfPeriodTicks;
+    const flashOff = snap({ tick: offTick, enemies: [sigbinEnemy('windup')] });
+    v.present(flashOn, flashOff, 0);
+    expect(sigbin.color.getHex()).toBe(enemyHurtTint(true, offTick, false, ENEMY_TINT, PALETTE.neonMagenta));
+    expect(sigbin.color.getHex()).toBe(ENEMY_TINT);
+
     v.setReduceMotion(true);
-    v.present(s, { ...s, tick: 1 }, 0);
-    const steady = enemyHurtTint(true, 1, true, ENEMY_TINT, PALETTE.neonMagenta);
-    const reduced: number[] = [];
-    v.group.traverse((o) => {
-      const mesh = o as { material?: { color?: { getHex: () => number } } };
-      const hex = mesh.material?.color?.getHex?.();
-      if (hex !== undefined) reduced.push(hex);
-    });
-    expect(reduced).toContain(steady);
-    expect(steady).not.toBe(PALETTE.neonMagenta);
+    v.present(flashOff, flashOff, 0);
+    const steady = enemyHurtTint(true, offTick, true, ENEMY_TINT, PALETTE.neonMagenta);
+    expect(sigbin.color.getHex()).toBe(steady);
+    expect(sigbin.color.getHex()).not.toBe(PALETTE.neonMagenta);
+    expect(sigbin.color.getHex()).not.toBe(ENEMY_TINT);
     v.dispose();
   });
 });
