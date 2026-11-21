@@ -1,7 +1,7 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-7b and 8.1-8.3 are on `v2`. The tip is `f92ab08` (tikbalang scout, #26). Level 6 is dressed (#33).
-Level 3 is dressed (#14) and its source art is on `v2` (#32). The playtest build deploys from `v2`
+Status: Phases 0-7b and 8.1-8.3 are on `v2`. The tip is `3b51dfc` (Manananggal art #62, after Sigbin art #45). Level 6 is dressed (#33).
+Level 3 is dressed (#14) and its source art is on `v2` (#32); Sigbin sheet and `footprint_back` are on `v2` (#45). The playtest build deploys from `v2`
 (#24) and is live at https://mydev.org/batoman-game/. `main` still holds v1 (Phaser 3, tagged `v1-archive`)
 and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
 
@@ -115,7 +115,7 @@ undamaged clears in `tests/replay/fixtures/`.
 | Level | Dressing | What is in the tree |
 |---|---|---|
 | 1 Tondo Sublevel Docks | Dressed | `art` block, `level-1-props`, `sky`/`town`, 58 decor quads. Full source set in `art-source/level-1/`. Patrollers, drones, and the `aswang` boss (patroller sheet, 1.6x, lilac). Fixture 5567 ticks. |
-| 3 Quiapo Underground Chapel | Dressed | Source art is on `v2` (#32); the `art` block is in (#14): `nave`/`chapel` backdrops, `midFloorY` 448, 77 decor quads, early Sigbin hints (prints, eyes, a silhouette in the flood). The `sigbin` boss is at (3424, 768). Stealth, drone, patroller. Music `level-2`. Fixture 3889 ticks. E2E loads it dressed. |
+| 3 Quiapo Underground Chapel | Dressed | Source art is on `v2` (#32); the `art` block is in (#14): `nave`/`chapel` backdrops, `midFloorY` 448, 77 decor quads, early Sigbin hints (prints, eyes, a silhouette in the flood). `footprint_back` (r3f0) and the Sigbin sheet are on `v2` (#45); dress hint frames are r4. The `sigbin` boss is at (3424, 768). Stealth, drone, patroller. Music `level-2`. Fixture 3889 ticks. E2E loads it dressed. |
 | 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth, Manananggal-7 on the roof (fight in, sheet still the patroller placeholder). Music `level-2`. Fixture 4961 ticks, undamaged, through the kill and the return climb. E2E asserts the atlas and both backdrops and screenshots the split and the descent. |
 | 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 145 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a tikbalang scout at x 4100 (#26: burst chase and stomp). Music `level-1`. Fixture 4059 ticks, undamaged. |
 

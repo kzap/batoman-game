@@ -19,7 +19,7 @@ export class GameAudio {
   readonly sfx = new Sfx(this.engine);
   private unsubscribe: (() => void)[] = [];
 
-  constructor(base: string) {
+  constructor(private readonly base: string) {
     this.music = new MusicPlayer(this.engine, base);
   }
 
@@ -27,6 +27,7 @@ export class GameAudio {
   unlock(): void {
     this.engine.unlock();
     this.music.resume();
+    void this.sfx.loadSamples(this.base);
   }
 
   play(name: SfxName): void {
@@ -55,6 +56,7 @@ export class GameAudio {
       events.on('complete', duckAnd('complete', 1)),
       events.on('gameover', duckAnd('gameOver', 1)),
       events.on('bossPhase', duckAnd('bossPhase', 1)),
+      events.on('bossTelegraph', play('sigbinTelegraph')),
       events.on('bossDefeated', duckAnd('bossDefeated', 1)),
     ];
   }

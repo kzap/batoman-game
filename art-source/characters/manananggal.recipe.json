@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "source": "art-source/characters/manananggal-sprites.png",
+  "name": "manananggal",
+  "kind": "sheet",
+  "scale": 0.5,
+  "animations": [
+    {
+      "name": "idle",
+      "row": 0,
+      "fps": 6,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "move",
+      "row": 1,
+      "fps": 10,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "shoot",
+      "row": 2,
+      "fps": 10,
+      "loop": false,
+      "stabilize": true
+    },
+    {
+      "name": "split",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1"
+      ],
+      "fps": 8,
+      "loop": false
+    },
+    {
+      "name": "hurt",
+      "row": 3,
+      "frames": [
+        "r3f2",
+        "r3f3"
+      ],
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "death",
+      "row": 4,
+      "frames": [
+        "r3f2",
+        "r3f3",
+        "r4f0",
+        "r4f1"
+      ],
+      "fps": 8,
+      "loop": false
+    },
+    {
+      "name": "fly",
+      "row": 5,
+      "fps": 10,
+      "loop": true,
+      "pivot": {
+        "anchor": "center"
+      }
+    },
+    {
+      "name": "upper_shoot",
+      "row": 4,
+      "frames": [
+        "r4f2",
+        "r4f3"
+      ],
+      "fps": 10,
+      "loop": false,
+      "pivot": {
+        "anchor": "center"
+      }
+    },
+    {
+      "name": "lower_idle",
+      "row": 6,
+      "frames": [
+        "r6f0",
+        "r6f1"
+      ],
+      "fps": 6,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "lower_shoot",
+      "row": 6,
+      "frames": [
+        "r6f2",
+        "r6f3"
+      ],
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "lower_death",
+      "row": 6,
+      "frames": [
+        "r6f4"
+      ],
+      "fps": 6,
+      "loop": false
+    }
+  ],
+  "notes": "Level 4 Manananggal-7 boss (issue #50). Source cells plant the assembled unit at about 376 px tall and pack at scale 0.5, matching the Sigbin atlas convention (rendered at ENEMY_LOOK scale 2 so the body is about half of the 672x378 screen). Frames face right. No painted weak-point diamond; the renderer draws the shared magenta #ff2d78 diamond with a white outline. Row 0 idle (whole body), row 1 stalk, row 2 attack, row 3 split then hurt, row 4 death then upper_shoot, row 5 fly (upper half, centre pivot), row 6 lower_idle, lower_shoot, lower_death. components.bridge and minArea keep wings, spine cables and exhaust as one frame.",
+  "components": {
+    "alphaThreshold": 20,
+    "bridge": 10
+  },
+  "filter": {
+    "minArea": 800,
+    "watermark": null
+  },
+  "satellites": {
+    "ratio": 0.4,
+    "maxGap": 0.6,
+    "overlapMerge": 0.5
+  }
+}

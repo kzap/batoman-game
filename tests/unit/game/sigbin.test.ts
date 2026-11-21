@@ -160,6 +160,19 @@ describe('Sigbin', () => {
     expect(Math.abs(s.body.centerX - (playerMid + SIGBIN.rearOffset))).toBeLessThanOrEqual(SIGBIN.rearSlack + 1);
   });
 
+  it('emits bossTelegraph once when the windup starts', () => {
+    const { w, s } = sigbinWorld();
+    const tells: { x: number; y: number }[] = [];
+    w.events.on('bossTelegraph', (e) => tells.push(e));
+    engage(w);
+    until(w, () => s.state === 'telegraph');
+    expect(tells).toHaveLength(1);
+    expect(tells[0]!.x).toBe(s.body.centerX);
+    expect(tells[0]!.y).toBe(s.body.y + s.body.h / 2);
+    run(w, 8);
+    expect(tells).toHaveLength(1);
+  });
+
   it('telegraphs for the phase length, decloaking, then lunges a fixed distance and opens the core', () => {
     const { w, s } = sigbinWorld();
     engage(w);

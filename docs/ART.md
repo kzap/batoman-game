@@ -137,22 +137,24 @@ Used as anchors across all levels — specific levels deviate within these const
 ### ASWANG Unit Design Principles
 - Each boss is **large enough to feel threatening** — at least half the screen height
 - **Three visible phases:** idle/patrol stance, attack stance, stagger/vulnerable state
-- Every boss has a **glowing exposed core** that appears only during vulnerability windows: magenta `#ff2d78` diamond fill plus a white `#ffffff` diamond outline (visual-language rule 3). The outline does not pulse. With reduce-motion on, the fill holds steady instead of breathing
+- Every boss uses the **same colour-blind-safe weak point** (PR #39, visual-language rule 3): a magenta `#ff2d78` diamond fill with a white `#ffffff` diamond outline, drawn as a renderer overlay on the exposed core rect, only during the vulnerability window. The outline does not pulse. With reduce-motion on, the fill holds steady instead of breathing. Do not paint a unique core colour or gem on the sprite — leave the opening (hatch, visor, conduit) clear for the overlay
 - Boss designs should feel like NSA engineers studied the mythology and built the worst possible version of it
 
 ---
 
 ### Sigbin Unit (Level 3 — Quiapo Underground Chapel)
-**Mythological basis:** Sigbin — backward-walking shadow creature that sucks blood through shadow
+**Mythological basis:** Sigbin — backward-walking shadow creature that sucks blood through shadow. Dr. Epal's Project ASWANG unit: a cyber-mechanical hunter.
+
+The shipped sheet is `art-source/characters/sigbin-sprites.png` (atlas `sigbin`), painted in Level 1's inked painterly look, readable against the dark flooded chapel nave. Frames face right. Clips: idle, backward walk (`move`; also sped up for the lunge), snarl (`shoot`, unused in the fight), telegraph/windup and recover (`hurt`), death. The body is 192×188 (half the 378 px camera, within a pixel). Packed at scale 0.5 from 2× cells; drawn at look-scale 2 so it matches the sim body (`SIM_PX_PER_ATLAS_PX` is 0.5).
 
 | Aspect | Design |
 |--------|--------|
-| Form | Quadruped, backward-jointed legs, body facing one direction while head points the other; extremely unnatural movement |
-| Size | About half the screen height on the 672×378 camera. The old 64×48 px cell is retired ([issue #21](https://github.com/kzap/batoman-game/issues/21)) |
-| Materials | Matte black rubber composite over titanium armature; absorbs most light |
-| Signature effect | Active camo shimmer (scanline distortion) — player sees only a slight visual ripple until within 3 tiles |
-| Vulnerable state | Camo flickers off, dorsal spine opens to reveal magenta core |
-| Environment blend | Designed to hide in the candlelit tunnel shadows; the candle flicker makes detection harder |
+| Form | Quadruped, backward-jointed mechanical legs; the head hangs low on the facing side, pointing opposite the walk, with a single violet sensor eye |
+| Size | 192×188 px (Andre: about half the 378 px camera height). The old 64×48 cell is retired |
+| Materials | Matte black rubber composite over titanium armature, oily iridescent violet-teal sheen, gunmetal hydraulics, closed dorsal spines |
+| Signature effect | Cloak shimmer (alpha 0.08–0.28). The player tracks it by painted backward footprints (`footprint_back` in the Level 3 props atlas, toes pointing the wrong way) and by a reversed tambol / hand-drum telegraph cue (`sigbin-telegraph`, key `sigbinTelegraph`) |
+| Vulnerable state | Camo drops, the dorsal hatch opens onto a dark empty cavity (no painted diamond or gem). The shared magenta diamond with a white outline is drawn on the dropping core rect (`BossSnapshot.exposed` / `weakPoint`) |
+| Environment blend | Designed to hide in the candlelit chapel shadows; warm candlelight and cool metal rim light keep the silhouette readable when it decloaks |
 
 ---
 
@@ -179,7 +181,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Size | 144×160 px |
 | Materials | Reinforced tank plating, weathered and scorched; looks like it was built to last centuries |
 | Signature effect | Smoke cloud deployment — fills 30% of screen with semi-opaque smog; player must navigate blind |
-| Vulnerable state | Smoke clears, chest plate blows open revealing magenta reactor core |
+| Vulnerable state | Smoke clears, chest plate blows open. The shared weak-point diamond (see design principles) is drawn on the exposed reactor |
 | Environment blend | Nearly fills the corridor width; debris falls when it moves |
 
 ---
@@ -191,12 +193,14 @@ The fight is on `level-4`. The packed sheet is not in the tree yet (served-cap c
 
 | Aspect | Design |
 |--------|--------|
-| Form | Phase 1 — full humanoid, elegant and almost beautiful; Phase 2 — upper torso tears free and flies, trailing severed cable/viscera; lower half remains standing and attacks separately |
-| Size | 64×128 px (full); 64×72 px (upper); 48×64 px (lower) |
-| Materials | Sleek white NSA-grade chassis with gold trim — designed to look authoritative, not monstrous, until it splits |
-| Signature effect | Split event — dramatic screen flash, upper half levitates; lower half sprouts blade legs |
-| Vulnerable state | Lower half: expose power conduit between split point (magenta). Upper half: cracked chest panel |
-| Environment blend | Atrium setting — flies between elegant columns; light plays off white chassis |
+| Form | Phase 1 — the whole unit, a skull-headed mechanical torso with salvaged titanium bat-membrane wings docked onto a squat hydraulic walker. Phase 2 — the upper half tears free and flies, trailing a warm-red plasma-cable spine; the lower half stays planted on a balcony already passed and claws from the perch. Phase 3 — the flyer alone, once the balcony half is destroyed (the folk rule: destroy the base first) |
+| Size | About half the 672×378 screen height for the assembled unit, matching the Sigbin convention (source planted at about 376 px, packed at scale 0.5, rendered at ENEMY_LOOK scale 2). The flyer keeps that wingspan with a trailing spine; the planted lower half is shorter, about 100 px sim-tall |
+| Materials | Pewter and gunmetal chassis, rust and gold-warm highlights, dark brown bat membranes edged in crimson. A warm-red shape against the sunlit sunset city, not a spooky silhouette. Brightest element: glowing magenta `#ff2d78` eyes, plus a circular magenta shoulder core. No painted weak-point diamond; the renderer draws the shared magenta diamond with a white outline |
+| Signature effect | The split: the waist clamp opens, cables stretch and tear, the flyer lifts off, the walker is left with a steaming open socket. Early hints on the climb are a wing shadow on the tower face, a dropped hydraulic cable and scratched perch plate on the mid balcony, and a status light that reads `07` |
+| Vulnerable state | The shared weak-point overlay appears during the stun window. Recover frames may open a hatch or socket; they do not paint the diamond. Lower half: expose the power conduit between the split. Upper half: cracked chest panel. The shared weak-point diamond is drawn on the exposed conduit |
+| Environment blend | Posted on the NSA tower face at sunset. NSA cyan stays on the tower; the unit is the warm-red machine against that sky |
+| Music | `level-4` / "Tower Pulse": a 76.8 s loop (kulintang-like gongs, pulse bass, city-noise bed) that lifts a high gong layer mid-cue, in place of the Divisoria stand-in |
+| Sheet | `art-source/characters/manananggal-sprites.png` (`manananggal` atlas). Clips: `idle`, `move`, `shoot`, `split`, `hurt`, `death`, `fly`, `upper_shoot`, `lower_idle`, `lower_shoot`, `lower_death`. Frames face right |
 
 ---
 
@@ -209,7 +213,7 @@ The fight is on `level-4`. The packed sheet is not in the tree yet (served-cap c
 | Size | Head: 192×128 px; visible body segments: tiled 96×96 px |
 | Materials | Submarine-grade hull plating in deep ocean black; bioluminescent blue markings (echoing the Pasig River); jaws hydraulic, can shear through concrete |
 | Phases | Phase 1: head attacks from water below; Phase 2: coils around platforms, constricts arena; Phase 3: full emergence, screen-filling, multi-hit core pattern |
-| Vulnerable state | Moon-glyph embossed on forehead pulses magenta when hit window opens (thematic: the moon it tried to swallow) |
+| Vulnerable state | Moon-glyph embossed on the forehead; the shared weak-point diamond is drawn there when the hit window opens (thematic: the moon it tried to swallow) |
 | Environment blend | Rises from flooded street; electric-blue Pasig water illuminates it from below |
 
 ---
@@ -265,7 +269,7 @@ Each level uses 4 background layers at different scroll speeds:
 | Structures | Rusted highway wall and corrugated scaffolds; NSA cyan on the tower itself |
 | Lighting sources | The sun, status LEDs, window-light, warm city haze |
 | Dominant colors | Sunset amber, rust, NSA cyan, the city's warm haze |
-| Ambient detail | NSA logo on every surface, security cameras, air conditioning units, window-washing drone rigs |
+| Ambient detail | NSA logo on every surface, security cameras, air conditioning units, window-washing drone rigs. Early Manananggal-7 hints: a wing shadow on the first shaft, a `07` status light, a dropped cable and a scratched perch plate on the mid balcony |
 
 #### Level 5 — Skyway Traffic
 | Element | Detail |
