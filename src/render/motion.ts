@@ -39,6 +39,8 @@ export const PRESENTATION = {
   invuln: { halfPeriodTicks: 6, blinkOpacity: 0.45, steadyOpacity: 0.72 },
   /** A hurt flash that alternates this often is a strobe; reduce-motion holds `steadyTint` instead. */
   hurtFlash: { halfPeriodTicks: 3, steadyTint: 0xffffff },
+  /** Vertical bob of an uncollected pickup, in sim pixels. The hitbox stays put. */
+  pickup: { bobAmplitude: 3, bobPeriodTicks: 90 },
 } as const;
 
 /**
@@ -90,6 +92,13 @@ export function presentedCamera(x: number, y: number, shakeX: number, shakeY: nu
 /** Film-grain opacity. `base` is the post stack's tuned value (`POST_TUNING.grainOpacity`). */
 export function presentedGrainOpacity(base: number, reduceMotion: boolean): number {
   return reduceMotion ? 0 : base;
+}
+
+/** Pickup bob in sim pixels. Reduce-motion holds the quad on its hitbox. */
+export function pickupBob(tick: number, reduceMotion: boolean): number {
+  if (reduceMotion) return 0;
+  const p = PRESENTATION.pickup;
+  return sine(tick, p.bobPeriodTicks) * p.bobAmplitude;
 }
 
 /** Muzzle-glow scale. The pulse is decorative; the charge amount still grows the glow. */
