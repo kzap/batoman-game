@@ -106,6 +106,15 @@ export class Stage {
     this.camera.updateProjectionMatrix();
   }
 
+  /** Presentation policy: film grain off while reduce-motion is on. No effect when the post stack is disabled. */
+  setReduceMotion(on: boolean): void {
+    this.post?.setReduceMotion(on);
+  }
+
+  get grainEnabled(): boolean {
+    return this.post?.grainEnabled ?? false;
+  }
+
   /** `deltaSeconds` since the last frame drives time-based effects (grain). */
   render(deltaSeconds: number): void {
     if (this.post) this.post.render(deltaSeconds);

@@ -133,7 +133,7 @@ Used as anchors across all levels — specific levels deviate within these const
 ### ASWANG Unit Design Principles
 - Each boss is **large enough to feel threatening** — at least half the screen height
 - **Three visible phases:** idle/patrol stance, attack stance, stagger/vulnerable state
-- Every boss uses the **same colour-blind-safe weak point** (PR #39): a magenta `#ff2d78` diamond fill with a white `#ffffff` diamond outline, drawn as a renderer overlay on the exposed core rect, only during the vulnerability window. The outline does not pulse. With reduce-motion on, the fill holds steady instead of breathing. Do not paint a unique core colour or gem on the sprite — leave the opening (hatch, visor, conduit) clear for the overlay
+- Every boss uses the **same colour-blind-safe weak point** (PR #39, visual-language rule 3): a magenta `#ff2d78` diamond fill with a white `#ffffff` diamond outline, drawn as a renderer overlay on the exposed core rect, only during the vulnerability window. The outline does not pulse. With reduce-motion on, the fill holds steady instead of breathing. Do not paint a unique core colour or gem on the sprite — leave the opening (hatch, visor, conduit) clear for the overlay
 - Boss designs should feel like NSA engineers studied the mythology and built the worst possible version of it
 
 ---

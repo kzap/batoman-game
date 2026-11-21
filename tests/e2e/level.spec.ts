@@ -105,7 +105,7 @@ test.describe('level 1', () => {
   });
 
   test('scripted traversal: the browser build replays the Level 1 fixture to the same outcome', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-1-clear.json'), 'utf8')) as Fixture;
     await page.goto(withLockstep('/?level=level-1'));
     await ready(page);
@@ -125,6 +125,12 @@ test.describe('level 1', () => {
     expect((await hooks(page)).enemies.filter((e) => e.type === 'patroller' && e.x < 900)).toEqual([]);
     await stepUntil(page, { engaged: true });
     await expect(page.locator('#hud')).toContainText('ASWANG PROTOTYPE');
+    // The exposed core lasts 100 ticks. Step under that so the diamond cue cannot be skipped.
+    await stepUntil(page, { exposed: true }, 60_000, 48);
+    const cue = await hooks(page);
+    expect(cue.weakPoint).toEqual({ shape: 'diamond', ring: 'white', pulsing: true });
+    expect(cue.reduceMotion).toBe(false);
+    await page.screenshot({ path: resolve(SHOTS, 'level-1-weak-point.png') });
     await stepUntil(page, { phase: 3 });
     await page.screenshot({ path: resolve(SHOTS, 'level-1-boss.png') });
     await advanceUntilDone(page);

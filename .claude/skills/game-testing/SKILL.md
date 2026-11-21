@@ -74,6 +74,10 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `camera` | `{ x, y }` camera centre in sim pixels |
 | `enemies` | `[{ type, pose, x, hp }]` live enemies from the latest snapshot (dying ones show `pose: 'death'` until dropped) |
 | `boss` | null, or `{ hp, phase, engaged }`; `engaged` flips when the player reaches the arena and the HUD bar appears |
+| `weakPoint` | null, or `{ shape: 'diamond', ring: 'white', pulsing }` while the boss core is on screen. The white ring is the non-colour channel |
+| `shake` | `{ simX, simY, x, y }` sim shake and the offset added to the camera. `x` and `y` are 0 when reduce-motion is on |
+| `grain` | film grain is contributing. False when reduce-motion is on or `?post=0` |
+| `reduceMotion` | effective presentation preference (save, OS, or `?reduceMotion=`) |
 | `entities` | sprites the entity view is showing: player + enemies + shots + movers |
 | `status` | `playing`, `complete`, or `gameover` |
 | `level` | id of the loaded level |
@@ -116,14 +120,15 @@ Controls (`src/app/keyboard.ts`):
 | Dash | X / K / Shift |
 | Fire | Z / J tap for plasma; hold 0.8 s and release for a piercing nova |
 | Debug overlay | backtick: stats bottom-left plus collider outlines |
-| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx |
+| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx, R reduce-motion |
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
 Query flags: `?level=<id>` loads a manifest level (`level-1`, `level-3`, `level-4`, `level-6`; an unknown id is a boot
 error); `?edit=1` opens the level editor (keys listed in the panel tooltips and docs/TDD.md section 11; `P`
 playtests, `Ctrl+S` saves through the dev server); `?post=0` disables the post stack (bloom, vignette, grain)
-to isolate a rendering problem; `?dof=1` enables depth of field; `?lockstep=1` steps a fixed tick count per frame
+to isolate a rendering problem; `?dof=1` enables depth of field; `?reduceMotion=1` or `0` overrides
+reduce-motion for the session without writing the save until R is pressed; `?lockstep=1` steps a fixed tick count per frame
 (test-only; production clock unchanged); `?ticksPerFrame=N` overrides that count (`0` = only `advance`);
 `?replayTicks=N` overrides the replay batch. Only some poses have their own art; see `PlayerAnimator`
 (`src/render/animator.ts`) for which frames `fall`, `wallslide`, `dash`, `crouch`, `slide` and `dead` borrow.

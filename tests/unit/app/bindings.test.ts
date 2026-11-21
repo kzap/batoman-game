@@ -81,6 +81,8 @@ describe('toggleBinding', () => {
     expect(toggleBinding(DEFAULT_BINDINGS, 'jump', 'KeyP')).toBeNull();
     expect(toggleBinding(DEFAULT_BINDINGS, 'jump', 'KeyM')).toBeNull();
     expect(toggleBinding(DEFAULT_BINDINGS, 'jump', 'KeyN')).toBeNull();
+    expect(toggleBinding(DEFAULT_BINDINGS, 'jump', 'KeyR')).toBeNull();
+    expect(toggleBinding(DEFAULT_BINDINGS, 'fire', 'KeyR')).toBeNull();
     expect(toggleBinding(DEFAULT_BINDINGS, 'jump', 'Backquote')).toBeNull();
     expect(toggleBinding(DEFAULT_BINDINGS, 'jump', 'ControlLeft')).toBeNull();
     expect(toggleBinding(DEFAULT_BINDINGS, 'fire', 'NotAKey')).toBeNull();
@@ -104,6 +106,7 @@ describe('parseBindings', () => {
     expect(parseBindings(null)).toBeNull();
     expect(parseBindings({ ...DEFAULT_BINDINGS, jump: [] })).toBeNull();
     expect(parseBindings({ ...DEFAULT_BINDINGS, fire: ['Escape'] })).toBeNull();
+    expect(parseBindings({ ...DEFAULT_BINDINGS, dash: ['KeyR'] })).toBeNull();
     expect(parseBindings({ ...DEFAULT_BINDINGS, left: ['KeyA', 'KeyA'] })).toBeNull();
     expect(parseBindings({ ...DEFAULT_BINDINGS, dash: ['KeyX', 'KeyK', 'ShiftLeft', 'ShiftRight', 'KeyQ'] })).toBeNull();
     const missing = { ...DEFAULT_BINDINGS } as Record<string, unknown>;
