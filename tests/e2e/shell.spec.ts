@@ -5,6 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
 import type { ReplayInputs } from '../../src/core/sim/replay';
 import { advanceUntilDone, withLockstep } from './drive';
+import { expectResultsCard } from './results';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(HERE, '../../e2e-screenshots');
@@ -168,7 +169,8 @@ test.describe('shell', () => {
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
       await advanceUntilDone(page);
       await screen(page, 'complete', 10_000);
-      await expect(page.locator('#overlay')).toContainText('LEVEL CLEAR');
+      await expectResultsCard(page, i === 0 ? { kills: 1750, clear: 500, hearts: 300, total: 2550 } : undefined);
+      if (i === 0) await page.screenshot({ path: resolve(SHOTS, 'shell-results.png') });
       if (id === 'level-1') {
         const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { unlocked?: string[] });
         expect(saved.unlocked).toEqual(['level-1', 'level-3']);
@@ -286,5 +288,60 @@ test.describe('shell', () => {
     await screen(page, 'controls');
     await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
     expect((await hooks(page)).errors).toEqual([]);
+  });
+
+  test('a saved reduce-motion flag snaps the results tally', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'batoman.v2.save',
+        JSON.stringify({ version: 1, unlocked: ['level-1'], best: {}, options: { music: false, sfx: false, reduceMotion: true } }),
+      );
+    });
+    await page.goto(withLockstep('/?level=level-1'));
+    await ready(page);
+    expect((await hooks(page)).reduceMotion).toBe(true);
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture('level-1'));
+    await advanceUntilDone(page);
+    const first = await page.waitForFunction(() => {
+      if (window.__batoman?.screen !== 'complete') return '';
+      return document.getElementById('overlay')?.dataset['tally'] ?? '';
+    });
+    // The first paint is already the finished card. An animated count would still be `running`.
+    expect(await first.jsonValue()).toBe('done');
+    await expectResultsCard(page, { kills: 1750, clear: 500, hearts: 300, total: 2550 });
+  });
+
+  test('explicit reduce-motion off still counts when the OS prefers it, and R snaps', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'batoman.v2.save',
+        JSON.stringify({ version: 1, unlocked: ['level-1'], best: {}, options: { music: false, sfx: false, reduceMotion: false } }),
+      );
+    });
+    await page.goto(withLockstep('/?level=level-1'));
+    await ready(page);
+    expect((await hooks(page)).reduceMotion).toBe(false);
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture('level-1'));
+    await advanceUntilDone(page);
+    const first = await page.waitForFunction(() => {
+      if (window.__batoman?.screen !== 'complete') return '';
+      return document.getElementById('overlay')?.dataset['tally'] ?? '';
+    });
+    expect(await first.jsonValue()).toBe('running');
+    await expect(page.locator('[data-line="kills"] .shell-tally-num')).not.toHaveText('001750');
+    await page.keyboard.press('KeyR');
+    // One read, no retry. A count that is only animating is still `running` here and finishes about 1.2 s later.
+    const snapped = await page.evaluate(() => ({
+      tally: document.getElementById('overlay')?.dataset['tally'] ?? '',
+      kills: document.querySelector('[data-line="kills"] .shell-tally-num')?.textContent ?? '',
+    }));
+    expect(snapped.tally).toBe('done');
+    expect(snapped.kills).toBe('001750');
+    await expectResultsCard(page, { kills: 1750, clear: 500, hearts: 300, total: 2550 });
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { options?: { reduceMotion?: boolean } });
+    expect(saved.options?.reduceMotion).toBe(true);
   });
 });

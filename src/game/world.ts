@@ -7,12 +7,12 @@ import { Rng } from '@core/sim/rng';
 import type { AABB } from '@core/math/aabb';
 import type { EnemyType, LevelJson, MovingSolidJson, PickupKind, Rect } from '@content/level';
 import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
-import { Boss, BossUnit, spawnEnemy, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
+import { BossUnit, spawnEnemy, type BossTell, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
 import { Health } from './health';
 import { createPickups, type Pickup, type PickupSnapshot } from './pickups';
 import { Player, type PlayerPose } from './player';
 import { advanceProjectile, ProjectilePool, projectileBox, type Projectile, type ProjectileKind, type ProjectileSnapshot } from './projectiles';
-import { BOSS, CAMERA, ENEMY, ENEMY_SHOT, NOVA, PLAYER, PROJECTILE } from './tuning';
+import { CAMERA, ENEMY, ENEMY_SHOT, NOVA, PLAYER, PROJECTILE } from './tuning';
 
 const overlapsRect = (b: AABB, r: Rect): boolean => overlaps(b, r);
 
@@ -68,13 +68,15 @@ export interface BossSnapshot {
   readonly hp: number;
   readonly maxHp: number;
   readonly phase: number;
-  /** Weak point rect in level px, for the renderer's core glow. */
+  /** Weak point rect in level px. The colour-blind-safe diamond (PR #39) draws on this while `exposed`. */
   readonly weakPoint: Rect;
-  /** Punish window. ASWANG doubles core hits; Tikbalang-X takes damage only then. */
+  /** The punish window is open. ASWANG doubles core hits; Sigbin and Tikbalang-X take damage only then. */
   readonly exposed: boolean;
-  /** HUD name. */
+  /** HUD name ("ASWANG PROTOTYPE", "SIGBIN UNIT", "TIKBALANG-X"). */
   readonly label: string;
-  /** Decoy left by a warp. Not a body, so it never takes a hit. */
+  /** Footprints and other non-body tells. Empty for a boss that leaves none. */
+  readonly tells: readonly BossTell[];
+  /** Decoy left by a warp. Not a body, so it never takes a hit. Null for Aswang and Sigbin. */
   readonly afterimage: (Rect & { readonly alpha: number }) | null;
 }
 
@@ -180,8 +182,8 @@ export class World {
     }
   }
 
-  get boss(): Boss | BossUnit | null {
-    return this.enemies.find((e): e is Boss | BossUnit => e instanceof Boss || e instanceof BossUnit) ?? null;
+  get boss(): BossUnit | null {
+    return this.enemies.find((e): e is BossUnit => e instanceof BossUnit) ?? null;
   }
 
   /** The exit works only once any boss is dead. */
@@ -284,11 +286,13 @@ export class World {
     const ctx = this.enemyCtx();
     for (const e of this.enemies) {
       e.update(ctx);
-      if ((e instanceof Boss || e instanceof BossUnit) && e.phase !== this.bossPhaseSeen) {
+      if (e instanceof BossUnit && e.phase !== this.bossPhaseSeen) {
         this.bossPhaseSeen = e.phase;
         this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
       }
-      // Touching an enemy that attacks on contact hurts. `hittable` is "a shot can land".
+      // Touching an enemy that attacks on contact hurts; knockback away from its centre.
+      // `hittable` is "a shot can land". The Sigbin is hittable while recovering and does not touch-damage then.
+      // Tikbalang-X's run is the reverse: contact while the body is not shot-hittable.
       if (e.harmsOnContact && !this.player.dead && overlaps(this.player.body, e.body)) {
         this.damage(ENEMY.contactDamage, this.player.body.centerX < e.body.centerX ? -1 : 1);
       }
@@ -321,7 +325,7 @@ export class World {
   private hitEnemies(p: Projectile, box: AABB): void {
     for (const e of this.enemies) {
       if (!e.hittable || !overlaps(box, e.body) || p.hitIds.includes(e.id)) continue;
-      const weakPoint = (e instanceof Boss || e instanceof BossUnit) && overlaps(box, e.weakPointRect());
+      const weakPoint = e instanceof BossUnit && overlaps(box, e.weakPointRect());
       const dir: 1 | -1 = p.vx < 0 ? -1 : 1;
       const dealt = e.hit(p.damage, dir, weakPoint);
       if (dealt === 0) continue;
@@ -329,7 +333,7 @@ export class World {
       if (!e.alive) {
         const centre = { x: e.body.centerX, y: e.body.y + e.body.h / 2 };
         this.events.emit('enemyDeath', { id: e.id, type: e.type, ...centre });
-        if (e instanceof Boss || e instanceof BossUnit) {
+        if (e instanceof BossUnit) {
           this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
           this.events.emit('bossDefeated', centre);
         }
@@ -451,16 +455,16 @@ export class World {
   private bossSnapshot(): BossSnapshot | null {
     const boss = this.boss;
     if (!boss) return null;
-    const kit = boss instanceof BossUnit;
     return {
       engaged: boss.engaged,
       hp: boss.health.hp,
       maxHp: boss.health.max,
       phase: boss.phase,
-      label: kit ? boss.label : BOSS.label,
+      label: boss.label,
       weakPoint: boss.weakPointRect(),
-      exposed: kit ? boss.exposed : boss.state === 'stunned',
-      afterimage: kit ? boss.afterimage() : null,
+      exposed: boss.exposed,
+      tells: boss.tells(),
+      afterimage: boss.afterimage(),
     };
   }
 

@@ -1,6 +1,6 @@
 import { NO_INPUT } from '@core/sim/input';
 import type { Policy } from './harness';
-import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, tikbalangBossFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
+import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, sigbinFight, tikbalangBossFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -90,6 +90,7 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     fight(3300), // patroller at 3100
     run(1, 2830),
     jump(1), // spikes at 2880
+    sigbinFight(),
     run(1, 3584),
   ],
 
@@ -169,13 +170,9 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
 };
 
 /**
- * Trust the painted rope bridge. Same opening as the clear route through the
- * drone, then a walk off roof 2 with no jump. The bridge is not a floor.
- */
-/**
- * Same walk as the clear, then one nova per stumble. The boss lives through
- * phase 3 and dies on the next window. The clear route taps extra plasma and
- * skips that phase.
+ * Same walk as the clear, then one shot-group per stumble. The boss lives
+ * through phase 3 and dies on the next window. The clear route taps extra
+ * plasma and skips that phase.
  */
 export const tikbalangPhaseRoute = (): Policy =>
   route([
@@ -210,6 +207,10 @@ export const tikbalangPhaseRoute = (): Policy =>
     tikbalangBossFight(true),
   ]);
 
+/**
+ * Trust the painted rope bridge. Same opening as the clear route through the
+ * drone, then a walk off roof 2 with no jump. The bridge is not a floor.
+ */
 export const lyingPathRoute = (): Policy =>
   route([
     run(1, 612),

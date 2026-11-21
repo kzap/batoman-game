@@ -6,7 +6,7 @@ Level 3 has source art (#32) and its level JSON is still grey-box. The playtest 
 and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
 
 The game is five levels, one themed boss each, as set out in `docs/VISION.md` (#25, now on `v2`). The tree
-today ships four level files. The finale is the fifth, not built yet.
+today ships four level files. The finale is the fifth, not built yet. The plan for it is [docs/FINALE.md](docs/FINALE.md) (#51).
 
 | Order | Id | Boss | Where it stands |
 |---|---|---|---|
@@ -16,12 +16,9 @@ today ships four level files. The finale is the fifth, not built yet.
 | 4 Rooftop garden | `level-6` | Tikbalang-X | Dressed. Scout AI landed in #26. The boss is unbuilt |
 | 5 Destroyed block | proposed `level-5` | Bakunawa-Prime | Not in the tree |
 
-Whether v0.2 grows to include the unbuilt bosses is still an open question for Andre.
+Andre's decision on [#51](https://github.com/kzap/batoman-game/issues/51): build Level 5 now, as part of finishing the levels. The caps are 900 KB code and 20 MB served ([#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819), #54 at `44c4288`). The plan is [docs/FINALE.md](docs/FINALE.md).
 
-Priority until that call: dress Level 3 (#14) and finish the Phase 8 remainder (#40 results card, the
-60 fps mid-laptop sign-off). The scout AI is in (#26). Still open beside that: the #11 coverage pins, the
-a second mid layer and a Level 6 music track. The lying path is the rope bridge over the pit at
-x 1248. Tikbalang-X is the boss at 4300; the scout at 4100 stays.
+Dress Level 3 (#14) and the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off) continue beside the finale. The scout AI is in (#26). The lying path is the rope bridge over the pit at x 1248: it reads as a floor and is not one. Tikbalang-X is the boss at 4300; the scout at 4100 stays. Still open beside that: a second mid layer and a Level 6 music track.
 
 ## Why a remake
 
@@ -120,7 +117,7 @@ undamaged clears in `tests/replay/fixtures/`.
 | 1 Tondo Sublevel Docks | Dressed | `art` block, `level-1-props`, `sky`/`town`, 58 decor quads. Full source set in `art-source/level-1/`. Patrollers, drones, and the `aswang` boss (patroller sheet, 1.6x, lilac). Fixture 5567 ticks. |
 | 3 Quiapo Underground Chapel | Grey-box JSON | Source art is on `v2` (#32): `background.png`, `foreground.png`, `tileset.png`, `backdrops.json` (`nave` / `chapel`), a props recipe, plus the older concept painting. No `art` block, so it still renders as boxes. Remaining: #14 dresses it, #41 adds the Sigbin Unit. Stealth, drone, patroller. Music `level-2`. Fixture 2642 ticks. E2E loads it as grey-box. |
 | 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth. No boss in the tree. PR #25 names Manananggal-7; that fight is not built. Music `level-2`. Fixture 2802 ticks. E2E asserts the atlas and both backdrops. |
-| 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 144 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a tikbalang scout at x 4100 (#26: burst chase and stomp). Music `level-1`. Fixture 4059 ticks, undamaged. |
+| 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 145 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a tikbalang scout at x 4100 (#26: burst chase and stomp). Music `level-1`. Fixture 4059 ticks, undamaged. |
 
 Tikbalang. The scout landed in #26 (`src/game/enemies/tikbalang.ts`). It patrols in bursts, then on the
 player's storey it chases and stomps; a jump clears the lunge. `spawnEnemy` builds it. The clear route
@@ -247,13 +244,13 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
   `backdrops.json`, `tileset.png`, and a 29-prop recipe.
 - `src/content/levels/level-6.json`: `art` block, 144 decor quads, the lift mover uses `platform_pallet`.
   `level-6-clear` is 4059 ticks after the scout (#26).
-- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
+- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 10.93 MB / 20 MB at 188085ca914e34a66c7482b5f8496a0682336dae, 2026-11-20.
 
 The lying path is `bridge_rope` painted over the pit at x 1248–1376. Nothing solid is under it, so a
 walk onto the bridge dies. The clear route still dash-jumps to the next roof. Tikbalang-X is the boss
-at 4300; the scout stays at 4100. `level-6-clear` is 4450 ticks, undamaged, and pins every enemy dead.
-E2E requests `atlases/tikbalang`. Still open: a second mid layer and a Level 6 music track (the manifest
-still points Level 6 at `level-1`).
+at 4300; the scout stays at 4100. The clear kills both and pins every enemy dead. E2E requests
+`atlases/tikbalang`. Still open: a second mid layer and a Level 6 music track (the manifest still
+points Level 6 at `level-1`).
 
 Exit: Level 6 loads dressed, the existing clear fixture completes, and e2e asserts the atlas and both
 backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. That exit is met.
