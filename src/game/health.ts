@@ -6,12 +6,31 @@ export class Health {
   hp: number;
   /** Ticks of invulnerability left after a hit. */
   invuln = 0;
+  /** Cap. Starts at the constructor value and rises when a heart is gained. */
+  private cap: number;
 
   constructor(
-    readonly max: number,
+    max: number,
     readonly invulnTicks: number,
   ) {
+    this.cap = max;
     this.hp = max;
+  }
+
+  get max(): number {
+    return this.cap;
+  }
+
+  /**
+   * Permanent heart: raise the cap and current HP by `hearts`, then clamp
+   * current to the new cap. Dead bodies and non-positive amounts are ignored.
+   * Returns true when the cap changed.
+   */
+  gainHearts(hearts: number): boolean {
+    if (!this.alive || hearts <= 0) return false;
+    this.cap += hearts;
+    this.hp = Math.min(this.cap, this.hp + hearts);
+    return true;
   }
 
   get alive(): boolean {
