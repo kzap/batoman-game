@@ -13,6 +13,16 @@ export function cutscenesEnabledFromQuery(search: string): boolean {
 }
 
 /**
+ * `?cutsceneHold=0` disables the per-line holdMs auto-advance (Enter / click /
+ * Esc still work). Used by e2e so slow runners cannot race the wall-clock
+ * timer past the line under assertion. Missing or anything else keeps hold on.
+ */
+export function cutsceneHoldEnabledFromQuery(search: string): boolean {
+  const v = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('cutsceneHold');
+  return v !== '0';
+}
+
+/**
  * Advance one line by index. `done` is true after the last line (or when the
  * script is empty / already past the end). Shared by the screen reducer and
  * {@link advanceCutscene}.
