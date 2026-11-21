@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
+import { advance, withLockstep } from './drive';
 
 declare global {
   interface Window {
@@ -13,6 +14,8 @@ const waitForFrames = (page: Page, n: number) =>
   page.waitForFunction((min) => (window.__batoman?.frames ?? 0) > min, n);
 
 test.describe('smoke', () => {
+  // Real-time on purpose: no ?lockstep, so this exercises FixedClock against wall-clock deltas.
+  // It waits on simTicks crossing a count, not on a tick rate, so a slow renderer still passes.
   test('boots, renders frames, and runs the sim without errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
@@ -27,6 +30,7 @@ test.describe('smoke', () => {
     // The title shows over the frozen first level; Enter starts the run and the sim.
     const title = await readHooks(page);
     expect(title!.screen).toBe('title');
+    expect(title!.lockstep).toBe(false);
     expect(title!.simTicks).toBe(0);
     await expect(page.locator('#overlay')).toContainText('BATOMAN');
     await page.keyboard.press('Enter');
@@ -72,22 +76,38 @@ test.describe('smoke', () => {
 
 test.describe('controls', () => {
   test('keyboard drives the sim: run right, tap to hop', async ({ page }) => {
-    await page.goto('/?level=level-1'); // deep link: straight into play, no title
+    // Manual lockstep so the hop is sampled tick by tick. A large batch would land before we could see it.
+    await page.goto(withLockstep('/?level=level-1', true));
     await waitForFrames(page, 10);
+    // Spawn pose is fall until the first tick senses the ground. Manual lockstep does not tick on its own.
+    await advance(page, 5);
     const start = (await readHooks(page))!.player;
     expect(start.pose).toBe('idle');
+    expect((await readHooks(page))!.lockstep).toBe(true);
 
     await page.keyboard.down('ArrowRight');
-    await page.waitForTimeout(500);
+    await advance(page, 40); // full run speed by ~tick 15; 40 ticks clears start.x + 40
     const running = (await readHooks(page))!.player;
     await page.keyboard.up('ArrowRight');
     expect(running.x).toBeGreaterThan(start.x + 40);
     expect(running.pose).toBe('run');
 
-    await page.waitForTimeout(300);
+    await advance(page, 24); // ground decel returns to idle in about 11 ticks
+    expect((await readHooks(page))!.player.pose).toBe('idle');
+
     await page.keyboard.press('Space');
-    await page.waitForFunction((y) => (window.__batoman?.player.y ?? 0) > y + 1, start.y);
-    await page.waitForFunction(() => window.__batoman?.player.pose === 'idle');
+    const hop = await page.evaluate((startY) => {
+      const h = window.__batoman!;
+      let peak = startY;
+      for (let i = 0; i < 40; i++) {
+        h.advance!(2);
+        peak = Math.max(peak, h.player.y);
+        if (h.player.pose === 'idle' && i > 2) break;
+      }
+      return { peak, pose: h.player.pose };
+    }, start.y);
+    expect(hop.peak).toBeGreaterThan(start.y + 1);
+    expect(hop.pose).toBe('idle');
     expect((await readHooks(page))!.errors).toEqual([]);
   });
 });

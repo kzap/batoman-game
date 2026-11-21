@@ -36,7 +36,7 @@ Story order is 1–5. The manifest today is `level-1`, `level-3`, `level-4`, `le
 |---|---|---|---|---|---|---|
 | 1 | Tondo Sublevel Docks | `level-1` | `level-1` | Combat | ASWANG prototype, shipped | **Proposal:** lilac silhouette on the far pier; one patroller that fires the boss's three-shot burst |
 | 2 | Quiapo Underground Chapel | `level-3` | `level-2` | Stealth | Sigbin Unit, not placed | The cloaked scout already in the grey-box. **Proposal:** backward prints, a shimmer at the candle |
-| 3 | NSA Tower Exterior | `level-4` | `level-3` | Vertical climb | Manananggal-7, **proposal** | **Proposal:** a wing shadow on the sunset tower face; the lower half's perch marked on a balcony he will have to return to |
+| 3 | NSA Tower Exterior | `level-4` | `level-3` | Vertical climb | Manananggal-7, confirmed by Andre, not built | **Proposal:** a wing shadow on the sunset tower face; the lower half's perch marked on a balcony he will have to return to |
 | 4 | Abandoned Rooftop Garden | `level-6` | `level-4` | Traversal | Tikbalang-X, the mechanical horse, spawn only | **Proposal:** in the sun, a path that reads solid and is a pit; the horse's afterimage casts no shadow |
 | 5 | Destroyed City Block | none | `level-5` | Gauntlet | Bakunawa-Prime, not built | **Proposal:** moon-glyph on a fallen wall; the tide mark already wet; a coil shifting under the street |
 
@@ -134,7 +134,7 @@ The tikbalang type is in the schema, with a sheet and a render look, and with no
 | Drone | Shipped drone | Docks, chapel, tower, garden |
 | Sigbin scout | Stealth, patroller sheet until sigbin art exists | Chapel, already placed. The balcony stealth on the tower is the same behaviour |
 | Sigbin Unit | New boss behaviour: rear lunge, core on recovery. About half the 378 px screen height ([issue #21](https://github.com/kzap/batoman-game/issues/21)); 64×48 is retired | Chapel |
-| Manananggal-7 | New boss. Split body, lower half first, vertical | Tower |
+| Manananggal-7 | Confirmed by Andre as the tower boss. Not built. Split body, lower half first, vertical | Tower |
 | Tikbalang-X | The shipped mechanical horse ([issue #21](https://github.com/kzap/batoman-game/issues/21)). New behaviour on its clips: run, shot, stomp-warp, stumble | Garden |
 | Bakunawa-Prime | New boss. Three phases, no new tell in the last | Finale |
 
@@ -152,16 +152,16 @@ The tikbalang type is in the schema, with a sheet and a render look, and with no
 
 ## v0.2 — the scope change, flagged
 
-**Already the phase plan.** Dress `level-3` and `level-6` when art exists. Tikbalang behaviour. Phase 8 polish. `level-1` is done. `level-4` shipped dressed and bossless.
+**Already on `v2`.** `level-1` dressed and bossed. `level-4` dressed, still no boss. `level-6` dressed as the sunny farm: the tikbalang spawn still has no behaviour, the painted lying path is not a collider, and the music is still the Tondo track. `level-3` has source art in `art-source/level-3/` and still plays grey-box, because the level JSON has no `art` block. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
 
-**Andre's review adds a requirement the phase plan does not have.** `level-3`, `level-4`, and `level-6` each need a boss. None of them have one.
+**Andre confirmed Manananggal-7 as the `level-4` boss.** It is not built. The hangar fighter stays unused. `level-3` and `level-6` still have no boss.
 
-This PR does not decide whether v0.2 grows.
+This page does not decide whether v0.2 grows to include those fights.
 
-- **Stay.** Dress 3 and 6, build the tikbalang fight, Phase 8. Sigbin and the tower boss are the next milestone. The finale is after the four levels each end on a boss.
-- **Grow.** Those same tasks, plus the Sigbin Unit and the tower boss, before anyone starts the fifth level.
+- **Stay.** Wire Level 3's art into the level, build the tikbalang fight, and finish whatever Phase 8 still has open. The Sigbin and Manananggal-7 are the next milestone. The finale waits until the four existing levels each end on a boss.
+- **Grow.** Those same tasks, plus the Sigbin Unit and Manananggal-7, before anyone starts the fifth level.
 
-The finale is in neither option. Powerups, wind, the water line, and the nova-lock are not v0.2 either way. Dressing the chapel and the garden is still blocked on art.
+The finale is in neither option. Powerups, wind, the water line, and the nova-lock are not v0.2 either way.
 
 ---
 
@@ -174,10 +174,12 @@ The finale is in neither option. Powerups, wind, the water line, and the nova-lo
 - Renaming content ids inside v0.2
 - The hangar stealth-fighter as the tower boss
 - Building the finale inside v0.2
+- Gamepad mapping and controller iconography
+
+Keyboard remapping shipped in Phase 8.2. The title and pause menus open a Controls screen where every gameplay action can be rebound. The table is saved with progress and can be reset to the defaults in the Player section above.
 
 ---
 
 ## Open questions
 
-1. Does v0.2 stay the phase plan, or grow to include the Sigbin and the tower boss?
-2. Confirm Manananggal-7 as the `level-4` boss. If not, name the unit. The challenge remains the climb.
+1. Does the rest of v0.2 stay "wire Level 3's art into the level, tikbalang behaviour, and the remainder of Phase 8," with the Sigbin and Manananggal-7 as the next milestone, or does v0.2 grow to include those two bosses before the finale?

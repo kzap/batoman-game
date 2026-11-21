@@ -2,8 +2,8 @@ import type { BufferAttribute} from 'three';
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type Texture } from 'three';
 import type { AtlasFrame, AtlasJson } from '@content/atlas';
 import type { LoadedAtlas } from './assets';
-import { frameUv, placeFrame } from './sprite-layout';
-import { atlasToUnits, PIXELS_PER_UNIT, SIM_PX_PER_ATLAS_PX } from './units';
+import { framePlacement, frameUv } from './sprite-layout';
+import { atlasToUnits } from './units';
 
 /**
  * One material per atlas texture, shared by every quad cut from it. Unlit:
@@ -56,18 +56,9 @@ export class SpriteQuad {
    * `scale` multiplies the natural size; `flip` mirrors it to face left.
    */
   place(x: number, y: number, z: number, opts: { flip?: boolean; size?: { w?: number; h?: number }; scale?: number } = {}): void {
-    const p = placeFrame(this.frame, this.unitsPerAtlasPx(opts), { x: x / PIXELS_PER_UNIT, y: y / PIXELS_PER_UNIT }, opts.flip ?? false);
+    const p = framePlacement(this.frame, { x, y }, opts);
     this.mesh.position.set(p.cx, p.cy, z);
     this.mesh.scale.set(p.sx, p.sy, 1);
-  }
-
-  private unitsPerAtlasPx(opts: { size?: { w?: number; h?: number }; scale?: number }): number | { x: number; y: number } {
-    const natural = (SIM_PX_PER_ATLAS_PX * (opts.scale ?? 1)) / PIXELS_PER_UNIT;
-    const { w, h } = opts.size ?? {};
-    if (w === undefined && h === undefined) return natural;
-    const sx = w !== undefined ? w / this.frame.w / PIXELS_PER_UNIT : undefined;
-    const sy = h !== undefined ? h / this.frame.h / PIXELS_PER_UNIT : undefined;
-    return { x: sx ?? sy!, y: sy ?? sx! };
   }
 
   /** Natural rendered size of the current frame in stage units. */

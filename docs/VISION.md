@@ -41,7 +41,7 @@ Story order is 1 through 5. The content ids in the repo are not those numbers. T
 |---|---|---|---|---|---|
 | 1 | Tondo Sublevel Docks | `level-1` | `level-1` | Combat | ASWANG prototype (shipped) |
 | 2 | Quiapo Underground Chapel | `level-3` | `level-2` | Stealth | Sigbin Unit (not built) |
-| 3 | NSA Tower Exterior | `level-4` | `level-3` | Vertical climb | Manananggal-7 (proposal; not built) |
+| 3 | NSA Tower Exterior | `level-4` | `level-3` | Vertical climb | Manananggal-7 (confirmed by Andre; not built) |
 | 4 | Abandoned Rooftop Garden | `level-6` | `level-4` | Traversal | Tikbalang-X (spawn only) |
 | 5 | Destroyed City Block | none | `level-5` | Gauntlet | Bakunawa-Prime (not built) |
 
@@ -54,9 +54,9 @@ Verified on `v2` against `src/content`, `src/game/enemies`, and `art-source/`:
 | Content id | State | Boss today |
 |---|---|---|
 | `level-1` | Dressed, 6400×768. Patrollers and drones. | ASWANG prototype, playable. Bursts, a rush that ends stunned with the weak point open, then drones. HUD: "ASWANG PROTOTYPE". |
-| `level-3` | Grey-box, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. One concept painting. | None placed. PRD, ART, and the painting name the Sigbin Unit. |
-| `level-4` | Dressed, 1600×1664, vertical. Patrollers, drones, one stealth. Enemies ignore him on another storey. | None. The exit opens because the sim treats a missing boss as a clear. Direction: this level gets a boss. |
-| `level-6` | Grey-box, 4480×896. Drone, patroller, a `tikbalang` spawn at the end. No source art. | The sheet exists (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`) and the renderer has a look. `spawnEnemy` returns null, so nothing is created and nothing is drawn. |
+| `level-3` | Still plays grey-box, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. Source art is now in `art-source/level-3/` (nave and chapel backdrops, a props recipe) and is not wired: the level JSON has no `art` block. | None placed. The Sigbin Unit is the boss. |
+| `level-4` | Dressed, 1600×1664, vertical. Patrollers, drones, one stealth. Enemies ignore him on another storey. | None yet. Andre confirmed Manananggal-7. The exit opens today because the sim treats a missing boss as a clear. |
+| `level-6` | Dressed sunny farm, 4480×896, 144 decor quads, far `sky` and a mirrored `garden` mid. Drone, patroller, a `tikbalang` spawn. The painted lying path is not a collider. Music is still the Tondo track. | The horse sheet exists (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`) and the renderer has a look. `spawnEnemy` returns null, so the horse is not created and not drawn. |
 
 Shipped kit: variable jump (a full jump is about 81 px; a 128 px gap needs a dash at the apex), coyote time, wall kick, dash with i-frames, crouch-slide, one-ways, movers, spikes, crushers, pits, plasma (tap, 1 damage), nova (hold 0.8 s, a piercing bolt, 3 damage). 3 hearts, 3 lives. No powerups in the sim. The story's wide nova explosion and the "Down + move" salakot dash are the fantasy; the sim pierces, and the dash is Shift / X / K.
 
@@ -120,7 +120,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **What the level already is.** A dressed vertical climb: rungs, a hanging lift, a wall-jump shaft, enemies that do not aggro across storeys. The wall kick was optional on the docks. Here it is the path.
 
-**Boss.** **Manananggal-7 (proposal for this level).** Canon unit, previously written for the arcology, which is cut. The sheet in `art-source/level-1/concept-art-boss.png` shows the split body — wings, exposed spine, a separate hydraulic lower half — with an NSA tower in the backdrop. That painting is the design reference for this fight, not for the docks. The docks keep the prototype.
+**Boss.** **Manananggal-7, confirmed by Andre for this level.** Not built. Canon unit, previously written for the arcology, which is cut. The sheet in `art-source/level-1/concept-art-boss.png` shows the split body — wings, exposed spine, a separate hydraulic lower half — with an NSA tower in the backdrop. That painting is the design reference for this fight, not for the docks. The docks keep the prototype. The hangar fighter stays unused.
 
 The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has to reach. Phase 2 splits: the upper half owns the air of the shaft, the lower half stays planted on a balcony he already passed. Killing the flyer does not stick; it returns while the lower half lives (the folk rule ART already states: destroy the base first). He has to go back down. Phase 3 is the flyer alone, once the balcony half is gone. Wind in the top shaft, folded from the skyway, shoves jumps only, and only after a telegraph of litter and banners bending in the sun. Standing on a rung is safe.
 
@@ -128,7 +128,7 @@ The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has
 
 **What this is not.** The hangar stealth-fighter sheet in `art-source/level-4/` is a horizontal runway boss. It does not fit this exterior, and this plan does not use it. Sniper mechs from the old PRD row are not added. The tower's roster stays the one already placed, plus the boss.
 
-**Music and look.** **Proposal:** a new cue with a pulse and the noise of the city, splitting into a low layer and a high layer when the unit tears. The dressed far backdrop is the sunset skyway. The mid is the rusted wall and the scaffolds. NSA cyan stays on the tower. Manananggal is the warm-red shape against that sunlit city. ART.md's night-glass row described a different hour, and this plan does not use it.
+**Music and look.** **Proposal:** a new cue with a pulse and the noise of the city, splitting into a low layer and a high layer when the unit tears. The dressed far backdrop is the sunset skyway. The mid is the rusted wall and the scaffolds. NSA cyan stays on the tower. Manananggal is the warm-red shape against that sunlit city.
 
 ### 4 — Abandoned Rooftop Garden
 
@@ -136,7 +136,7 @@ The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has
 
 **Story.** A sunny, lush, colorful rooftop farm. The wound is a salakot left on a rail, and a path that does not go where it looks like it goes. Tikbalang-X bent the paths after the prototype's raid, which is why the farmers could not find their way back. He breaks the spell in the stumble, then for good. The plants are still growing. **Proposal:** under a planter the irrigation shaft is a concrete room, not a cistern. One file and one portrait of Epal: Bakunawa-Prime, coming up the Pasig, into the three blocks. That room is the laboratory. It is not a level. He goes down to the street.
 
-**What the level already is.** Roofs at different heights, a hop, a 128 px dash gap, a vertical lift, a drop, one-way steps, spikes. That is traversal with the kit he has. Crumbling planters stay a possible later pass, in the appendix's sense of "not required to call the challenge true." The grey-box already says it.
+**What the level already is.** Dressed as the sunny farm: roofs at different heights, a hop, a 128 px dash gap, a vertical lift, a drop, one-way steps, spikes, 144 decor quads. A wrong-way scarecrow and a horseshoe on the spawn roof are already painted. The lying path is painted and is not yet a collider. That gap is still traversal with the kit he has. Crumbling planters stay a possible later pass.
 
 **Boss.** Tikbalang-X (canon). [Issue #21](https://github.com/kzap/batoman-game/issues/21) makes the shipped sheet the look: a riveted mechanical horse, not the bipedal skull-head in the old ART row. **Proposal for the behaviour, on the clips that horse already has** (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`):
 
@@ -151,7 +151,7 @@ It tests traversal. The floor he wants to stand on is the lie. The solid landing
 
 **Folded in.** Kapre's smoke becomes one greenhouse roof of fog: he crosses by silhouette and edge, a traversal problem, not a second stealth game. Kapre-9 himself is cut. The lab's files are the room after the boss, portrait and text.
 
-**Music and look.** **Proposal:** the Tondo theme with the drums taken out, one instrument and the sound of leaves. It detunes when the path lies and locks when he lands true. Today's playback is the docks track unchanged, which is the right family and the wrong arrangement. The farm is bright: saturated greens, sun on the planters, cheerful color. No source art exists yet. No rain.
+**Music and look.** **Proposal:** the Tondo theme with the drums taken out, one instrument and the sound of leaves. It detunes when the path lies and locks when he lands true. Today's playback is the docks track unchanged, which is the right family and the wrong arrangement. The farm is bright: saturated greens, sun on the planters, cheerful color, and that is what the dressed level now shows. No rain. The manifest still plays the Tondo track.
 
 ### 5 — Destroyed City Block
 
@@ -189,16 +189,16 @@ A short list, using only powerups the PRD already named. None of them solves the
 
 Said plainly.
 
-**What v0.2 already is, from PLAN.** Dress `level-3` and `level-6` when art exists. Give the tikbalang behaviour. Phase 8 polish: instancing, culling, compression, LOD, remappable input, reduce-motion, colourblind-safe weak points, docs kept current. `level-1` is dressed and bossed. `level-4` is dressed and was signed off with no boss.
+**Already on `v2`.** `level-1` is dressed and bossed. `level-4` is dressed and still has no boss; Andre has since confirmed that boss is Manananggal-7. `level-6` is dressed as the sunny farm. The tikbalang spawn still has no behaviour, the painted lying path is not a collider, and the music is still the Tondo track. `level-3` has source art and still plays grey-box. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
 
-**What this review changes.** Every level has a boss. `level-3`, `level-4`, and `level-6` do not have one. The garden's tikbalang is a spawn the world never creates. The chapel's Sigbin is not placed. The tower has no boss slot at all, and giving it one reopens a level the phase plan treated as finished.
+**What this review still requires.** A boss on every level. `level-3`, `level-4`, and `level-6` do not have one.
 
-**What this document does not decide.** Whether those bosses are inside v0.2. Andre chooses. The two readings:
+**What this document does not decide.** Whether those bosses are inside the rest of v0.2. The two readings:
 
-- **v0.2 stays the phase plan.** Dress 3 and 6, build the tikbalang fight, Phase 8. The Sigbin and the tower boss are the next milestone. The finale waits until the four existing levels each end on a boss.
-- **v0.2 grows.** The same tasks, plus the Sigbin Unit and the tower boss, so the four levels in the game are finished boss levels before anyone starts the fifth.
+- **Stay.** Wire Level 3's art into the level, build the tikbalang fight, and finish whatever Phase 8 still has open. The Sigbin and Manananggal-7 are the next milestone. The finale waits until the four existing levels each end on a boss.
+- **Grow.** Those same tasks, plus the Sigbin Unit and Manananggal-7, so the four levels in the game are finished boss levels before anyone starts the fifth.
 
-The finale is in neither reading. It is new, and it is after. Dressing the chapel and the garden is still blocked on art (one painting for Quiapo, nothing for the garden). Phase 8 does not grow or shrink with the boss decision. Powerups, wind, the rising water line, the nova-lock niche, and crumbling planters are not pulled forward into v0.2 by this page.
+The finale is in neither reading. It is new, and it is after. Powerups, wind, the rising water line, the nova-lock niche, and crumbling planters are not pulled forward by this page.
 
 ---
 
@@ -220,7 +220,6 @@ Possible later, only if the five-level game is finished and someone still wants 
 
 ## Open questions
 
-Andre's direction closed the level count, the bossless tower, and the demand for distinct challenges. These are the forks still open.
+Andre's direction closed the level count, the bossless tower, and the demand for distinct challenges. He has since confirmed Manananggal-7 as the `level-4` boss. The hangar fighter stays unused. The climb exam does not change: he has to go back down for the half that stays planted.
 
-1. **v0.2.** Keep the phase plan (dress 3 and 6, tikbalang fight, Phase 8), or grow it to include the Sigbin and the tower boss? The finale is later either way.
-2. **Tower boss.** This plan puts Manananggal-7 on `level-4`, using the sheet that already shows the tower, and leaves the hangar fighter unused. Confirm that, or name a different unit. The challenge stays the climb: he has to go back down for the half that stays planted.
+1. **v0.2.** Stay with wiring Level 3's art, the tikbalang fight, and the remainder of Phase 8, or grow to include the Sigbin and Manananggal-7 before the finale?

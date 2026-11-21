@@ -56,7 +56,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Concrete grey | `#4a4a5a` | Building faces, ground surfaces |
 | Rust orange | `#b85c2a` | Corroded metal, old district structures |
 | Neon cyan | `#00e5ff` | NSA signage, electric hazards, plasma effects |
-| Neon magenta | `#ff2d78` | Danger indicators, enemy weak points, blood |
+| Neon magenta | `#ff2d78` | Danger indicators, enemy weak-point fill, blood. A weak point also needs a non-colour channel; the boss core pairs this with a white `#ffffff` diamond outline |
 | Warm amber | `#ffaa33` | Street food light, community spaces, checkpoints |
 | Bioluminescent teal | `#00ffcc` | Pasig River glow, underground water |
 | White-hot plasma | `#fffde0` | Plasma burst core, Nova Blast center |
@@ -114,7 +114,7 @@ Used as anchors across all levels — specific levels deviate within these const
 ### Visual Language Rules
 1. **NSA machines = cold palette** — blues, teals, greys, sharp angles
 2. **Organic/myth-inspired enemies = warmer but corrupted** — rust, bile-green, cracked bone tones
-3. All enemies have a **glowing weak point** (magenta `#ff2d78`) visible during vulnerable frames
+3. All enemies have a **glowing weak point** visible during vulnerable frames. Colour is neon magenta `#ff2d78`. A second channel is required so the window is not colour-only: the shipped boss core is a **diamond** with a **white `#ffffff` outline** around the magenta fill. The outline is what stays readable in protanopia, deuteranopia, and tritanopia (magenta shifts toward blue or brown and can merge with a lilac body; the white diamond does not). Do not communicate a weak point with hue alone
 4. Enemy eyes/sensors are always the brightest element on their sprite
 
 ### Standard Enemy Types
@@ -137,7 +137,7 @@ Used as anchors across all levels — specific levels deviate within these const
 ### ASWANG Unit Design Principles
 - Each boss is **large enough to feel threatening** — at least half the screen height
 - **Three visible phases:** idle/patrol stance, attack stance, stagger/vulnerable state
-- Every boss has a **glowing exposed core** (magenta) that appears only during vulnerability windows
+- Every boss has a **glowing exposed core** that appears only during vulnerability windows: magenta `#ff2d78` diamond fill plus a white `#ffffff` diamond outline (visual-language rule 3). The outline does not pulse. With reduce-motion on, the fill holds steady instead of breathing
 - Boss designs should feel like NSA engineers studied the mythology and built the worst possible version of it
 
 ---
@@ -277,11 +277,11 @@ Each level uses 4 background layers at different scroll speeds:
 #### Level 6 — Abandoned Rooftop Garden
 | Element | Detail |
 |---------|--------|
-| Sky | Bright day. A sunny, lush, colorful rooftop farm. No rain |
-| Structures | Living planters, greenhouse frames, irrigation pipes, saturated greens |
-| Lighting sources | The sun. A grow light can stay as a practical, not as the mood |
-| Dominant colors | Sunlit green, flower color, warm wood, one amber practical |
-| Ambient detail | Vegetables and vines in the sun; a salakot left on a rail. The path lies |
+| Sky | Bright day, soft clouds, hazy Neo-Maynila skyline. No rain |
+| Structures | Lush rooftop farm: greenhouses, water tanks, shacks, planter beds, bunting. The mid layer is one 2560-wide row followed by its mirror so the repeat has no seam |
+| Lighting sources | Open daylight. The paintings carry their own light, the same rule as Level 1 |
+| Dominant colors | Sunlit green, warm cream and yellow walls, sky blue, terracotta and teal |
+| Ambient detail | Sunflowers, a salakot left on a rail, laundry, flags. A wrong-way scarecrow and a horseshoe on the spawn roof are the way-finding hints. The path lies |
 
 #### Level 7 — Laboratoryo Zero Entrance
 | Element | Detail |
@@ -368,7 +368,7 @@ The HUD should feel like it's **Ando's own cobbled-together tech**, not NSA-clea
 | Effect | Description |
 |--------|-------------|
 | Enemy hit | White flash on sprite; small impact star; health chunk removed |
-| Boss vulnerable | Core glows pulsing magenta; hit sparks magenta |
+| Boss vulnerable | Magenta diamond core with a steady white diamond outline; the fill pulses unless reduce-motion is on. Hit sparks stay magenta |
 | Player hurt | Red screen-edge vignette flash; Ando sprite flickers white; brief invincibility frames |
 | Death | Screen desaturates; Ando collapse animation; vignette closes |
 

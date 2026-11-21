@@ -1,70 +1,66 @@
-import { NO_INPUT, type InputButton, type InputFrame } from '@core/sim/input';
-
-/** Physical key (KeyboardEvent.code) to sim button. Arrows/WASD move, Space/W/Up jump, Z/J fire, X/K/Shift dash. */
-const BINDINGS: Readonly<Record<string, InputButton>> = {
-  ArrowLeft: 'left',
-  KeyA: 'left',
-  ArrowRight: 'right',
-  KeyD: 'right',
-  ArrowUp: 'up',
-  ArrowDown: 'down',
-  KeyS: 'down',
-  Space: 'jump',
-  KeyW: 'jump',
-  KeyZ: 'fire',
-  KeyJ: 'fire',
-  KeyX: 'dash',
-  KeyK: 'dash',
-  ShiftLeft: 'dash',
-  ShiftRight: 'dash',
-};
+import type { InputFrame } from '@core/sim/input';
+import { DEFAULT_BINDINGS, frameFromKeys, isCodeBound, type Bindings } from './bindings';
 
 /**
  * Tracks held keys and produces the InputFrame the sim consumes each tick.
- * Listens on `window` so focus on the canvas is not required.
+ * Which physical key means which button comes from the binding table; the sim
+ * only ever sees the seven booleans. Listens on `window` so canvas focus is
+ * not required.
  */
 export class Keyboard {
-  private readonly held = new Set<InputButton>();
-  /** Buttons pressed since the last `frame()`; keeps a tap shorter than one frame from vanishing. */
-  private readonly latched = new Set<InputButton>();
+  private bindings: Bindings = DEFAULT_BINDINGS;
+  private readonly held = new Set<string>();
+  /** Codes pressed since the last `frame()`; a tap shorter than one frame still reaches a tick. */
+  private readonly latched = new Set<string>();
+  private attached = false;
+
   private readonly onKey = (e: KeyboardEvent): void => {
-    const button = BINDINGS[e.code];
-    if (!button) return;
     if (e.type === 'keydown') {
-      this.held.add(button);
-      this.latched.add(button);
-    } else {
-      this.held.delete(button);
+      if (e.repeat || !isCodeBound(this.bindings, e.code)) return;
+      this.held.add(e.code);
+      this.latched.add(e.code);
+      e.preventDefault();
+      return;
     }
+    // Keyup still releases a code we latched, even if a rebind has since dropped it.
+    if (!this.held.has(e.code) && !this.latched.has(e.code)) return;
+    this.held.delete(e.code);
     e.preventDefault();
   };
+
   private readonly onBlur = (): void => this.held.clear();
 
+  setBindings(bindings: Bindings): void {
+    this.bindings = bindings;
+    for (const code of [...this.held]) if (!isCodeBound(bindings, code)) this.held.delete(code);
+    for (const code of [...this.latched]) if (!isCodeBound(bindings, code)) this.latched.delete(code);
+  }
+
   attach(): void {
+    if (this.attached) return;
+    this.attached = true;
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('keyup', this.onKey);
     window.addEventListener('blur', this.onBlur);
   }
 
   detach(): void {
+    if (!this.attached) return;
+    this.attached = false;
     window.removeEventListener('keydown', this.onKey);
     window.removeEventListener('keyup', this.onKey);
     window.removeEventListener('blur', this.onBlur);
   }
 
-  /** Forget held and latched buttons (after a pause or a screen change, so a key held through it does not fire). */
+  /** Forget held and latched keys (after a pause or a screen change, so a key held through it does not fire). */
   reset(): void {
     this.held.clear();
     this.latched.clear();
   }
 
   frame(): InputFrame {
-    const f: Record<InputButton, boolean> = { ...NO_INPUT };
-    for (const b of this.held) f[b] = true;
-    for (const b of this.latched) f[b] = true;
+    const frame = frameFromKeys(this.bindings, [...this.held, ...this.latched]);
     this.latched.clear();
-    // Up doubles as jump on the arrow layout.
-    if (f.up) f.jump = true;
-    return f;
+    return frame;
   }
 }

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "level": "level-6",
+  "layers": {
+    "sky": {
+      "source": "background.png",
+      "erase": [{ "x": 1224, "y": 458, "w": 56, "h": 56, "mode": "fill" }]
+    },
+    "garden": {
+      "source": "foreground.png",
+      "lossless": false,
+      "quality": 90,
+      "erase": [{ "x": 2504, "y": 664, "w": 56, "h": 56, "mode": "fill" }]
+    }
+  }
+}

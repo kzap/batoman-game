@@ -70,7 +70,7 @@ The first ASWANG unit leveled three blocks of Tondo Sublevel — including the l
 
 This time, Ando fights back.
 
-That first unit is the one still standing on the docks. The build calls it the **ASWANG prototype**: unnamed, unfinished, a heavy soldier rather than a finished myth. The named units come later, once the project specializes. A concept sheet filed under the docks art is titled Manananggal-7 and shows an NSA tower behind it. This arc puts that unit on the tower, and leaves the docks to the prototype. VISION question 2 asks Andre to confirm.
+That first unit is the one still standing on the docks. The build calls it the **ASWANG prototype**: unnamed, unfinished, a heavy soldier rather than a finished myth. The named units come later, once the project specializes. A concept sheet filed under the docks art is titled Manananggal-7 and shows an NSA tower behind it. Andre confirmed that unit as the tower boss. The docks keep the prototype.
 
 The creatures are not the villains of this story. People in the lower districts still say *tabi-tabi po*, still keep candles, still know to make noise if the moon goes dark. Project ASWANG is those stories industrialized into eviction tools. Saints and the Black Nazarene belong to the neighbourhood. They are never units.
 
@@ -84,7 +84,7 @@ Five levels. Content ids in the repo are `level-1`, `level-3`, `level-4`, and `l
 
 **2. Quiapo Underground Chapel (canon, `level-3`).** Stealth, and the dark level. The flooded nave is the main space, with a drier altar as a side chamber ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Santos stay in the alcoves. The Sigbin Unit — about half the screen height, same decision — was sent to silence the record-keepers. **Proposal:** by candlelight he reads the list — Project ASWANG, the garden marked cleared, the tower named as the eye. The sigbin is the price of leaving with the pages.
 
-**3. NSA Tower Exterior (canon place, `level-4`; boss is a proposal).** Vertical climb, at sunset over the skyway. He climbs the outside because the list named the tower and the door was never going to open. **Proposal:** Manananggal-7 is bolted to the face. It looks like the building until it splits, and the half that stays on the balcony has to die first or the wings come back. From the roof the garden is in the sun. An old sheet of a hangar stealth-fighter is a different level, and this arc does not use it.
+**3. NSA Tower Exterior (canon place, `level-4`).** Vertical climb, at sunset over the skyway. He climbs the outside because the list named the tower and the door was never going to open. Andre confirmed Manananggal-7 on the face. It looks like the building until it splits, and the half that stays on the balcony has to die first or the wings come back. From the roof the garden is in the sun. An old sheet of a hangar stealth-fighter is a different level, and this arc does not use it.
 
 **4. Abandoned Rooftop Garden (canon, `level-6`).** Traversal. A sunny, lush farm. A salakot left on a rail is the wound. Tikbalang-X is the mechanical horse from the shipped sheet ([issue #21](https://github.com/kzap/batoman-game/issues/21)), and it bent the paths so the people who lived here cannot find their way back. He breaks the spell. The plants are still growing. **Proposal:** under a planter, one concrete room holds the file the lab level used to be. Bakunawa-Prime, coming up the Pasig, into the three blocks. Epal's portrait, charming, calling the garden contamination.
 
@@ -100,7 +100,7 @@ Each boss is an NSA weapon wearing a folklore name. The prototype has not been g
 |---|---|---|---|
 | **ASWANG prototype** | The class itself, before a species | 1 — Tondo docks (`level-1`) | Canon. Shipped. |
 | **Sigbin Unit** | Sigbin, the backward shadow-creature | 2 — Quiapo chapel (`level-3`) | Canon. Not placed. About half the screen height ([issue #21](https://github.com/kzap/batoman-game/issues/21)). |
-| **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Canon unit. **Proposal:** this is where it fights. Sheet shows the tower. Not built. |
+| **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Confirmed by Andre. Sheet shows the tower. Not built. |
 | **Tikbalang-X** | Tikbalang, the trickster that loses travelers | 4 — Rooftop garden (`level-6`) | Canon. The mechanical horse on the shipped sheet ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Spawn only; the world never creates the actor. |
 | **Bakunawa-Prime** | Bakunawa, the serpent that swallows the moon | 5 — Destroyed block (no file yet) | Canon. Final boss. |
 
