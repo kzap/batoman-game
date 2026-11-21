@@ -70,6 +70,12 @@ export interface LevelJson {
   readonly hazards: readonly HazardJson[];
   /** Instant death (river, void). */
   readonly deathZones: readonly Rect[];
+  /**
+   * Columns the Pasig tide fills. Each rect is the full column bounds; the sim
+   * grows a death volume from `y` up to `tideTop(tick)` each tick. Omitted means
+   * none (every level but the finale).
+   */
+  readonly tideVolumes?: readonly Rect[];
   readonly checkpoints: readonly CheckpointJson[];
   readonly enemies: readonly EnemySpawnJson[];
   /**
@@ -146,6 +152,7 @@ export function levelProblems(json: unknown): string[] {
   const movers = rectList('movingSolids');
   rectList('hazards');
   rectList('deathZones');
+  rectList('tideVolumes', false);
   rectList('checkpoints');
 
   const blocking = [...solids, ...oneWay, ...movers];

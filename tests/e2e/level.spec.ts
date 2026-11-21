@@ -179,6 +179,37 @@ test.describe('level 1', () => {
 });
 
 test.describe('other levels', () => {
+  test('level-5 loads as grey-box and replays its clear fixture', async ({ page }) => {
+    test.setTimeout(90_000);
+    const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-5-clear.json'), 'utf8')) as Fixture;
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(r.url()));
+    await page.goto(withLockstep('/?level=level-5'));
+    await ready(page);
+    const h0 = await hooks(page);
+    expect(h0.level).toBe('level-5');
+    expect(h0.status).toBe('playing');
+    expect(h0.errors).toEqual([]);
+    expect(requests.some((u) => u.includes('/assets/backdrops/'))).toBe(false);
+    await page.screenshot({ path: resolve(SHOTS, 'level-5-start.png') });
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+    for (const [name, x] of [
+      ['level-5-shaft', 1920],
+      ['level-5-landing', 2432],
+      ['level-5-checkpoint-3', 2592],
+    ] as const) {
+      await stepUntil(page, { x });
+      await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
+    }
+    await advanceUntilDone(page);
+    const h = await hooks(page);
+    expect(h.status).toBe('complete');
+    expect(h.simTicks).toBe(fixture.expect.ticks);
+    expect(Math.round(h.player.x)).toBe(fixture.expect.x);
+    expect(h.errors).toEqual([]);
+    await page.screenshot({ path: resolve(SHOTS, 'level-5-complete.png') });
+  });
+
   for (const id of ['level-3']) {
     test(`${id} loads as grey-box from ?level= and replays its fixture`, async ({ page }) => {
       test.setTimeout(45_000);

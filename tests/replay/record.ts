@@ -23,7 +23,7 @@ interface Run {
 }
 
 const runs: Run[] = [
-  ...['level-1', 'level-3', 'level-4', 'level-6'].map((level) => ({
+  ...['level-1', 'level-3', 'level-4', 'level-6', 'level-5'].map((level) => ({
     name: `${level}-clear`,
     level,
     seed: 1,
