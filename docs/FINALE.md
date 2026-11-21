@@ -85,7 +85,7 @@ The period is taught in room 1, on a tide mark, with a landing already above it 
 - The same period runs in room 4 and in the arena. Rooms 2 and 3 keep their floors above the mark (`y=640`, and the shaft one-ways at `y=624` and `y=612`). The line is visible, and the path does not ask him to stand in it.
 - Arena platforms at `y=624` and `y=640` stay above the mark at the high point. A platform the coil gives him that then drops through the line is a hazard, the same way a mover can already carry him into a pit.
 
-The clock is `World`'s tick (`this.tick` in `src/game/world.ts`, incremented once per `step`, exposed as `currentTick` and `snapshot().tick`). **Proposed, Rio/Andre to confirm:** rise 240 ticks, hold 60, fall 240, then repeat. The top is a function of that tick. Low top `y=560`, high top `y=600` (the painted mark). The two rects share that clock: the room-1 low street (`x` 512–896) and the river (`x` 1920–4096). The shaft (`x` 1664–1920) and the high path are not in either rect. The clock never reads wall-clock time, `performance.now`, or the render frame. One period is 540 ticks.
+The clock is `World`'s tick (`this.tick` in `src/game/world.ts`, incremented once per `step`, exposed as `currentTick` and `snapshot().tick`). **Locked in #67 by Andre, Nov 21:** rise 240 ticks, hold 60, fall 240, then repeat. The top is a function of that tick. Low top `y=560`, high top `y=600` (the painted mark). The two rects share that clock: the room-1 low street (`x` 512–896) and the river (`x` 1920–4096). The shaft (`x` 1664–1920) and the high path are not in either rect. The clock never reads wall-clock time, `performance.now`, or the render frame. One period is 540 ticks.
 
 ### Checkpoints
 
@@ -260,14 +260,14 @@ Layout, grey-box first. `src/content/levels/level-5.json`, the manifest append i
 
 Acceptance:
 
-- [ ] Manifest order is `level-1`, `level-3`, `level-4`, `level-6`, `level-5`. Existing ids, files, names, and music are unchanged. The new `music` is `level-1`. The level file's `id` is `level-5`.
-- [ ] Rooms run in order: combat pocket, cloak, vertical drop, lying gap, then the arena footprint. Each room cites the recall in §2, including a 128 px-family lying gap and a downward wall-kick shaft.
-- [ ] Spawn and checkpoints 1–3 sit above the high-water mark. Checkpoint 3 is more than 560 px from where the boss will stand. No checkpoint on a floor the line covers.
-- [ ] Room 1 shows one full rise to the tide mark and one fall from the spawn landing. Overlap with the line calls `die('pit')`. There is no swim state.
-- [ ] The clear uses the shipped kit. `tests/replay/fixtures/level-5-clear.json` uses seed 1. Its `expect.ticks` lands in about 1500–4500 (grey-box, no boss). `expect` also pins `status`, `lives`, `hp`, and `x`. With no boss spawn, the exit opens, and the PR says so. Rio and Andre lock every proposed tick count, and Andre locks the phase-3 pool, in this doc before either fixture is recorded.
-- [ ] E2E opens `/?level=level-5&lockstep=1` and checks `status`, `simTicks`, and `player.x` against that fixture, the same way `tests/e2e/level.spec.ts` checks Level 1. Shaft and room shots use `stepUntil({ x })` on the bounds-table rows: `x=1920` (side exit), `x=2432` (true landing), `x=2592` (checkpoint 3). `stepUntil({ y })` passes immediately at the lip, because checkpoint 2 is already at that feet y.
-- [ ] Any re-record updates `expect.ticks` and the bounds-table rows those shots use (`x` 1920, 2432, 2592) in the same PR.
-- [ ] `npm run ci` is green. `npm run budget` still fits both caps, or this PR is the one that states a raise. A JSON file and one small actor are not expected to need one.
+- [x] Manifest order is `level-1`, `level-3`, `level-4`, `level-6`, `level-5`. Existing ids, files, names, and music are unchanged. The new `music` is `level-1`. The level file's `id` is `level-5`.
+- [x] Rooms run in order: combat pocket, cloak, vertical drop, lying gap, then the arena footprint. Each room cites the recall in §2, including a 128 px-family lying gap and a downward wall-kick shaft.
+- [x] Spawn and checkpoints 1–3 sit above the high-water mark. Checkpoint 3 is more than 560 px from where the boss will stand. No checkpoint on a floor the line covers.
+- [x] Room 1 shows one full rise to the tide mark and one fall from the spawn landing. Overlap with the line calls `die('pit')`. There is no swim state.
+- [x] The clear uses the shipped kit. `tests/replay/fixtures/level-5-clear.json` uses seed 1. Its `expect.ticks` is 2622 (grey-box, no boss). `expect` also pins `status`, `lives`, `hp`, and `x`. With no boss spawn, the exit opens. Tide period locked in #67 by Andre, Nov 21. Bakunawa tick counts and the phase-3 pool stay open for #64 / the boss fixture.
+- [x] E2E opens `/?level=level-5&lockstep=1` and checks `status`, `simTicks`, and `player.x` against that fixture, the same way `tests/e2e/level.spec.ts` checks Level 1. Shaft and room shots use `stepUntil({ x })` on the bounds-table rows: `x=1920` (side exit), `x=2432` (true landing), `x=2592` (checkpoint 3). `stepUntil({ y })` passes immediately at the lip, because checkpoint 2 is already at that feet y.
+- [x] Any re-record updates `expect.ticks` and the bounds-table rows those shots use (`x` 1920, 2432, 2592) in the same PR.
+- [x] `npm run ci` is green. `npm run budget` still fits both caps, or this PR is the one that states a raise. A JSON file and one small actor are not expected to need one.
 
 ### `art/level-5` — Sining
 

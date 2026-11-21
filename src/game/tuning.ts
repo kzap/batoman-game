@@ -509,20 +509,20 @@ export const MANANANGGAL = {
 } as const;
 
 /**
- * Pasig tide (Level 5). One `world.tick` clock for every tide volume. Period and
- * tops are provisional until Rio and Andre lock them in #67; tests read these
- * constants so locking is a one-line change.
+ * Pasig tide (Level 5). One `world.tick` clock for every tide volume.
+ * Locked in #67 by Andre, Nov 21: rise 240, hold 60, fall 240, lowTop 560,
+ * highTop 600. Bakunawa attack clocks stay open for #64.
  */
 export const TIDE = {
-  /** Ticks the surface climbs from `lowTop` to `highTop`. */
+  /** Ticks the surface climbs from `lowTop` to `highTop`. Locked in #67 by Andre, Nov 21. */
   riseTicks: 240,
-  /** Ticks the surface holds at `highTop`. */
+  /** Ticks the surface holds at `highTop`. Locked in #67 by Andre, Nov 21. */
   holdTicks: 60,
-  /** Ticks the surface falls from `highTop` to `lowTop`. */
+  /** Ticks the surface falls from `highTop` to `lowTop`. Locked in #67 by Andre, Nov 21. */
   fallTicks: 240,
-  /** Water surface y at the low point of the period. */
+  /** Water surface y at the low point of the period. Locked in #67 by Andre, Nov 21. */
   lowTop: 560,
-  /** Water surface y at the high point (the painted tide mark). */
+  /** Water surface y at the high point (the painted tide mark). Locked in #67 by Andre, Nov 21. */
   highTop: 600,
 } as const;
 

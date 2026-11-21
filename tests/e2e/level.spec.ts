@@ -3,7 +3,6 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
-import { TIDE_PERIOD_TICKS } from '../../src/game/tuning';
 import { advance, advanceUntilDone, stepUntil, withLockstep } from './drive';
 import { expectResultsCard } from './results';
 
@@ -180,27 +179,35 @@ test.describe('level 1', () => {
 });
 
 test.describe('other levels', () => {
-  test('level-5 loads as grey-box from ?level= (clear fixture pending #67)', async ({ page }) => {
-    test.setTimeout(45_000);
+  test('level-5 loads as grey-box and replays its clear fixture', async ({ page }) => {
+    test.setTimeout(90_000);
+    const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-5-clear.json'), 'utf8')) as Fixture;
     const requests: string[] = [];
     page.on('request', (r) => requests.push(r.url()));
-    await page.goto(withLockstep('/?level=level-5', true));
+    await page.goto(withLockstep('/?level=level-5'));
     await ready(page);
     const h0 = await hooks(page);
     expect(h0.level).toBe('level-5');
     expect(h0.status).toBe('playing');
-    expect(h0.player.y).toBeGreaterThan(600);
     expect(h0.errors).toEqual([]);
     expect(requests.some((u) => u.includes('/assets/backdrops/'))).toBe(false);
     await page.screenshot({ path: resolve(SHOTS, 'level-5-start.png') });
-    // One provisional tide period so the surface rises and falls while he stands above the mark.
-    await advance(page, TIDE_PERIOD_TICKS);
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+    for (const [name, x] of [
+      ['level-5-shaft', 1920],
+      ['level-5-landing', 2432],
+      ['level-5-checkpoint-3', 2592],
+    ] as const) {
+      await stepUntil(page, { x });
+      await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
+    }
+    await advanceUntilDone(page);
     const h = await hooks(page);
-    expect(h.status).toBe('playing');
-    expect(h.simTicks).toBe(TIDE_PERIOD_TICKS);
-    expect(h.player.hp).toBeGreaterThan(0);
+    expect(h.status).toBe('complete');
+    expect(h.simTicks).toBe(fixture.expect.ticks);
+    expect(Math.round(h.player.x)).toBe(fixture.expect.x);
     expect(h.errors).toEqual([]);
-    await page.screenshot({ path: resolve(SHOTS, 'level-5-tide-period.png') });
+    await page.screenshot({ path: resolve(SHOTS, 'level-5-complete.png') });
   });
 
   for (const id of ['level-3']) {

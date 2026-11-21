@@ -148,7 +148,7 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
   /**
    * Destroyed city block (grey-box, no boss). Tide is watched from the high path;
    * the low street is not required. Shaft drop is short; the lying gap needs a dash.
-   * `level-5-clear` is not recorded until #67 locks the tide ticks.
+   * Tide period locked in #67 by Andre, Nov 21.
    */
   'level-5': () => [
     fight(500), // patroller at 400; shoot from spawn before it closes

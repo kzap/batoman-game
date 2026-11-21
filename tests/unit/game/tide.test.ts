@@ -4,8 +4,6 @@ import { levelProblems, parseLevel, type LevelJson } from '@content/level';
 import { tideTop } from '@game/tide';
 import { PLAYER, TIDE, TIDE_PERIOD_TICKS } from '@game/tuning';
 import { World } from '@game/world';
-import { clearRoute } from '../../replay/bots';
-import { record } from '../../replay/harness';
 
 function level5(): LevelJson {
   const json: unknown = JSON.parse(readFileSync(new URL('../../../src/content/levels/level-5.json', import.meta.url), 'utf8'));
@@ -30,7 +28,7 @@ describe('tideTop', () => {
     expect(tideTop(TIDE_PERIOD_TICKS + TIDE.riseTicks - 1)).toBe(TIDE.highTop);
   });
 
-  it('never leaves the provisional band', () => {
+  it('never leaves the locked band', () => {
     for (let t = 0; t < TIDE_PERIOD_TICKS * 2; t++) {
       const y = tideTop(t);
       expect(y).toBeGreaterThanOrEqual(TIDE.lowTop);
@@ -127,12 +125,4 @@ describe('level 5 tide and checkpoints', () => {
     expect(w.snapshot().status).toBe('complete');
   });
 
-  it('is completable by the scripted route without pinning ticks (pending #67)', () => {
-    const rec = record(level5(), 1, clearRoute('level-5'), 6000);
-    expect(rec.final.status).toBe('complete');
-    expect(rec.final.lives).toBe(PLAYER.lives);
-    expect(rec.final.player.hp).toBe(PLAYER.maxHp);
-    expect(rec.final.tick).toBeGreaterThanOrEqual(1500);
-    expect(rec.final.tick).toBeLessThanOrEqual(4500);
-  });
 });

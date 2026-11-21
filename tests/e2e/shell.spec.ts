@@ -155,18 +155,17 @@ test.describe('shell', () => {
     expect(save.options.music).toBe(false);
   });
 
-  test('full loop: title -> levels 1/3/4/6 -> level-5 intro, unlocking as it goes', async ({ page }) => {
-    test.setTimeout(120_000);
+  test('full loop: title -> five levels -> credits, unlocking as it goes', async ({ page }) => {
+    test.setTimeout(150_000);
     await page.goto(withLockstep('/'));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
     await page.keyboard.press('Enter');
     await screen(page, 'playing');
-    // level-5-clear waits on #67; clear the four pinned levels, then confirm the finale unlocks.
-    const order = ['level-1', 'level-3', 'level-4', 'level-6'] as const;
+    const order = ['level-1', 'level-3', 'level-4', 'level-6', 'level-5'] as const;
     for (const [i, id] of order.entries()) {
-      const next = order[i + 1] ?? 'level-5';
+      const next = order[i + 1] ?? null;
       expect((await hooks(page)).level).toBe(id);
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
       await advanceUntilDone(page);
@@ -178,27 +177,20 @@ test.describe('shell', () => {
         expect(saved.unlocked).toEqual(['level-1', 'level-3']);
       }
       await page.keyboard.press('Enter');
-      await screen(page, 'intro', 20_000);
-      await expect(page.locator('#overlay')).toContainText(`LEVEL ${i + 2}`);
-      if (next !== 'level-5') {
+      if (next) {
+        await screen(page, 'intro', 20_000);
+        await expect(page.locator('#overlay')).toContainText(`LEVEL ${i + 2}`);
         await page.keyboard.press('Enter');
         await screen(page, 'playing');
       }
     }
-    await expect(page.locator('#overlay')).toContainText('Destroyed City Block');
+    await screen(page, 'credits');
+    await page.screenshot({ path: resolve(SHOTS, 'shell-credits.png') });
     const h = await hooks(page);
     expect(h.score).toBeGreaterThan(3000);
     expect(h.errors).toEqual([]);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { unlocked?: string[] });
     expect(saved.unlocked).toEqual(['level-1', 'level-3', 'level-4', 'level-6', 'level-5']);
-    // Credits still open from the title; the finale clear fixture is pending #67.
-    await page.goto(withLockstep('/'));
-    await ready(page);
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    await screen(page, 'credits');
-    await page.screenshot({ path: resolve(SHOTS, 'shell-credits.png') });
     // Flag off, so the menu is the save and not the playtest switch.
     await page.goto(withLockstep('/?unlockAll=0'));
     await ready(page);
