@@ -16,7 +16,7 @@ export interface Budget {
 export const BUDGET: Budget = {
   // Four dressed levels (1, 3, 4, 6), boss atlases, and a finale. dist/ counts
   // both KTX2 and WebP for every backdrop; a player downloads only the current
-  // level. Served total is about 11–11.7 MB, against the previous 12 MB cap.
+  // level. Served 10.93 MB at 188085ca914e34a66c7482b5f8496a0682336dae, 2026-11-20.
   totalServed: 20 * 1024 * 1024,
   code: 900 * 1024,
   singleImage: 1.5 * 1024 * 1024,
