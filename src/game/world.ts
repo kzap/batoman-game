@@ -12,6 +12,7 @@ import { Health } from './health';
 import { createPickups, type Pickup, type PickupSnapshot } from './pickups';
 import { Player, type PlayerPose } from './player';
 import { advanceProjectile, ProjectilePool, projectileBox, type Projectile, type ProjectileKind, type ProjectileSnapshot } from './projectiles';
+import { tideRects } from './tide';
 import { CAMERA, ENEMY, ENEMY_SHOT, NOVA, PLAYER, PROJECTILE } from './tuning';
 
 const overlapsRect = (b: AABB, r: Rect): boolean => overlaps(b, r);
@@ -111,6 +112,11 @@ export interface WorldSnapshot {
   readonly movingSolids: readonly SolidSnapshot[];
   /** Uncollected pickups. A collected one drops out and stays gone for the level. */
   readonly pickups: readonly PickupSnapshot[];
+  /**
+   * Live Pasig tide columns this tick (grown from `level.tideVolumes`). Empty
+   * when the level has no tide. The renderer draws these; overlap kills as a pit.
+   */
+  readonly tide: readonly Rect[];
   readonly camera: CameraSnapshot;
 }
 
@@ -433,6 +439,7 @@ export class World {
     const b = this.player.body;
     if (b.top < 0) return this.die('pit');
     for (const z of this.level.deathZones) if (overlapsRect(b, z)) return this.die('pit');
+    for (const z of tideRects(this.level.tideVolumes, this.tick)) if (overlapsRect(b, z)) return this.die('pit');
     for (const h of this.level.hazards) {
       if (!overlapsRect(b, h)) continue;
       if (h.kind === 'crusher') return this.die('crusher');
@@ -549,6 +556,7 @@ export class World {
       boss: this.bossSnapshot(),
       movingSolids: this.movers.map((m) => ({ id: m.solid.id, x: m.solid.x, y: m.solid.y, w: m.solid.w, h: m.solid.h, prop: m.spec.prop })),
       pickups: this.pickups.filter((p) => !p.collected).map((p) => p.snapshot()),
+      tide: tideRects(this.level.tideVolumes, this.tick),
       camera: this.camera.snapshot(),
     };
   }

@@ -23,8 +23,8 @@ test.describe('shell', () => {
     await page.keyboard.press('Enter');
     await screen(page, 'levelSelect');
     const items = page.locator('.shell-menu li');
-    await expect(items).toHaveCount(4);
-    for (let i = 0; i < 4; i++) await expect(items.nth(i)).not.toHaveClass(/shell-locked/);
+    await expect(items).toHaveCount(5);
+    for (let i = 0; i < 5; i++) await expect(items.nth(i)).not.toHaveClass(/shell-locked/);
     await page.screenshot({ path: resolve(SHOTS, 'shell-level-select.png') });
     // The playtest flag does not write the unlocked list. Nothing has been saved yet.
     expect(await page.evaluate(() => localStorage.getItem('batoman.v2.save'))).toBeNull();
@@ -54,11 +54,12 @@ test.describe('shell', () => {
     await page.keyboard.press('Enter');
     await screen(page, 'levelSelect');
     const items = page.locator('.shell-menu li');
-    await expect(items).toHaveCount(4);
+    await expect(items).toHaveCount(5);
     await expect(items.nth(0)).not.toHaveClass(/shell-locked/);
     await expect(items.nth(1)).toHaveClass(/shell-locked/);
     await expect(items.nth(2)).toHaveClass(/shell-locked/);
     await expect(items.nth(3)).toHaveClass(/shell-locked/);
+    await expect(items.nth(4)).toHaveClass(/shell-locked/);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     expect((await hooks(page)).screen).toBe('levelSelect');
@@ -154,15 +155,15 @@ test.describe('shell', () => {
     expect(save.options.music).toBe(false);
   });
 
-  test('full loop: title -> four levels -> credits, unlocking as it goes', async ({ page }) => {
-    test.setTimeout(120_000);
+  test('full loop: title -> five levels -> credits, unlocking as it goes', async ({ page }) => {
+    test.setTimeout(150_000);
     await page.goto(withLockstep('/?cutscene=0'));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
     await page.keyboard.press('Enter');
     await screen(page, 'playing');
-    const order = ['level-1', 'level-3', 'level-4', 'level-6'] as const;
+    const order = ['level-1', 'level-3', 'level-4', 'level-6', 'level-5'] as const;
     for (const [i, id] of order.entries()) {
       const next = order[i + 1] ?? null;
       expect((await hooks(page)).level).toBe(id);
@@ -189,7 +190,7 @@ test.describe('shell', () => {
     expect(h.score).toBeGreaterThan(3000);
     expect(h.errors).toEqual([]);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { unlocked?: string[] });
-    expect(saved.unlocked).toEqual(['level-1', 'level-3', 'level-4', 'level-6']);
+    expect(saved.unlocked).toEqual(['level-1', 'level-3', 'level-4', 'level-6', 'level-5']);
     // Flag off, so the menu is the save and not the playtest switch.
     await page.goto(withLockstep('/?unlockAll=0'));
     await ready(page);

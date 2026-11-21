@@ -722,7 +722,7 @@ so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per reco
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 3889
 (through the Sigbin kill; the clear route dashes off each lunge, so it is 189 ticks longer than the stand-still version),
-`level-4-clear` 4961, `level-6-clear` 4810 (4059 before the boss; 5550 while the right anchor was inside the door), all without damage, plus `level-6-tikbalang-phases` (6525 ticks, hp 3, reaches phase 3 while the boss is alive, then the death) and `level-1-hp-up` (a jump in place at the
+`level-4-clear` 4961, `level-6-clear` 4810 (4059 before the boss; 5550 while the right anchor was inside the door), `level-5-clear` 2622 (grey-box, no boss; tide locked in #67 by Andre, Nov 21), all without damage, plus `level-6-tikbalang-phases` (6525 ticks, hp 3, reaches phase 3 while the boss is alive, then the death) and `level-1-hp-up` (a jump in place at the
 spawn until the heart is taken; pins hp 4 and maxHp 4) and `level-6-lying-path` (walks onto the
 painted bridge and dies in the pit, hp 0, x still in the gap). `input-remap` (section 4.5) is a separate
 105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it

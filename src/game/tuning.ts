@@ -509,6 +509,27 @@ export const MANANANGGAL = {
 } as const;
 
 /**
+ * Pasig tide (Level 5). One `world.tick` clock for every tide volume.
+ * Locked in #67 by Andre, Nov 21: rise 240, hold 60, fall 240, lowTop 560,
+ * highTop 600. Bakunawa attack clocks stay open for #64.
+ */
+export const TIDE = {
+  /** Ticks the surface climbs from `lowTop` to `highTop`. Locked in #67 by Andre, Nov 21. */
+  riseTicks: 240,
+  /** Ticks the surface holds at `highTop`. Locked in #67 by Andre, Nov 21. */
+  holdTicks: 60,
+  /** Ticks the surface falls from `highTop` to `lowTop`. Locked in #67 by Andre, Nov 21. */
+  fallTicks: 240,
+  /** Water surface y at the low point of the period. Locked in #67 by Andre, Nov 21. */
+  lowTop: 560,
+  /** Water surface y at the high point (the painted tide mark). Locked in #67 by Andre, Nov 21. */
+  highTop: 600,
+} as const;
+
+/** One full rise-hold-fall cycle, in ticks. */
+export const TIDE_PERIOD_TICKS = TIDE.riseTicks + TIDE.holdTicks + TIDE.fallTicks;
+
+/**
  * Camera, in sim pixels and ticks. The view size is the design viewport at the
  * gameplay plane (16:9 at 32 px per stage unit with the Phase 0 camera); the
  * renderer may show slightly more or less at other aspect ratios.

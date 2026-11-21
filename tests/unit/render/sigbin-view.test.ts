@@ -68,6 +68,7 @@ function snap(extra: Partial<WorldSnapshot> = {}): WorldSnapshot {
     boss: null,
     movingSolids: [],
     pickups: [],
+    tide: [],
     camera: { x: 0, y: 0, shakeX: 0, shakeY: 0 },
     ...extra,
   };
