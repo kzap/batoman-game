@@ -237,6 +237,26 @@ test.describe('other levels', () => {
     await page.screenshot({ path: resolve(SHOTS, 'level-6-complete.png') });
   });
 
+  test('level-6 lying path is a pit under the painted bridge', async ({ page }) => {
+    test.setTimeout(60_000);
+    const lie = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-6-lying-path.json'), 'utf8')) as Fixture;
+    await page.goto(withLockstep('/?level=level-6'));
+    await ready(page);
+    await page.evaluate((f) => window.__batoman!.replay!(f), lie);
+    // The last ticks are the fall. Stop short of the pit so the still shows the bridge, then finish on the death tick.
+    const falling = Math.max(0, lie.expect.ticks - 24);
+    await advance(page, falling);
+    await page.screenshot({ path: resolve(SHOTS, 'level-6-lying-path.png') });
+    await advance(page, lie.expect.ticks - falling);
+    const fell = await hooks(page);
+    expect(fell.screen).not.toBe('complete');
+    expect(fell.player.hp).toBe(0);
+    expect(fell.simTicks).toBe(lie.expect.ticks);
+    expect(Math.round(fell.player.x)).toBe(lie.expect.x);
+    expect(fell.player.y).toBeLessThan(80);
+    expect(fell.errors).toEqual([]);
+  });
+
   test('level-4 loads dressed from ?level= and replays its fixture up the tower', async ({ page }) => {
     test.setTimeout(60_000);
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-4-clear.json'), 'utf8')) as Fixture;

@@ -620,7 +620,7 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Dressed: `level-3-props`, far `nave` and mid `chapel`, `midFloorY` 448 so the chapel band stands on the nave rather than the spawn ledge, 77 decor quads (platforms, pews, santos, votives, painted spikes, backward prints, eyes in the dark, a Sigbin silhouette in the flood). Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100, the `sigbin` boss at 3424 on the gallery (the exit stays shut until it dies). No new arena walls; the existing gallery floor is the fight. |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
-| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px pit under a painted rope bridge, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 145 decor quads from `level-6-props` (`bridge_rope` over the pit), far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The manifest still plays the `level-1` track |
 
 Level 3 is dressed from `art-source/level-3/` (`nave` and `chapel` backdrops, a props recipe, and an `art`
 block with `midFloorY` 448). The mid chapel band's painted floor is pinned to that y at the live camera,
@@ -630,8 +630,13 @@ stone about 128 px above the nave. Engine spike and crusher placeholders are wit
 art is present so they do not cover the painted props; a soft glow remains behind the prop layer. A death
 zone covered by a `water_` prop draws no teal plane, so the painted flood is the water. Level 6 is dressed from
 `art-source/level-6/` in the Level 1 inked-painterly style, relit as a sunny rooftop farm: `sky` and
-`garden` backdrops and 144 decor quads. Geometry is still the Phase 5 block-out, so the painted lying path
-between roofs is not solid. The tikbalang at 4100 is the scout: it burst-chases and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
+`garden` backdrops and 145 decor quads. The lying path is the rope bridge painted across the 128 px gap
+between the second and third roofs (x 1248–1376, both tops at y 224). No solid crosses that span.
+The death zone `{ x: 1248, y: 0, w: 128, h: 32 }` is the floor: walking onto the bridge is a pit death.
+`levelProblems` still passes, because the bridge is decor and the pit is an ordinary death zone.
+`level-6-clear` dash-jumps to the true landing on the next roof, so that fixture stays on its previous
+pin. `level-6-lying-path` walks off the lip and dies. The tikbalang at 4100 is the scout: it burst-chases
+and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
 art does exist; it is the first vertical level and is why drones and stealths got a `sightHeight`, so an
 enemy on one storey does not react to the player climbing past on another. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
@@ -679,8 +684,9 @@ so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per reco
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 3889
 (through the Sigbin kill; the clear route dashes off each lunge, so it is 189 ticks longer than the stand-still version),
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage, plus `level-1-hp-up` (a jump in place at the
-spawn until the heart is taken; pins hp 4 and maxHp 4). `input-remap` (section 4.5) is a separate
+`level-4-clear` 2802, `level-6-clear` 4059, all without damage, plus `level-1-hp-up` (a jump in place at the
+spawn until the heart is taken; pins hp 4 and maxHp 4) and `level-6-lying-path` (walks onto the
+painted bridge and dies in the pit, hp 0, x still in the gap). `input-remap` (section 4.5) is a separate
 105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
 alone. `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
