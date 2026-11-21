@@ -379,8 +379,8 @@ that just raised the cap (the wobble is dropped while `html[data-reduce-motion='
 `boss.engaged`; it rebuilds its DOM only when one of those values changes.
 
 Level 3 stays grey-box and Level 6 is dressed (section 8). The title, level select and game over cards are text
-(ART.md's silhouettes, thumbnails and salakot need art that does not exist yet); the results card does not
-yet dim or tally (Phase 8 polish).
+(ART.md's silhouettes, thumbnails and salakot need art that does not exist yet). The results card dims the
+staged level around a spotlight on Ando and tallies the HUD score (section 6.1).
 
 ### 6.1 Shell (`src/app/shell/`)
 
@@ -422,12 +422,27 @@ the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the curre
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
 
+The results card (`complete`) does not use that flat dim. `results.ts` is the presentation, pure and
+unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
+lines for this level: kills (whatever remains), the 500 clear bonus, and 100 per heart. `tallyAt` counts
+one non-zero line every 400 ms and the running total lands on the HUD figure; a zero-point line finishes
+immediately. Whether the count plays is `effectiveReduceMotion()`: `?reduceMotion=` first, then the
+save flag, then the OS preference while the save is still `null`. An explicit `false` still counts when the OS asks
+for reduced motion. R, which writes that flag, snaps a count that is already running. Enter still advances
+during the count. The reducer is unchanged, and the tally does not gate it. The line figures update in
+place. A polite live region is created empty with the card, and its text is set one frame after the count
+lands, so the finished tally is announced without reading out every tick. The overlay paints the same
+`rgba(13, 13, 26, 0.72)` wash as the other cards, as a radial gradient that stays clear for 96 sim pixels
+around the player's body centre and feathers across the next 80 (`resultsSpotlight`). The hole is projected
+with the play lens (`LENS`, distance 22, FOV 30), so it sits on Ando at the canvas aspect. The card itself
+is placed on the left: every exit is at the right edge of its level, and that is where the pool of light
+falls. The HUD stays up, so the counted total can be read against the score it is catching.
+
 `VITE_UNLOCK_ALL_LEVELS` (`src/app/shell/progression.ts`) is the playtest switch. Unset is on, so a
 normal `npm run build` still opens every level. `false` or `0` turns it off for that build.
 `?unlockAll=1` or `0` overrides the build for one load. `selectableLevels` is what level select reads.
 `SaveData.unlocked` is still only what `recordClear` wrote, so either switch restores that list with no
-save migration. `save.ts` keeps progress in `localStorage` under
-`batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
+save migration. `save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
 `options` holds music, sfx, and `reduceMotion` (`true`, `false`, or `null` to follow the OS). `bindings` is
 optional on read; a missing or rejected table becomes the defaults in section 4.5 and the rest of the save
 is kept, including the reduce-motion choice. The version stays 1 so a Phase 7 save still loads. `loadSave`
@@ -709,12 +724,14 @@ fight, one-way, mover and first dash-gap sections, checks the first patroller is
 to engage (HUD bar), show the weak-point diamond (`hooks.weakPoint`, screenshot `level-1-weak-point.png`),
 reach phase 3 and die (bar gone), and requires the browser build to finish on the same
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
-snapshot's enemy list, boss bar state and sprite count), then the results card and Enter moving on to
+snapshot's enemy list, boss bar state and sprite count), then the results card — dimmed level,
+spotlight on the player, tally equal to the HUD score, screenshot `level-1-complete.png` — and Enter moving on to
 Level 3; the same load-and-replay check runs for `level-3` through
 `?level=`, and dressed variants for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
 first balcony, the lift and the roof) and `level-6` (atlas plus `sky` and `garden`, screenshots the start,
 the lift, the checkpoint roof and the last roof), plus a check that an unknown id is a boot error. The shell's
-full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
+full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits, asserting the
+results card on every clear and screenshotting the first (`shell-results.png`). Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
 

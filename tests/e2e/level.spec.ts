@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
 import { advance, advanceUntilDone, stepUntil, withLockstep } from './drive';
+import { expectResultsCard } from './results';
 
 declare global {
   interface Window {
@@ -147,9 +148,9 @@ test.describe('level 1', () => {
     expect(Math.round(h.player.x)).toBe(fixture.expect.x);
     await expect(page.locator('#hud')).toContainText(`lives ${fixture.expect.lives}`);
     expect(h.errors).toEqual([]);
-    // The shell's results card follows, and Enter moves on to the next manifest level.
+    // The shell's results card follows: the level dims, Ando stays lit, and the tally meets the HUD score.
     await page.waitForFunction(() => window.__batoman?.screen === 'complete');
-    await expect(page.locator('#overlay')).toContainText('LEVEL CLEAR');
+    await expectResultsCard(page, { kills: 1750, clear: 500, hearts: 300, total: 2550 });
     await page.screenshot({ path: resolve(SHOTS, 'level-1-complete.png') });
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__batoman?.level === 'level-3' && window.__batoman.screen === 'playing', null, { timeout: 20_000 });
