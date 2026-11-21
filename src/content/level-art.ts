@@ -36,8 +36,9 @@ export interface LevelArtJson {
   readonly backdrops: Readonly<Partial<Record<BackdropSlot, string>>>;
   /**
    * Y of the floor the mid backdrop stands on, in sim px (feet height).
-   * Defaults to the level's spawn floor. Level 3 uses this so the chapel mid
-   * band sits on the nave (y 448) instead of the entrance ledge (spawn y 704).
+   * Defaults to the level's spawn floor. The renderer pins the painted pixels
+   * of that floor to this y at the live camera. Level 3 uses 448 so the chapel
+   * band sits on the nave instead of the entrance ledge (spawn y 704).
    */
   readonly midFloorY?: number;
   readonly decor: readonly DecorJson[];

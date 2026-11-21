@@ -623,9 +623,12 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
 Level 3 is dressed from `art-source/level-3/` (`nave` and `chapel` backdrops, a props recipe, and an `art`
-block with `midFloorY` 448). The mid chapel band stands on the nave floor, 256 px below the entrance
-ledge that `spawn.y` would otherwise pin it to. Engine spike and crusher placeholders are withheld when
-art is present so they do not cover the painted props; a soft glow remains behind the prop layer. Level 6 is dressed from
+block with `midFloorY` 448). The mid chapel band's painted floor is pinned to that y at the live camera,
+256 px below the entrance ledge that `spawn.y` would otherwise pin it to. A placement that only matches
+the camera's lower bound, or that treats the transparent rows under the painting as the floor, draws the
+stone about 128 px above the nave. Engine spike and crusher placeholders are withheld when
+art is present so they do not cover the painted props; a soft glow remains behind the prop layer. A death
+zone covered by a `water_` prop draws no teal plane, so the painted flood is the water. Level 6 is dressed from
 `art-source/level-6/` in the Level 1 inked-painterly style, relit as a sunny rooftop farm: `sky` and
 `garden` backdrops and 144 decor quads. Geometry is still the Phase 5 block-out, so the painted lying path
 between roofs is not solid. The tikbalang at 4100 is the scout: it burst-chases and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
