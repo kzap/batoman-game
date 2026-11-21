@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
 import type { ReplayInputs } from '../../src/core/sim/replay';
+import { advanceUntilDone, withLockstep } from './drive';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOTS = resolve(HERE, '../../e2e-screenshots');
@@ -43,7 +44,7 @@ test.describe('shell', () => {
   });
 
   test('intro card, pause freezes the sim, resume continues, quit returns to the title', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(withLockstep('/'));
     await ready(page);
     await page.keyboard.press('Enter'); // Start game
     await screen(page, 'intro');
@@ -75,13 +76,21 @@ test.describe('shell', () => {
   });
 
   test('game over: all lives lost shows the card; retry restarts the level with three lives', async ({ page }) => {
-    test.setTimeout(120_000);
-    await page.goto('/?level=level-1');
+    test.setTimeout(30_000);
+    await page.goto(withLockstep('/?level=level-1'));
     await ready(page);
     // Holding right walks into the first patroller's fire and then the first pit, over and over.
+    // Pumped by sim ticks (1601 to game over at seed 1), not by how fast frames render.
+    // The frame loop is blocked during evaluate, so only advance() steps until the world freezes.
     await page.keyboard.down('ArrowRight');
-    await screen(page, 'gameover', 90_000);
+    const status = await page.evaluate(() => {
+      const h = window.__batoman!;
+      for (let i = 0; i < 40 && h.status === 'playing'; i++) h.advance!(100);
+      return h.status;
+    });
+    expect(status).toBe('gameover');
     await page.keyboard.up('ArrowRight');
+    await screen(page, 'gameover', 10_000);
     const over = await hooks(page);
     expect(over.status).toBe('gameover');
     expect(over.mode).toBe('play'); // the world froze itself; the shell did not need to pause it
@@ -123,8 +132,8 @@ test.describe('shell', () => {
   });
 
   test('full loop: title -> four levels -> credits, unlocking as it goes', async ({ page }) => {
-    test.setTimeout(540_000);
-    await page.goto('/');
+    test.setTimeout(120_000);
+    await page.goto(withLockstep('/'));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
@@ -135,7 +144,8 @@ test.describe('shell', () => {
       const next = order[i + 1] ?? null;
       expect((await hooks(page)).level).toBe(id);
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
-      await screen(page, 'complete', 150_000);
+      await advanceUntilDone(page);
+      await screen(page, 'complete', 10_000);
       await expect(page.locator('#overlay')).toContainText('LEVEL CLEAR');
       await page.keyboard.press('Enter');
       if (next) {
@@ -158,5 +168,95 @@ test.describe('shell', () => {
     await screen(page, 'levelSelect');
     await expect(page.locator('.shell-menu li.shell-locked')).toHaveCount(0);
     await expect(page.locator('.shell-best').first()).toContainText('best');
+  });
+
+  test('controls: rebind jump, persist across reload, reset to defaults', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.goto('/');
+    await ready(page);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+
+    const selected = () => page.locator('.shell-menu li.shell-selected');
+    const select = async (action: string): Promise<void> => {
+      for (let i = 0; i < 8; i++) {
+        if ((await selected().getAttribute('data-action')) === action) return;
+        await page.keyboard.press('ArrowDown');
+      }
+      throw new Error(`controls row ${action} not reached`);
+    };
+    const toggle = async (key: string): Promise<void> => {
+      await page.keyboard.press('Enter');
+      await expect(page.locator('.shell-card[data-listening="1"]')).toBeVisible();
+      await page.keyboard.press(key);
+      await expect(page.locator('.shell-card[data-listening="0"]')).toBeVisible();
+    };
+    const jumpKeys = () => page.evaluate(() => (JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { bindings: { jump: string[] } }).bindings.jump);
+
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
+    await select('jump');
+    await toggle('KeyQ');
+    await toggle('Space');
+    await toggle('KeyW');
+    await toggle('ArrowUp');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Q');
+    expect(await jumpKeys()).toEqual(['KeyQ']);
+
+    await page.reload();
+    await ready(page);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Q');
+
+    await page.keyboard.press('Escape');
+    await screen(page, 'title');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await screen(page, 'intro');
+    await page.keyboard.press('Enter');
+    await screen(page, 'playing');
+    await page.waitForFunction(() => (window.__batoman?.simTicks ?? 0) > 5);
+
+    const y = (await hooks(page)).player.y;
+    const frames = (await hooks(page)).frames;
+    await page.keyboard.press('Space');
+    await page.waitForFunction((n) => (window.__batoman?.frames ?? 0) > n + 20, frames);
+    expect((await hooks(page)).player.y).toBeLessThanOrEqual(y + 1);
+
+    await page.keyboard.press('KeyQ');
+    await page.waitForFunction((baseline) => (window.__batoman?.player.y ?? 0) > baseline + 1, y);
+    await page.waitForFunction(() => {
+      const pose = window.__batoman?.player.pose;
+      return pose === 'idle' || pose === 'run';
+    });
+
+    await page.keyboard.press('Escape');
+    await screen(page, 'paused');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+    await select('reset');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
+    expect(await jumpKeys()).toEqual(['Space', 'KeyW', 'ArrowUp']);
+
+    await page.keyboard.press('Escape');
+    await screen(page, 'paused');
+    await page.keyboard.press('Escape');
+    await screen(page, 'playing');
+    const grounded = (await hooks(page)).player.y;
+    await page.keyboard.press('Space');
+    await page.waitForFunction((baseline) => (window.__batoman?.player.y ?? 0) > baseline + 1, grounded);
+
+    await page.reload();
+    await ready(page);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
+    expect((await hooks(page)).errors).toEqual([]);
   });
 });

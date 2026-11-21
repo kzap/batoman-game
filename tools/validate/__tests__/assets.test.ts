@@ -13,14 +13,18 @@ const atlas: AtlasJson = {
 };
 
 describe('expected pipeline outputs', () => {
-  it('lists json + webp per recipe and one webp per backdrop layer', () => {
+  it('lists json + webp per recipe and webp, ktx2, and meta per backdrop layer', () => {
     expect(expectedAtlasOutputs('drone', 'art-source/characters/drone.recipe.json', 'public/assets/atlases').map((e) => e.path)).toEqual([
       'public/assets/atlases/drone.json',
       'public/assets/atlases/drone.webp',
     ]);
     expect(expectedBackdropOutputs('level-1', ['background', 'foreground'], 'art-source/level-1/backdrops.json', 'public/assets/backdrops').map((e) => e.path)).toEqual([
       'public/assets/backdrops/level-1/background.webp',
+      'public/assets/backdrops/level-1/background.ktx2',
+      'public/assets/backdrops/level-1/background.meta.json',
       'public/assets/backdrops/level-1/foreground.webp',
+      'public/assets/backdrops/level-1/foreground.ktx2',
+      'public/assets/backdrops/level-1/foreground.meta.json',
     ]);
   });
 });

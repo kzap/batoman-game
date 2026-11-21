@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AtlasFrame } from '@content/atlas';
-import { frameUv, placeFrame } from '@render/sprite-layout';
+import { framePlacement, frameUv, placeFrame } from '@render/sprite-layout';
+import { PIXELS_PER_UNIT } from '@render/units';
 
 // A 90 x 120 frame at (100, 200) in a 1024 x 1024 atlas, pivot at the feet, slightly right of centre.
 const frame: AtlasFrame = { x: 100, y: 200, w: 90, h: 120, pivot: { x: 50, y: 120 } };
@@ -34,6 +35,13 @@ describe('placeFrame', () => {
     expect(left.sy).toBe(right.sy);
     expect(left.cy).toBe(right.cy);
     expect(left.cx - 10).toBeCloseTo(-(right.cx - 10));
+  });
+
+  it('framePlacement anchors a sim-pixel prop and keeps aspect when only the width is set', () => {
+    const p = framePlacement(frame, { x: 64, y: 32 }, { size: { w: 180 } });
+    expect(p.sx).toBeCloseTo(180 / PIXELS_PER_UNIT);
+    expect(p.sy).toBeCloseTo((180 / frame.w) * frame.h / PIXELS_PER_UNIT);
+    expect(p.cy).toBeGreaterThan(32 / PIXELS_PER_UNIT);
   });
 
   it('accepts independent axis scales for stretched props', () => {

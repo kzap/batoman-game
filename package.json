@@ -10,18 +10,22 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && npm run assets && npm run validate && vite build && npm run budget",
+    "build:e2e": "VITE_E2E_LOCKSTEP=1 vite build",
+    "check:prod-bundle": "tsx tools/check-prod-bundle.ts",
+    "check:e2e-bundle": "tsx tools/check-prod-bundle.ts --expect",
     "preview": "vite preview --port 4173 --strictPort",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tools/tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run --project unit",
     "test:replay": "vitest run --project replay",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --project=gate",
+    "test:e2e:perf": "playwright test --project=perf",
     "recut": "tsx tools/recut/cli.ts",
     "recut:review": "tsx tools/recut/review.ts",
     "assets": "tsx tools/pack/index.ts",
     "validate": "tsx tools/validate/index.ts",
     "budget": "tsx tools/validate/budget.ts",
-    "ci": "npm run lint && npm run test && npm run test:replay && npm run build && npm run test:e2e",
+    "ci": "npm run lint && npm run test && npm run test:replay && npm run build && npm run check:prod-bundle && npm run build:e2e && npm run check:e2e-bundle && npm run test:e2e && npm run test:e2e:perf",
     "replay:record": "tsx --tsconfig tsconfig.json tests/replay/record.ts",
     "replay:trace": "tsx --tsconfig tsconfig.json tests/replay/trace.ts",
     "level:from-tiled": "tsx tools/level/from-tiled.ts"
@@ -31,6 +35,7 @@
     "three": "0.186.0"
   },
   "devDependencies": {
+    "@babylonjs/ktx2encoder": "^9.37.1",
     "@eslint/js": "^9.39.0",
     "@playwright/test": "1.63.0",
     "@types/node": "^22.19.0",

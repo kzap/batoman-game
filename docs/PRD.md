@@ -155,4 +155,7 @@ One mechanical boss per level. Defeat requires learning its attack pattern.
 - Multiplayer
 - Online leaderboards
 - Procedural generation
-- Controller remapping UI
+
+Keyboard remapping is in scope for v0.2 (PLAN Phase 8). The title and pause menus open a Controls screen
+where every gameplay action can be rebound; the table is saved with progress and can be reset to the
+defaults in the Player section above. Gamepad mapping and controller iconography stay out of scope.
