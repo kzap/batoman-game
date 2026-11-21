@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { beatHoldMs, cutsceneProblems, DEFAULT_HOLD_MS, parseCutscene } from '@content/cutscene';
+import { beatHoldMs, cutsceneProblems, DEFAULT_HOLD_MS, fitPortraitDisplay, parseCutscene, PORTRAIT_MAX_EDGE } from '@content/cutscene';
 
 const valid = {
   version: 1 as const,
@@ -16,10 +16,8 @@ const valid = {
       speaker: 'Sari-sari',
       text: "Anak, 'wag diyan.",
       portrait: {
-        atlas: 'patroller',
-        animation: 'idle',
-        tint: 0xd8b4ff,
-        crop: { x: 20, y: 0, w: 78, h: 78 },
+        backdrop: 'town',
+        crop: { x: 80, y: 400, w: 280, h: 280 },
       },
       holdMs: 3600,
     },
@@ -27,7 +25,7 @@ const valid = {
 };
 
 describe('cutscene script', () => {
-  it('accepts a valid script', () => {
+  it('accepts a valid script with atlas and backdrop portraits', () => {
     expect(cutsceneProblems(valid)).toEqual([]);
     expect(parseCutscene(valid).beats).toHaveLength(2);
   });
@@ -38,12 +36,24 @@ describe('cutscene script', () => {
     expect(cutsceneProblems({ version: 1, id: 'LEVEL 1', beats: valid.beats })[0]).toMatch(/id must match/);
   });
 
-  it('rejects a portrait without frame or animation, and a broken camera or crop', () => {
+  it('rejects a portrait without atlas/backdrop, and a broken crop or camera', () => {
+    const noSource = {
+      ...valid,
+      beats: [{ speaker: 'Ando', text: 'hi', portrait: { animation: 'idle' }, holdMs: 1 }],
+    };
+    expect(cutsceneProblems(noSource).some((p) => p.includes('exactly one of atlas or backdrop'))).toBe(true);
+
     const noFrame = {
       ...valid,
       beats: [{ speaker: 'Ando', text: 'hi', portrait: { atlas: 'batoman' }, holdMs: 1 }],
     };
     expect(cutsceneProblems(noFrame).some((p) => p.includes('needs frame or animation'))).toBe(true);
+
+    const backdropNoCrop = {
+      ...valid,
+      beats: [{ speaker: 'Sari-sari', text: 'hi', portrait: { backdrop: 'town' }, holdMs: 1 }],
+    };
+    expect(cutsceneProblems(backdropNoCrop).some((p) => p.includes('need a crop'))).toBe(true);
 
     const badCam = {
       ...valid,
@@ -52,20 +62,6 @@ describe('cutscene script', () => {
     const problems = cutsceneProblems(badCam);
     expect(problems.some((p) => p.includes('x and .y'))).toBe(true);
     expect(problems.some((p) => p.includes('ms'))).toBe(true);
-
-    const badCrop = {
-      ...valid,
-      beats: [{ speaker: 'Ando', text: 'hi', portrait: { atlas: 'patroller', frame: 'idle_00', crop: { x: 0, y: 0, w: 0, h: 10 } }, holdMs: 1 }],
-    };
-    expect(cutsceneProblems(badCrop).some((p) => p.includes('crop'))).toBe(true);
-  });
-
-  it('rejects a portrait with a non-identifier atlas name', () => {
-    const bad = {
-      ...valid,
-      beats: [{ speaker: 'Ando', text: 'hi', portrait: { atlas: 'Bato Man', animation: 'idle' }, holdMs: 1 }],
-    };
-    expect(cutsceneProblems(bad).some((p) => p.includes('atlas'))).toBe(true);
   });
 
   it('allows omitting holdMs and resolves the default', () => {
@@ -77,5 +73,11 @@ describe('cutscene script', () => {
     expect(cutsceneProblems(noHold)).toEqual([]);
     expect(beatHoldMs(noHold.beats[0])).toBe(DEFAULT_HOLD_MS);
     expect(beatHoldMs({ speaker: 'Ando', text: 'hi', holdMs: 1200 })).toBe(1200);
+  });
+
+  it('fits large crops into the portrait box without upscaling small frames', () => {
+    expect(fitPortraitDisplay(90, 120)).toEqual({ w: 90, h: 120 });
+    expect(fitPortraitDisplay(280, 280)).toEqual({ w: PORTRAIT_MAX_EDGE, h: PORTRAIT_MAX_EDGE });
+    expect(fitPortraitDisplay(600, 300)).toEqual({ w: PORTRAIT_MAX_EDGE, h: PORTRAIT_MAX_EDGE / 2 });
   });
 });

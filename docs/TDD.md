@@ -425,9 +425,11 @@ click/tap on `#overlay` skips ahead one line, and Esc (`skip`) finishes the scri
 **not** return to the title during a cutscene. The sim stays `paused` (tick 0) for the whole dialog.
 `?level=` / `?edit=1` still skip the intro card; `?cutscene=0` skips scripts on the title path. Scripts live
 in `src/content/cutscenes/<id>.json` (static JSON via `?url&no-inline`), parsed by `src/content/cutscene.ts`.
-Portraits name a packed atlas, frame or animation, and an optional tint or crop; speakers without their own
-sheet reuse an existing one (Level 1 sari-sari uses `patroller` idle with the ASWANG tint).
-`tests/unit/app/screens.test.ts` and `tests/unit/app/cutscene.test.ts` cover the transitions and the runner.
+Portraits name a packed atlas (frame or animation) or a level backdrop stem with an absolute crop, plus an
+optional tint; the overlay fits the crop into a 120 px box so a backdrop stall does not dwarf Ando idle.
+Level 1 sari-sari uses the painted SARI-SARI STORE from the mid `town` backdrop (`crop` 80,400,280,280), not
+an enemy sheet. `tests/unit/app/screens.test.ts` and `tests/unit/app/cutscene.test.ts` cover the transitions
+and the runner.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
 Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx

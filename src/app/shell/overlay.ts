@@ -21,7 +21,12 @@ export interface CutsceneView {
   readonly text: string;
   readonly portrait: {
     readonly imageUrl: string;
+    /** Source crop in image pixels. */
     readonly frame: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
+    /** Full image size for scaled `background-size`. */
+    readonly imageSize: { readonly w: number; readonly h: number };
+    /** CSS box size (fitted into the portrait slot). */
+    readonly display: { readonly w: number; readonly h: number };
     readonly tint: number | null;
   } | null;
 }
@@ -157,15 +162,16 @@ export class Overlay {
         const line = m.cutscene;
         const row = el('div', 'shell-cutscene-row');
         if (line?.portrait) {
-          const frame = line.portrait.frame;
+          const { frame, imageSize, display } = line.portrait;
+          const scale = display.w / frame.w;
           const sprite = el('div', 'shell-portrait');
-          sprite.style.width = `${frame.w}px`;
-          sprite.style.height = `${frame.h}px`;
+          sprite.style.width = `${display.w}px`;
+          sprite.style.height = `${display.h}px`;
           sprite.style.backgroundImage = `url(${line.portrait.imageUrl})`;
-          sprite.style.backgroundPosition = `-${frame.x}px -${frame.y}px`;
-          sprite.style.backgroundSize = 'auto';
+          sprite.style.backgroundRepeat = 'no-repeat';
+          sprite.style.backgroundSize = `${imageSize.w * scale}px ${imageSize.h * scale}px`;
+          sprite.style.backgroundPosition = `-${frame.x * scale}px -${frame.y * scale}px`;
           if (line.portrait.tint !== null) {
-            // Multiply wash for stand-in sheets (e.g. patroller + ASWANG tint). Exact hue is presentation-only.
             sprite.style.backgroundColor = `#${line.portrait.tint.toString(16).padStart(6, '0')}`;
             sprite.style.backgroundBlendMode = 'multiply';
           }

@@ -13,10 +13,8 @@
       "speaker": "Sari-sari",
       "text": "Anak, 'wag diyan. The prototype already leveled three blocks — including the garden.",
       "portrait": {
-        "atlas": "patroller",
-        "animation": "idle",
-        "tint": 14206463,
-        "crop": { "x": 20, "y": 0, "w": 78, "h": 78 }
+        "backdrop": "town",
+        "crop": { "x": 80, "y": 400, "w": 280, "h": 280 }
       },
       "holdMs": 3600
     },
@@ -30,10 +28,8 @@
       "speaker": "Sari-sari",
       "text": "The people who still write on paper are under Quiapo. After this, punta ka sa chapel.",
       "portrait": {
-        "atlas": "patroller",
-        "animation": "idle",
-        "tint": 14206463,
-        "crop": { "x": 20, "y": 0, "w": 78, "h": 78 }
+        "backdrop": "town",
+        "crop": { "x": 80, "y": 400, "w": 280, "h": 280 }
       },
       "holdMs": 3600
     },

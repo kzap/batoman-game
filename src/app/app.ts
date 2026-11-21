@@ -12,6 +12,7 @@ import { presentedCamera, type WeakPointCue } from '@render/motion';
 import type { PostOptions } from '@render/post';
 import { Stage } from '@render/stage';
 import { toUnits } from '@render/units';
+import { fitPortraitDisplay } from '@content/cutscene';
 import type { LevelJson } from '@content/level';
 import type { Bindings } from './bindings';
 import { DebugOverlay } from './debug';
@@ -342,21 +343,30 @@ export class App {
   }
 
   /**
-   * Resolve a cutscene portrait against loaded atlases. Returns null when the
-   * atlas or frame is missing so the overlay can fall back to typography-only.
-   * An optional `crop` is relative to the frame's top-left (atlas pixels).
+   * Resolve a cutscene portrait against loaded atlases or the level's backdrops.
+   * Returns null when the sheet/crop is missing so the overlay can fall back to
+   * typography-only. Atlas crops are relative to the frame; backdrop crops are
+   * absolute image pixels. Display size is fitted to {@link fitPortraitDisplay}.
    */
   resolvePortrait(portrait: {
-    atlas: string;
+    atlas?: string;
+    backdrop?: string;
     frame?: string;
     animation?: string;
     tint?: number;
     crop?: { x: number; y: number; w: number; h: number };
   }): {
     imageUrl: string;
+    /** Source crop in image pixels. */
     frame: { x: number; y: number; w: number; h: number };
+    /** Full image size, for CSS `background-size` when scaling the box. */
+    imageSize: { w: number; h: number };
+    /** CSS box size (fitted into the portrait slot). */
+    display: { w: number; h: number };
     tint: number | null;
   } | null {
+    if (portrait.backdrop) return this.resolveBackdropPortrait(portrait.backdrop, portrait.crop, portrait.tint);
+    if (!portrait.atlas) return null;
     const sheet = portrait.atlas === 'batoman' ? this.assets.batoman : this.assets.enemies.get(portrait.atlas);
     if (!sheet) return null;
     let frameName = portrait.frame;
@@ -373,7 +383,42 @@ export class App {
       : { x: frame.x, y: frame.y, w: frame.w, h: frame.h };
     if (rect.w <= 0 || rect.h <= 0) return null;
     const imageUrl = `${import.meta.env.BASE_URL}assets/atlases/${sheet.json.image}`;
-    return { imageUrl, frame: rect, tint: portrait.tint ?? null };
+    return {
+      imageUrl,
+      frame: rect,
+      imageSize: { w: sheet.json.width, h: sheet.json.height },
+      display: fitPortraitDisplay(rect.w, rect.h),
+      tint: portrait.tint ?? null,
+    };
+  }
+
+  private resolveBackdropPortrait(
+    stem: string,
+    crop: { x: number; y: number; w: number; h: number } | undefined,
+    tint: number | undefined,
+  ): {
+    imageUrl: string;
+    frame: { x: number; y: number; w: number; h: number };
+    imageSize: { w: number; h: number };
+    display: { w: number; h: number };
+    tint: number | null;
+  } | null {
+    if (!crop || crop.w <= 0 || crop.h <= 0) return null;
+    const art = this.level.art;
+    const levelArt = this.assets.levelArt;
+    if (!art || !levelArt) return null;
+    const slot = Object.entries(art.backdrops).find(([, file]) => file === stem)?.[0];
+    if (!slot || !levelArt.backdrops.has(slot)) return null;
+    const meta = levelArt.backdrops.get(slot)!.meta;
+    if (crop.x + crop.w > meta.width || crop.y + crop.h > meta.height) return null;
+    const imageUrl = `${import.meta.env.BASE_URL}assets/backdrops/${this.level.id}/${stem}.webp`;
+    return {
+      imageUrl,
+      frame: { x: crop.x, y: crop.y, w: crop.w, h: crop.h },
+      imageSize: { w: meta.width, h: meta.height },
+      display: fitPortraitDisplay(crop.w, crop.h),
+      tint: tint ?? null,
+    };
   }
 
   /**
