@@ -11,7 +11,7 @@ today ships four level files. The finale is the fifth, not built yet.
 | Order | Id | Boss | Where it stands |
 |---|---|---|---|
 | 1 Tondo docks | `level-1` | ASWANG prototype | Shipped |
-| 2 Quiapo chapel | `level-3` | Sigbin Unit | Dressed. The boss is #41, open |
+| 2 Quiapo chapel | `level-3` | Sigbin Unit | Dressed. The boss is in the tree at (3424, 768) |
 | 3 NSA tower | `level-4` | Manananggal-7 | Dressed. No boss in the tree. Andre confirmed this boss on #25 |
 | 4 Rooftop garden | `level-6` | Tikbalang-X | Dressed. Scout AI landed in #26. The boss is unbuilt |
 | 5 Destroyed block | proposed `level-5` | Bakunawa-Prime | Not in the tree |
@@ -117,7 +117,7 @@ undamaged clears in `tests/replay/fixtures/`.
 | Level | Dressing | What is in the tree |
 |---|---|---|
 | 1 Tondo Sublevel Docks | Dressed | `art` block, `level-1-props`, `sky`/`town`, 58 decor quads. Full source set in `art-source/level-1/`. Patrollers, drones, and the `aswang` boss (patroller sheet, 1.6x, lilac). Fixture 5567 ticks. |
-| 3 Quiapo Underground Chapel | Dressed | Source art is on `v2` (#32); the `art` block is in (#14): `nave`/`chapel` backdrops, `midFloorY` 448, 77 decor quads, early Sigbin hints (prints, eyes, a silhouette in the flood). Remaining: #41 adds the Sigbin Unit. Stealth, drone, patroller. Music `level-2`. Fixture 2642 ticks. E2E loads it dressed. |
+| 3 Quiapo Underground Chapel | Dressed | Source art is on `v2` (#32); the `art` block is in (#14): `nave`/`chapel` backdrops, `midFloorY` 448, 77 decor quads, early Sigbin hints (prints, eyes, a silhouette in the flood). The `sigbin` boss is at (3424, 768). Stealth, drone, patroller. Music `level-2`. Fixture 3889 ticks. E2E loads it dressed. |
 | 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth. No boss in the tree. PR #25 names Manananggal-7; that fight is not built. Music `level-2`. Fixture 2802 ticks. E2E asserts the atlas and both backdrops. |
 | 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 144 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a tikbalang scout at x 4100 (#26: burst chase and stomp). Music `level-1`. Fixture 4059 ticks, undamaged. |
 
@@ -132,7 +132,7 @@ Issue #12 specifies it, and PR #29 (`phase/6.2-hp-up`) implements it. The other 
 
 Level 6 dressing is done. Level 3 dressing is done: the source files are in `art-source/level-3/`, and the
 level JSON has an `art` block (`midFloorY` 448, 77 decor quads). The editor still cannot add an `art`
-block or change `art.props` and backdrops (TDD section 11). The Sigbin Unit is a separate PR, #41.
+block or change `art.props` and backdrops (TDD section 11). The Sigbin Unit stands at (3424, 768) on the gallery.
 
 ## Phases
 
@@ -245,7 +245,7 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
   `backdrops.json`, `tileset.png`, and a 29-prop recipe.
 - `src/content/levels/level-6.json`: `art` block, 144 decor quads, the lift mover uses `platform_pallet`.
   `level-6-clear` is 4059 ticks after the scout (#26).
-- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
+- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 10.93 MB / 20 MB at 188085ca914e34a66c7482b5f8496a0682336dae, 2026-11-20.
 
 Still open, and each needs code rather than more painting: a fake-solid collider for the lying path, the
 Tikbalang-X boss (the spawn at 4100 is the scout from #26, not that boss; #11 is the remaining coverage

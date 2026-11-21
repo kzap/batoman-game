@@ -54,7 +54,7 @@ Verified on `v2` against `src/content`, `src/game/enemies`, and `art-source/`:
 | Content id | State | Boss today |
 |---|---|---|
 | `level-1` | Dressed, 6400×768. Patrollers and drones. | ASWANG prototype, playable. Bursts, a rush that ends stunned with the weak point open, then drones. HUD: "ASWANG PROTOTYPE". |
-| `level-3` | Dressed, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. `nave`/`chapel` backdrops and props are wired, with `midFloorY` 448 and early Sigbin hints (prints, eyes, a silhouette in the flood). | None placed. The Sigbin Unit is the boss. |
+| `level-3` | Dressed, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. `nave`/`chapel` backdrops and props are wired, with `midFloorY` 448 and early Sigbin hints (prints, eyes, a silhouette in the flood). | Sigbin Unit at (3424, 768) on the gallery. The exit stays shut until it dies. |
 | `level-4` | Dressed, 1600×1664, vertical. Patrollers, drones, one stealth. Enemies ignore him on another storey. | None yet. Andre confirmed Manananggal-7. The exit opens today because the sim treats a missing boss as a clear. |
 | `level-6` | Dressed sunny farm, 4480×896, 144 decor quads, far `sky` and a mirrored `garden` mid. Drone, patroller, a `tikbalang` spawn. The painted lying path is not a collider. Music is still the Tondo track. | The horse sheet exists (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`) and the renderer has a look. `spawnEnemy` returns null, so the horse is not created and not drawn. |
 

@@ -18,7 +18,7 @@ import {
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, PickupKind, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
-import { ENEMY, PROJECTILE } from '@game/tuning';
+import { ENEMY, PROJECTILE, SIGBIN } from '@game/tuning';
 import type { BossSnapshot, EnemySnapshot, PickupSnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
@@ -139,6 +139,8 @@ export class EntityView {
   /** Last cue `presentCore` applied. Null when the core is hidden. The hook reads this, not a hardcoded flag. */
   private weakPointCueState: WeakPointCue | null = null;
   private reduceMotion = false;
+  /** Placeholder prints for the Sigbin's backward trail. One material each so they can fade independently. */
+  private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
   private readonly movers = new Map<number, MoverView>();
   private readonly pickups = new Map<number, PickupView>();
   private readonly unitBox = new BoxGeometry(1, 1, 1);
@@ -178,9 +180,15 @@ export class EntityView {
     this.core.name = 'weak-point';
     this.core.add(this.coreFill, this.coreRing);
     this.core.visible = false;
-    // The player's collider outline is a sibling, not a child: the quad's scale is the art size, not the hitbox.
     this.playerOutline = this.outline(this.outlineMaterial);
-    this.group.add(this.player.mesh, this.playerOutline, this.chargeGlow.mesh, this.core);
+    for (let i = 0; i < SIGBIN.footprintCap; i++) {
+      const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
+      const mesh = new Mesh(this.unitBox, material);
+      mesh.visible = false;
+      mesh.name = 'footprint';
+      this.prints.push({ mesh, material });
+    }
+    this.group.add(this.player.mesh, this.playerOutline, this.chargeGlow.mesh, this.core, ...this.prints.map((p) => p.mesh));
   }
 
   /** Enemy shots use the first loaded enemy sheet that has a projectile clip (the sheets share the look). */
@@ -225,6 +233,7 @@ export class EntityView {
     this.presentPlayer(prev.player, cur.player, cur.tick, alpha);
     this.syncEnemies(prev.enemies, cur.enemies, cur.tick, alpha);
     this.presentCore(prev.boss, cur.boss, cur.tick, alpha);
+    this.presentPrints(cur.boss);
     this.syncProjectiles(prev.projectiles, cur.projectiles, cur.tick, alpha);
     this.syncMovers(prev.movingSolids, cur.movingSolids, alpha);
     this.syncPickups(cur.pickups, cur.tick);
@@ -278,7 +287,9 @@ export class EntityView {
       const h = lerp(p.h, c.h, alpha);
       const lunging = c.type === 'tikbalang' && h < ENEMY.tikbalang.height;
       v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, lunging ? { flip, size: { h } } : { flip, scale: look.scale });
-      v.material.color.setHex(enemyHurtTint(c.flash > 0, tick, this.reduceMotion, look.tint, PALETTE.neonMagenta));
+      // The placeholder Sigbin sheet is near-black. The lunge and its telegraph use the same hurt tint as a hit, so reduce-motion stays a steady white instead of a strobe.
+      const sigbinStrike = c.type === 'sigbin' && (c.pose === 'windup' || c.pose === 'rush');
+      v.material.color.setHex(enemyHurtTint(c.flash > 0 || sigbinStrike, tick, this.reduceMotion, look.tint, PALETTE.neonMagenta));
       v.material.opacity = c.alpha;
       this.placeOutline(v.outline, { x, y, w: c.w, h: c.h }, ENEMY_Z);
     }
@@ -340,6 +351,24 @@ export class EntityView {
     this.core.position.set(toUnits(x), toUnits(y), CORE_Z);
     const s = (toUnits(r.h) / 2) * PRESENTATION.weakPoint.scale;
     this.core.scale.set(s, s, 1);
+  }
+
+  /**
+   * Sigbin footprints. Placeholder quads until the art lane paints the trail.
+   * The print sits a step toward `dir`, which is opposite the walk, so the
+   * mark points backward. Nothing here reads the World.
+   */
+  private presentPrints(boss: BossSnapshot | null): void {
+    const tells = boss?.tells ?? [];
+    for (let i = 0; i < this.prints.length; i++) {
+      const slot = this.prints[i]!;
+      const t = tells[i];
+      slot.mesh.visible = t !== undefined;
+      if (!t) continue;
+      slot.mesh.position.set(toUnits(t.x + t.dir * 8), toUnits(t.y + 3), ENEMY_Z - 0.02);
+      slot.mesh.scale.set(toUnits(16), toUnits(5), 0.2);
+      slot.material.opacity = 0.2 + 0.65 * t.alpha;
+    }
   }
 
   // ---- Projectiles -----------------------------------------------------------
@@ -489,6 +518,7 @@ export class EntityView {
     this.coreFillMaterial.dispose();
     this.coreRing.geometry.dispose();
     this.coreRingMaterial.dispose();
+    for (const p of this.prints) p.material.dispose();
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();
     this.moverMaterial.dispose();
