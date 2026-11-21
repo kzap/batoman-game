@@ -52,7 +52,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Concrete grey | `#4a4a5a` | Building faces, ground surfaces |
 | Rust orange | `#b85c2a` | Corroded metal, old district structures |
 | Neon cyan | `#00e5ff` | NSA signage, electric hazards, plasma effects |
-| Neon magenta | `#ff2d78` | Danger indicators, enemy weak points, blood |
+| Neon magenta | `#ff2d78` | Danger indicators, enemy weak-point fill, blood. A weak point also needs a non-colour channel; the boss core pairs this with a white `#ffffff` diamond outline |
 | Warm amber | `#ffaa33` | Street food light, community spaces, checkpoints |
 | Bioluminescent teal | `#00ffcc` | Pasig River glow, underground water |
 | White-hot plasma | `#fffde0` | Plasma burst core, Nova Blast center |
@@ -110,7 +110,7 @@ Used as anchors across all levels — specific levels deviate within these const
 ### Visual Language Rules
 1. **NSA machines = cold palette** — blues, teals, greys, sharp angles
 2. **Organic/myth-inspired enemies = warmer but corrupted** — rust, bile-green, cracked bone tones
-3. All enemies have a **glowing weak point** (magenta `#ff2d78`) visible during vulnerable frames
+3. All enemies have a **glowing weak point** visible during vulnerable frames. Colour is neon magenta `#ff2d78`. A second channel is required so the window is not colour-only: the shipped boss core is a **diamond** with a **white `#ffffff` outline** around the magenta fill. The outline is what stays readable in protanopia, deuteranopia, and tritanopia (magenta shifts toward blue or brown and can merge with a lilac body; the white diamond does not). Do not communicate a weak point with hue alone
 4. Enemy eyes/sensors are always the brightest element on their sprite
 
 ### Standard Enemy Types
@@ -133,22 +133,24 @@ Used as anchors across all levels — specific levels deviate within these const
 ### ASWANG Unit Design Principles
 - Each boss is **large enough to feel threatening** — at least half the screen height
 - **Three visible phases:** idle/patrol stance, attack stance, stagger/vulnerable state
-- Every boss has a **glowing exposed core** (magenta) that appears only during vulnerability windows
+- Every boss uses the **same colour-blind-safe weak point** (PR #39): a magenta `#ff2d78` diamond fill with a white `#ffffff` diamond outline, drawn as a renderer overlay on the exposed core rect, only during the vulnerability window. The outline does not pulse. With reduce-motion on, the fill holds steady instead of breathing. Do not paint a unique core colour or gem on the sprite — leave the opening (hatch, visor, conduit) clear for the overlay
 - Boss designs should feel like NSA engineers studied the mythology and built the worst possible version of it
 
 ---
 
 ### Sigbin Unit (Level 3 — Quiapo Underground Chapel)
-**Mythological basis:** Sigbin — backward-walking shadow creature that sucks blood through shadow
+**Mythological basis:** Sigbin — backward-walking shadow creature that sucks blood through shadow. Dr. Epal's Project ASWANG unit: a cyber-mechanical hunter.
+
+The shipped sheet is `art-source/characters/sigbin-sprites.png` (atlas `sigbin`), painted in Level 1's inked painterly look, readable against the dark flooded chapel nave. Frames face right. Clips: idle, backward walk (`move`; also sped up for the lunge), snarl (`shoot`, unused in the fight), telegraph/windup and recover (`hurt`), death. The body is 192×188 (half the 378 px camera, within a pixel). Packed at scale 0.5 from 2× cells; drawn at look-scale 2 so it matches the sim body (`SIM_PX_PER_ATLAS_PX` is 0.5).
 
 | Aspect | Design |
 |--------|--------|
-| Form | Quadruped, backward-jointed legs, body facing one direction while head points the other; extremely unnatural movement |
-| Size | 64×48 px |
-| Materials | Matte black rubber composite over titanium armature; absorbs most light |
-| Signature effect | Active camo shimmer (scanline distortion) — player sees only a slight visual ripple until within 3 tiles |
-| Vulnerable state | Camo flickers off, dorsal spine opens to reveal magenta core |
-| Environment blend | Designed to hide in the candlelit tunnel shadows; the candle flicker makes detection harder |
+| Form | Quadruped, backward-jointed mechanical legs; the head hangs low on the facing side, pointing opposite the walk, with a single violet sensor eye |
+| Size | 192×188 px (Andre: about half the 378 px camera height). The old 64×48 cell is retired |
+| Materials | Matte black rubber composite over titanium armature, oily iridescent violet-teal sheen, gunmetal hydraulics, closed dorsal spines |
+| Signature effect | Cloak shimmer (alpha 0.08–0.28). The player tracks it by painted backward footprints (`footprint_back` in the Level 3 props atlas, toes pointing the wrong way) and by a reversed tambol / hand-drum telegraph cue (`sigbin-telegraph`, key `sigbinTelegraph`) |
+| Vulnerable state | Camo drops, the dorsal hatch opens onto a dark empty cavity (no painted diamond or gem). The shared magenta diamond with a white outline is drawn on the dropping core rect (`BossSnapshot.exposed` / `weakPoint`) |
+| Environment blend | Designed to hide in the candlelit chapel shadows; warm candlelight and cool metal rim light keep the silhouette readable when it decloaks |
 
 ---
 
@@ -175,7 +177,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Size | 144×160 px |
 | Materials | Reinforced tank plating, weathered and scorched; looks like it was built to last centuries |
 | Signature effect | Smoke cloud deployment — fills 30% of screen with semi-opaque smog; player must navigate blind |
-| Vulnerable state | Smoke clears, chest plate blows open revealing magenta reactor core |
+| Vulnerable state | Smoke clears, chest plate blows open. The shared weak-point diamond (see design principles) is drawn on the exposed reactor |
 | Environment blend | Nearly fills the corridor width; debris falls when it moves |
 
 ---
@@ -189,7 +191,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Size | 64×128 px (full); 64×72 px (upper); 48×64 px (lower) |
 | Materials | Sleek white NSA-grade chassis with gold trim — designed to look authoritative, not monstrous, until it splits |
 | Signature effect | Split event — dramatic screen flash, upper half levitates; lower half sprouts blade legs |
-| Vulnerable state | Lower half: expose power conduit between split point (magenta). Upper half: cracked chest panel |
+| Vulnerable state | Lower half: expose the power conduit between the split. Upper half: cracked chest panel. The shared weak-point diamond is drawn on the exposed conduit |
 | Environment blend | Atrium setting — flies between elegant columns; light plays off white chassis |
 
 ---
@@ -203,7 +205,7 @@ Used as anchors across all levels — specific levels deviate within these const
 | Size | Head: 192×128 px; visible body segments: tiled 96×96 px |
 | Materials | Submarine-grade hull plating in deep ocean black; bioluminescent blue markings (echoing the Pasig River); jaws hydraulic, can shear through concrete |
 | Phases | Phase 1: head attacks from water below; Phase 2: coils around platforms, constricts arena; Phase 3: full emergence, screen-filling, multi-hit core pattern |
-| Vulnerable state | Moon-glyph embossed on forehead pulses magenta when hit window opens (thematic: the moon it tried to swallow) |
+| Vulnerable state | Moon-glyph embossed on the forehead; the shared weak-point diamond is drawn there when the hit window opens (thematic: the moon it tried to swallow) |
 | Environment blend | Rises from flooded street; electric-blue Pasig water illuminates it from below |
 
 ---
@@ -364,7 +366,7 @@ The HUD should feel like it's **Ando's own cobbled-together tech**, not NSA-clea
 | Effect | Description |
 |--------|-------------|
 | Enemy hit | White flash on sprite; small impact star; health chunk removed |
-| Boss vulnerable | Core glows pulsing magenta; hit sparks magenta |
+| Boss vulnerable | Magenta diamond core with a steady white diamond outline; the fill pulses unless reduce-motion is on. Hit sparks stay magenta |
 | Player hurt | Red screen-edge vignette flash; Ando sprite flickers white; brief invincibility frames |
 | Death | Screen desaturates; Ando collapse animation; vignette closes |
 

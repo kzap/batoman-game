@@ -38,6 +38,9 @@ const CHARGE_GLOW = { min: 0.15, max: 0.7, pulse: 0.1, pulsePeriodTicks: 12, off
 const NOVA_TINT = 0xfffde0;
 /** The boss core glow: shown only while the double-damage window is open, pulsing. */
 const CORE = { pulseTicks: 20, opacity: 0.55, pulse: 0.25, scale: 1.6 } as const;
+/** Painted Sigbin trail; packed into the level-3 props atlas. */
+const PRINT_FRAME = 'footprint_back';
+const PRINT_SLOTS = 8;
 
 interface MoverView {
   readonly obj: Object3D;
@@ -93,8 +96,8 @@ export class EntityView {
   private readonly enemyPool = new Map<EnemyType, EnemyView[]>();
   private readonly core: Mesh;
   private readonly coreMaterial: MeshBasicMaterial;
-  /** Placeholder prints for the Sigbin's backward trail. One material each so they can fade independently. */
-  private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
+  /** Sigbin backward trail. Painted prop quads when the level atlas has `footprint_back`, otherwise amber boxes. */
+  private readonly prints: { mesh: Mesh; material: MeshBasicMaterial; quad: SpriteQuad | null }[] = [];
   private readonly movers = new Map<number, MoverView>();
   private readonly unitBox = new BoxGeometry(1, 1, 1);
   private readonly moverMaterial = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.7 });
@@ -125,12 +128,25 @@ export class EntityView {
     this.core = core.mesh;
     this.core.visible = false;
     this.playerOutline = this.outline(this.outlineMaterial);
-    for (let i = 0; i < 8; i++) {
-      const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
-      const mesh = new Mesh(this.unitBox, material);
-      mesh.visible = false;
-      mesh.name = 'footprint';
-      this.prints.push({ mesh, material });
+    const printAtlas = assets.levelArt?.props;
+    const usePaintedPrints = printAtlas !== undefined && PRINT_FRAME in printAtlas.json.frames;
+    for (let i = 0; i < PRINT_SLOTS; i++) {
+      if (usePaintedPrints && printAtlas) {
+        const material = atlasMaterial(printAtlas.texture);
+        material.transparent = true;
+        material.opacity = 0;
+        material.depthWrite = false;
+        const quad = new SpriteQuad(printAtlas, material, PRINT_FRAME);
+        quad.mesh.visible = false;
+        quad.mesh.name = 'footprint';
+        this.prints.push({ mesh: quad.mesh, material, quad });
+      } else {
+        const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
+        const mesh = new Mesh(this.unitBox, material);
+        mesh.visible = false;
+        mesh.name = 'footprint';
+        this.prints.push({ mesh, material, quad: null });
+      }
     }
     this.group.add(this.player.mesh, this.playerOutline, this.chargeGlow.mesh, this.core, ...this.prints.map((p) => p.mesh));
   }
@@ -218,9 +234,7 @@ export class EntityView {
       const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
       v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
       const flashing = c.flash > 0 && Math.floor(tick / FLASH_HALF_PERIOD_TICKS) % 2 === 0;
-      // The placeholder Sigbin sheet is a darkened patroller. The lunge and its telegraph go magenta so the strike reads.
-      const sigbinStrike = c.type === 'sigbin' && (c.pose === 'windup' || c.pose === 'rush');
-      v.material.color.setHex(flashing || sigbinStrike ? PALETTE.neonMagenta : look.tint);
+      v.material.color.setHex(flashing ? PALETTE.neonMagenta : look.tint);
       v.material.opacity = c.alpha;
       this.placeOutline(v.outline, { x, y, w: c.w, h: c.h }, ENEMY_Z);
     }
@@ -274,9 +288,8 @@ export class EntityView {
   }
 
   /**
-   * Sigbin footprints. Placeholder quads until the art lane paints the trail.
-   * The print sits a step toward `dir`, which is opposite the walk, so the
-   * mark points backward. Nothing here reads the World.
+   * Sigbin footprints. The print sits a step toward `dir`, which is opposite
+   * the walk, so the mark points backward. Nothing here reads the World.
    */
   private presentPrints(boss: BossSnapshot | null): void {
     const tells = boss?.tells ?? [];
@@ -285,9 +298,15 @@ export class EntityView {
       const t = tells[i];
       slot.mesh.visible = t !== undefined;
       if (!t) continue;
-      slot.mesh.position.set(toUnits(t.x + t.dir * 8), toUnits(t.y + 3), ENEMY_Z - 0.02);
-      slot.mesh.scale.set(toUnits(16), toUnits(5), 0.2);
       slot.material.opacity = 0.2 + 0.65 * t.alpha;
+      const x = t.x + t.dir * 8;
+      const y = t.y + 3;
+      if (slot.quad) {
+        slot.quad.place(x, y, ENEMY_Z - 0.02, { flip: t.dir < 0 });
+      } else {
+        slot.mesh.position.set(toUnits(x), toUnits(y), ENEMY_Z - 0.02);
+        slot.mesh.scale.set(toUnits(16), toUnits(5), 0.2);
+      }
     }
   }
 
@@ -409,7 +428,10 @@ export class EntityView {
     this.orbMaterial.dispose();
     this.novaMaterial.dispose();
     this.coreMaterial.dispose();
-    for (const p of this.prints) p.material.dispose();
+    for (const p of this.prints) {
+      p.quad?.dispose();
+      p.material.dispose();
+    }
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();
     this.moverMaterial.dispose();

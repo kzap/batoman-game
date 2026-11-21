@@ -7,7 +7,7 @@ import { Rng } from '@core/sim/rng';
 import type { AABB } from '@core/math/aabb';
 import type { EnemyType, LevelJson, MovingSolidJson, Rect } from '@content/level';
 import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
-import { BossUnit, spawnEnemy, type BossTell, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
+import { BossUnit, spawnEnemy, type BossTell, type Enemy, type EnemyCtx, type EnemyPose, type EnemySnapshot, type ShotRequest } from './enemies';
 import { Health } from './health';
 import { Player, type PlayerPose } from './player';
 import { advanceProjectile, ProjectilePool, projectileBox, type Projectile, type ProjectileKind, type ProjectileSnapshot } from './projectiles';
@@ -34,6 +34,8 @@ export interface WorldEvents extends Record<string, unknown> {
   enemyHit: { id: number; type: EnemyType; x: number; y: number; dir: 1 | -1; damage: number; weakPoint: boolean };
   enemyDeath: { id: number; type: EnemyType; x: number; y: number };
   bossPhase: { phase: number; x: number; y: number };
+  /** The boss started a telegraphed attack (the Sigbin's backward drum tell). */
+  bossTelegraph: { x: number; y: number };
   bossDefeated: { x: number; y: number };
 }
 
@@ -134,6 +136,8 @@ export class World {
   private nextEnemyId = 1;
   /** Boss phase seen last tick; a change emits `bossPhase`. */
   private bossPhaseSeen = 1;
+  /** Boss pose seen last tick; a move to `windup` emits `bossTelegraph`. */
+  private bossPoseSeen: EnemyPose | null = null;
   private respawnAt = { x: 0, y: 0 };
   private respawnIn = 0;
   private checkpointId = -1;
@@ -159,6 +163,7 @@ export class World {
   private spawnEnemies(): void {
     this.enemies.length = 0;
     this.bossPhaseSeen = 1;
+    this.bossPoseSeen = null;
     for (const spec of this.level.enemies) {
       const e = spawnEnemy(this.nextEnemyId, spec);
       if (e) {
@@ -255,9 +260,15 @@ export class World {
     const ctx = this.enemyCtx();
     for (const e of this.enemies) {
       e.update(ctx);
-      if (e instanceof BossUnit && e.phase !== this.bossPhaseSeen) {
-        this.bossPhaseSeen = e.phase;
-        this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
+      if (e instanceof BossUnit) {
+        if (e.phase !== this.bossPhaseSeen) {
+          this.bossPhaseSeen = e.phase;
+          this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
+        }
+        if (e.pose === 'windup' && this.bossPoseSeen !== 'windup') {
+          this.events.emit('bossTelegraph', { x: e.body.centerX, y: e.body.y + e.body.h / 2 });
+        }
+        this.bossPoseSeen = e.pose;
       }
       // Touching a live, visible enemy hurts; knockback away from its centre.
       if (e.hittable && !this.player.dead && overlaps(this.player.body, e.body)) {
