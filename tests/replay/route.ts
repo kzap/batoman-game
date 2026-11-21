@@ -216,11 +216,11 @@ const faceToward = (c: Ctx, x: number): Partial<InputFrame> => {
 };
 
 /** An enemy shot about to reach the standing body. */
-const shotIncoming = (c: Ctx): boolean =>
+const shotIncoming = (c: Ctx, alarm = SHOT_ALARM_S): boolean =>
   c.snap.projectiles.some((p) => {
     if (p.kind !== 'enemy' || p.vx === 0) return false;
     const gap = p.vx > 0 ? c.x - p.x : p.x - c.right;
-    const soon = gap > 0 && gap / Math.abs(p.vx) < SHOT_ALARM_S;
+    const soon = gap > 0 && gap / Math.abs(p.vx) < alarm;
     return soon && p.y + SHOT_H > c.y && p.y - SHOT_H < c.y + PLAYER.height;
   });
 
@@ -321,40 +321,86 @@ export function bossFight(): Step {
 }
 
 /**
- * Level 6 boss. Stand, jump its straight shot, and charge a nova while the
- * core is open. Plasma outside the stumble does nothing, so taps there are
- * only to keep facing it. Done once it is dead and its last shot has passed.
+ * The run is contact damage and is not shot-hittable. Jump when the body is
+ * closing inside this gap: long enough that the feet are above 66 px on arrival,
+ * short enough that the jump has not landed.
  */
-export function tikbalangBossFight(): Step {
+const RUN_JUMP_GAP = 170;
+/** Short of the spike strip at x 4000, inside nova range of the right-hand landing. */
+const STAND_X = 3960;
+
+/** Level 6 boss plus the scout on the same roof. `measured` novas once per stumble so phase 3 is reached. */
+export function tikbalangBossFight(measured = false): Step {
   let sinceTap = TAP_EVERY;
   let charging = 0;
+  let novad = false;
   let airborne = false;
   return {
-    name: 'tikbalang-x',
+    name: measured ? 'tikbalang-x phases' : 'tikbalang-x',
     input: (c) => {
       sinceTap++;
       const boss = c.snap.boss;
       const body = c.snap.enemies.find((e) => e.type === 'tikbalang-x');
-      if (!boss || boss.hp <= 0 || !body) return {};
-      if (shotIncoming(c) && c.grounded) {
+      const scout = c.snap.enemies.find((e) => e.type === 'tikbalang' && e.pose !== 'death' && e.hp > 0);
+      if (boss && boss.hp > 0 && body && body.pose !== 'move') novad = boss.exposed ? novad : false;
+      const gap = body ? gapTo(c, body) : 999;
+      const runIncoming = !!body && body.pose === 'move' && gap < RUN_JUMP_GAP && gap > 0;
+      const scoutGap = scout ? gapTo(c, scout) : 999;
+      const stomp = !!scout && (scout.pose === 'shoot' || scout.pose === 'rush') && scoutGap <= STOMP_REACH;
+      const gallop = !!scout && scout.pose === 'move' && scoutGap < 90 && scoutGap > 0;
+      // Three weak-point taps per stumble. A nova from this roof arrives after the window closes.
+      const tapNow = measured && !!boss && boss.hp > 0 && !!body && boss.exposed && charging < 3 && sinceTap >= 16 && c.grounded;
+      if (measured && (!boss || !boss.exposed)) charging = 0;
+      if ((shotIncoming(c, measured ? 0.36 : SHOT_ALARM_S) || runIncoming || stomp || gallop) && c.grounded) {
         airborne = true;
-        charging = 0;
-        return { jump: true };
+        if (!measured) charging = 0;
+        if (tapNow) {
+          charging++;
+          sinceTap = 0;
+        }
+        return { jump: true, fire: tapNow, ...(tapNow && body ? faceToward(c, body.x + body.w / 2) : {}) };
       }
       if (airborne && !c.grounded) return { jump: c.rising };
       airborne = false;
-      if (boss.exposed && charging < NOVA.chargeTicks + 2) {
+      if (tapNow && body) {
         charging++;
-        return { ...faceToward(c, body.x + body.w / 2), fire: charging <= NOVA.chargeTicks + 1 };
-      }
-      if (charging > 0) charging = 0;
-      if (sinceTap >= TAP_EVERY) {
         sinceTap = 0;
         return { ...faceToward(c, body.x + body.w / 2), fire: true };
       }
-      return {};
+      if (!boss || boss.hp <= 0 || !body) {
+        if (scout && sinceTap >= TAP_EVERY && inLine(c, scout)) {
+          sinceTap = 0;
+          return { ...faceToward(c, scout.x + scout.w / 2), fire: true };
+        }
+        return {};
+      }
+      if (!measured && boss.exposed && !novad && charging < NOVA.chargeTicks + 2) {
+        if (gap > 400 && c.x < STAND_X) return { right: true };
+        charging++;
+        return { ...faceToward(c, body.x + body.w / 2), fire: charging <= NOVA.chargeTicks + 1 };
+      }
+      if (!measured && charging > 0) {
+        novad = true;
+        charging = 0;
+      }
+      const approach = gap > 400 && c.x < STAND_X ? { right: true } : {};
+      // Measured runs still clear the scout. They do not tap the boss, so a plasma
+      // never lands in the same stumble as the nova and the phases stay one per window.
+      if (scout && sinceTap >= TAP_EVERY && inLine(c, scout) && !(measured && boss.exposed)) {
+        sinceTap = 0;
+        return { ...faceToward(c, scout.x + scout.w / 2), ...approach, fire: true };
+      }
+      if (!measured && sinceTap >= TAP_EVERY) {
+        sinceTap = 0;
+        return { ...faceToward(c, body.x + body.w / 2), ...approach, fire: true };
+      }
+      return approach;
     },
-    done: (c) => (c.snap.boss?.hp ?? 0) <= 0 && !c.snap.projectiles.some((p) => p.kind === 'enemy'),
+    done: (c) => {
+      const scoutUp = c.snap.enemies.some((e) => e.type === 'tikbalang' && e.pose !== 'death' && e.hp > 0);
+      const bossUp = (c.snap.boss?.hp ?? 0) > 0;
+      return !bossUp && !scoutUp && !c.snap.projectiles.some((p) => p.kind === 'enemy');
+    },
   };
 }
 

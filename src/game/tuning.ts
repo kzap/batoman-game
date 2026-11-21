@@ -295,28 +295,45 @@ export const TIKBALANG_X = {
   height: 66,
   hp: 18,
   label: 'TIKBALANG-X',
-  /** Dormant until the player is this close, on the same storey. Wide enough to wake as they clear the spikes, short of the scout fight at x 3700. */
-  engageRange: 360,
-  sightHeight: 128,
+  /**
+   * Dormant until the player is this close, on the same storey. The last roof
+   * runs from x 3648 to 4480, so anyone standing on it wakes the fight.
+   */
+  engageRange: 720,
+  /** Feet-to-feet. The roof is the fight; the platform a storey below is not. */
+  sightHeight: 40,
   /** Hp where phases 2 and 3 begin. One nova on the core (3 × 2) crosses each. */
   phaseHp: [12, 6] as readonly number[],
   phaseShiftTicks: 72,
-  /** Feet travel this far each side of the spawn. The spawn is the centre of the run. */
-  runSpan: 80,
-  runSpeed: [160, 200, 260] as readonly number[],
-  /** Face the next anchor before moving, so the run has a tell. */
-  runWindupTicks: [28, 22, 16] as readonly number[],
+  /**
+   * Feet x of the two landings. The 96 px body then covers the roof from
+   * x 3648 to 4480, so a run crosses the left camp and the right lip.
+   */
+  leftFeet: 3696,
+  rightFeet: 4432,
+  /** A timed jump clears the 96 px body: the sweep crosses a standing player inside the jump's airborne window. */
+  runSpeed: [800, 880, 960] as readonly number[],
+  /**
+   * Face the next anchor before moving. Phase 3 is 24 ticks: a held jump
+   * clears the 66 px body at tick 21, so the run starts after the jump is up.
+   */
+  runWindupTicks: [28, 22, 24] as readonly number[],
   shotWindupTicks: [36, 28, 22] as readonly number[],
   /** Hold the firing pose after the shot leaves, so the muzzle flash reads. */
   shotHoldTicks: 16,
   shotSpeed: 320,
-  muzzleY: 28,
+  /**
+   * Shot centre above the feet. The enemy shot is 10 px tall, so the box is
+   * y+19..29. A 24 px crouch overlaps it by 5 px. Crouch is not a dodge.
+   */
+  muzzleY: 24,
   /** The stomp before the warp. The body has not moved yet. */
   warpWindupTicks: [48, 36, 28] as readonly number[],
   /** Ticks the decoy stays up after the body has moved. */
   warpTicks: 20,
   /** Punish window. Longer than a nova charge (96) so a standing player can land one. */
-  exposedTicks: [150, 130, 110] as readonly number[],
+  /** Long enough to land, then put three shots into the core, after a jump that opened the window. */
+  exposedTicks: [220, 220, 220] as readonly number[],
   /** Chest band a standing plasma (muzzle 30, 6 px tall) and a nova both cross. */
   weakPoint: { y: 18, h: 24 },
   weakPointMultiplier: 2,

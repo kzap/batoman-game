@@ -10,14 +10,19 @@ const T = TIKBALANG_X;
 
 /**
  * Level 6 boss. The scout in `tikbalang.ts` is a different actor. This one
- * runs a fixed span, fires one straight shot, then warps. The afterimage is
- * not a body. Damage lands only on the core during the stumble.
+ * runs the last roof end to end, fires one straight shot, then warps to the
+ * other end and fires again. The afterimage is not a body. The run still
+ * deals contact damage even though the body is not shot-hittable: the tell
+ * is the dodge, and a jump clears it. Core damage lands only in the stumble.
  */
 export class TikbalangX extends BossUnit {
   private readonly phases = new PhaseGate(T.phaseHp);
-  private readonly left: number;
-  private readonly right: number;
-  private goal: number;
+  private readonly left = T.leftFeet;
+  private readonly right = T.rightFeet;
+  /** Next run goes to this anchor. Flips after each crossing. */
+  private headingRight = false;
+  /** A shot taken on the warp landing leads into a run. A shot after a run leads into a warp. */
+  private shotThenRun = false;
   private ghost: Rect | null = null;
   private shotSent = false;
   private readonly fsm = new Fsm<State, EnemyCtx>(
@@ -26,14 +31,18 @@ export class TikbalangX extends BossUnit {
         update: (ctx) => {
           this.facePlayer(ctx);
           if (ctx.player.dead) return undefined;
-          const near = Math.abs(this.toPlayer(ctx)) <= T.engageRange && this.sameStorey(ctx, T.sightHeight);
+          // A jump onto the roof does not start the tell. The player has to be standing on it.
+          const near = Math.abs(this.toPlayer(ctx)) <= T.engageRange && this.sameStorey(ctx, T.sightHeight) && ctx.player.grounded;
           return near ? 'runWindup' : undefined;
         },
       },
       runWindup: {
         enter: () => {
           this.vx = 0;
-          this.facing = this.goal < this.body.centerX ? -1 : 1;
+          this.shotThenRun = false;
+          // From the left half, cross to the right. From the right half, cross to the left.
+          this.headingRight = this.body.centerX < (this.left + this.right) / 2;
+          this.facing = this.headingRight ? 1 : -1;
         },
         update: (_ctx, ticks) => {
           if (this.phases.pending) return 'shift';
@@ -43,7 +52,8 @@ export class TikbalangX extends BossUnit {
       run: {
         update: (ctx) => {
           if (this.phases.pending) return 'shift';
-          const dx = this.goal - this.body.centerX;
+          const goal = this.headingRight ? this.right : this.left;
+          const dx = goal - this.body.centerX;
           if (Math.abs(dx) <= 4) return 'shotWindup';
           if (!this.grounded(ctx.cw)) return undefined;
           const dir: 1 | -1 = dx < 0 ? -1 : 1;
@@ -64,7 +74,8 @@ export class TikbalangX extends BossUnit {
             const b = this.body;
             ctx.fire({ x: this.facing > 0 ? b.right : b.x, y: b.y + T.muzzleY, vx: this.facing * T.shotSpeed, vy: 0 });
           }
-          return ticks >= phaseValue(T.shotWindupTicks, this.phases.index) + T.shotHoldTicks ? 'warpWindup' : undefined;
+          if (ticks < phaseValue(T.shotWindupTicks, this.phases.index) + T.shotHoldTicks) return undefined;
+          return this.shotThenRun ? 'runWindup' : 'warpWindup';
         },
       },
       warpWindup: {
@@ -77,10 +88,11 @@ export class TikbalangX extends BossUnit {
         enter: () => {
           const b = this.body;
           this.ghost = { x: b.x, y: b.y, w: b.w, h: b.h };
-          const dest = Math.abs(b.centerX - this.left) <= Math.abs(b.centerX - this.right) ? this.right : this.left;
+          // Land on the anchor we did not just run to, so the next shot comes from the other end.
+          const dest = this.headingRight ? this.left : this.right;
           this.facing = dest < b.centerX ? -1 : 1;
           b.place(dest - b.w / 2, b.y);
-          this.goal = dest === this.left ? this.right : this.left;
+          this.shotThenRun = true;
           this.vx = 0;
         },
         update: (_ctx, ticks) => (ticks >= T.warpTicks ? 'stumble' : undefined),
@@ -92,7 +104,8 @@ export class TikbalangX extends BossUnit {
         },
         update: (_ctx, ticks) => {
           if (ticks < phaseValue(T.exposedTicks, this.phases.index)) return undefined;
-          return this.phases.pending ? 'shift' : 'runWindup';
+          // Shoot from the landing, then run across. A pending shift still wins.
+          return this.phases.pending ? 'shift' : 'shotWindup';
         },
       },
       shift: {
@@ -101,7 +114,7 @@ export class TikbalangX extends BossUnit {
           this.vx = 0;
           this.ghost = null;
         },
-        update: (_ctx, ticks) => (ticks >= T.phaseShiftTicks ? 'warpWindup' : undefined),
+        update: (_ctx, ticks) => (ticks >= T.phaseShiftTicks ? 'shotWindup' : undefined),
       },
     },
     'dormant',
@@ -109,9 +122,6 @@ export class TikbalangX extends BossUnit {
 
   constructor(id: number, x: number, y: number) {
     super(id, 'tikbalang-x', T, x, y);
-    this.left = x - T.runSpan;
-    this.right = x + T.runSpan;
-    this.goal = this.right;
   }
 
   get label(): string {

@@ -39,7 +39,7 @@ export interface ShotRequest {
 /** What the world exposes to enemy behaviour each tick. Enemies read the player; they never mutate it. */
 export interface EnemyCtx {
   readonly cw: CollisionWorld;
-  readonly player: { readonly body: Body; readonly dead: boolean };
+  readonly player: { readonly body: Body; readonly dead: boolean; readonly grounded: boolean };
   readonly tick: number;
   fire(shot: ShotRequest): void;
   /** Boss summons: spawn a regular enemy at a feet position. */

@@ -145,6 +145,8 @@ export class World {
   private respawnAt = { x: 0, y: 0 };
   private respawnIn = 0;
   private checkpointId = -1;
+  /** The exit rect, solid while Tikbalang-X is alive so a knockback cannot shove the player off the roof. */
+  private exitDoor: Solid | null = null;
 
   constructor(
     readonly level: LevelJson,
@@ -162,6 +164,7 @@ export class World {
     this.player = new Player(level.spawn.x - PLAYER.width / 2, level.spawn.y);
     this.camera = new CameraController(level.width, level.height, level.spawn);
     this.spawnEnemies();
+    this.syncExitDoor();
   }
 
   /** Enemies start fresh at level start and after every respawn. */
@@ -185,6 +188,20 @@ export class World {
   get exitOpen(): boolean {
     const boss = this.boss;
     return boss === null || !boss.alive;
+  }
+
+  /**
+   * Tikbalang-X's arena ends at the exit. While the boss is alive that rect is
+   * a solid door, so shot knockback stops on the roof. It is removed on death.
+   * Other bosses are unchanged: their clear fixtures do not grow a new wall.
+   */
+  private syncExitDoor(): void {
+    const seal = this.level.enemies.some((e) => e.type === 'tikbalang-x') && !this.exitOpen;
+    if (seal && !this.exitDoor) this.exitDoor = this.collision.addSolid(this.level.exit);
+    else if (!seal && this.exitDoor) {
+      this.collision.removeSolid(this.exitDoor);
+      this.exitDoor = null;
+    }
   }
 
   private cameraTarget(): CameraTarget {
@@ -214,6 +231,7 @@ export class World {
     }
     this.updateEnemies();
     this.updateProjectiles();
+    this.syncExitDoor();
     this.camera.update(this.cameraTarget(), this.rng);
     this.events.emit('tick', { tick: this.tick });
   }
