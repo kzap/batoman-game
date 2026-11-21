@@ -1,7 +1,10 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import type { Sharp } from 'sharp';
+import { backdropMetaFromPixels } from '../../src/render/backdrop-meta';
+import { farLodDimensions } from '../../src/render/far-lod';
+import { encodeBackdropKtx2, padToBlocks } from './ktx2';
 
 /**
  * backdrops.json next to a level's source layers:
@@ -98,6 +101,7 @@ export interface WrittenBackdrop {
   readonly layer: string;
   readonly path: string;
   readonly bytes: number;
+  readonly ktx2Bytes: number;
   readonly lossless: boolean;
 }
 
@@ -188,6 +192,7 @@ export async function buildBackdrops(specPath: string, outRoot: string): Promise
   const dir = path.join(outRoot, spec.level);
   await mkdir(dir, { recursive: true });
   const out: WrittenBackdrop[] = [];
+  const level = await levelDims(spec.level);
   for (const [name, layer] of Object.entries(spec.layers)) {
     const src = path.join(path.dirname(specPath), layer.source);
     let img = sharp(src);
@@ -199,9 +204,43 @@ export async function buildBackdrops(specPath: string, outRoot: string): Promise
       img = img.resize(Math.round(meta.width * layer.scale), Math.round(meta.height * layer.scale), { kernel: 'lanczos3' });
     }
     if (layer.edgeFade) img = await fadeEdges(img, layer.edgeFade);
+    let { data, info: raw } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    if (level && name === level.far) {
+      const lod = farLodDimensions(raw.width, raw.height, level.width, level.height);
+      if (lod.width < raw.width || lod.height < raw.height) {
+        const resized = await sharp(data, { raw: { width: raw.width, height: raw.height, channels: 4 } })
+          .resize(lod.width, lod.height, { kernel: 'lanczos3' })
+          .ensureAlpha()
+          .raw()
+          .toBuffer({ resolveWithObject: true });
+        data = resized.data;
+        raw = resized.info;
+      }
+    }
+    // Basis wants sides divisible by 4. The WebP is padded the same way so the
+    // two files and the meta box describe one image.
+    const padded = padToBlocks(data, raw.width, raw.height);
+    const meta = backdropMetaFromPixels(padded.data, padded.width, padded.height);
+    await writeFile(path.join(dir, `${name}.meta.json`), `${JSON.stringify(meta)}\n`);
+    const encoded = sharp(padded.data, { raw: { width: padded.width, height: padded.height, channels: 4 } });
     const target = path.join(dir, `${name}.webp`);
-    const info = await img.webp(lossless ? { lossless: true, effort: 6 } : { quality: layer.quality ?? 82, effort: 6, alphaQuality: 90 }).toFile(target);
-    out.push({ layer: name, path: target, bytes: info.size, lossless });
+    const info = await encoded.webp(lossless ? { lossless: true, effort: 6 } : { quality: layer.quality ?? 82, effort: 6, alphaQuality: 90 }).toFile(target);
+    const ktx2 = await encodeBackdropKtx2(padded.data, padded.width, padded.height);
+    const ktx2Path = path.join(dir, `${name}.ktx2`);
+    await writeFile(ktx2Path, ktx2);
+    out.push({ layer: name, path: target, bytes: info.size, lossless, ktx2Bytes: ktx2.byteLength });
   }
   return out;
+}
+
+/** Level size and which backdrop file is the far slot, so the packer can decimate it. */
+async function levelDims(levelId: string): Promise<{ width: number; height: number; far: string | null } | null> {
+  const file = path.join('src/content/levels', `${levelId}.json`);
+  try {
+    const level = JSON.parse(await readFile(file, 'utf8')) as { width?: number; height?: number; art?: { backdrops?: { far?: string } } };
+    if (typeof level.width !== 'number' || typeof level.height !== 'number') return null;
+    return { width: level.width, height: level.height, far: level.art?.backdrops?.far ?? null };
+  } catch {
+    return null;
+  }
 }

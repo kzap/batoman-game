@@ -33,7 +33,11 @@ const PAN_PER_GRID_STEP = 8;
 /** Width of each side panel (editor.css `.editor-side`), which covers the canvas edges. */
 const PANEL_WIDTH_PX = 220;
 const FIT_MARGIN = 1.05;
-const SAVE_ENDPOINT = '/__editor';
+/**
+ * Dev-server save API. Under a non-root `base` this stays on the site path;
+ * a missing endpoint falls back to a download.
+ */
+const SAVE_ENDPOINT = `${import.meta.env.BASE_URL}__editor`;
 const BODY_FRAME: ops.FrameSize = { ...ops.BODY, px: 0.5 };
 const HALF_FOV = (LENS.fovDeg * Math.PI) / 360;
 

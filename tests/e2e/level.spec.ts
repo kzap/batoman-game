@@ -105,7 +105,7 @@ test.describe('level 1', () => {
   });
 
   test('scripted traversal: the browser build replays the Level 1 fixture to the same outcome', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-1-clear.json'), 'utf8')) as Fixture;
     await page.goto(withLockstep('/?level=level-1'));
     await ready(page);
@@ -125,6 +125,12 @@ test.describe('level 1', () => {
     expect((await hooks(page)).enemies.filter((e) => e.type === 'patroller' && e.x < 900)).toEqual([]);
     await stepUntil(page, { engaged: true });
     await expect(page.locator('#hud')).toContainText('ASWANG PROTOTYPE');
+    // The exposed core lasts 100 ticks. Step under that so the diamond cue cannot be skipped.
+    await stepUntil(page, { exposed: true }, 60_000, 48);
+    const cue = await hooks(page);
+    expect(cue.weakPoint).toEqual({ shape: 'diamond', ring: 'white', pulsing: true });
+    expect(cue.reduceMotion).toBe(false);
+    await page.screenshot({ path: resolve(SHOTS, 'level-1-weak-point.png') });
     await stepUntil(page, { phase: 3 });
     await page.screenshot({ path: resolve(SHOTS, 'level-1-boss.png') });
     await advanceUntilDone(page);
@@ -153,7 +159,7 @@ test.describe('level 1', () => {
 });
 
 test.describe('other levels', () => {
-  for (const id of ['level-3', 'level-6']) {
+  for (const id of ['level-3']) {
     test(`${id} loads as grey-box from ?level= and replays its fixture`, async ({ page }) => {
       test.setTimeout(45_000);
       const fixture = JSON.parse(readFileSync(resolve(HERE, `../replay/fixtures/${id}-clear.json`), 'utf8')) as Fixture;
@@ -176,6 +182,35 @@ test.describe('other levels', () => {
       await page.screenshot({ path: resolve(SHOTS, `${id}-complete.png`) });
     });
   }
+
+  test('level-6 loads dressed from ?level= and replays its fixture across the roofs', async ({ page }) => {
+    test.setTimeout(60_000);
+    const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-6-clear.json'), 'utf8')) as Fixture;
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(r.url()));
+    await page.goto(withLockstep('/?level=level-6'));
+    await ready(page);
+    const h0 = await hooks(page);
+    expect(h0.level).toBe('level-6');
+    expect(h0.errors).toEqual([]);
+    expect(requests.some((u) => u.endsWith('atlases/level-6-props.webp'))).toBe(true);
+    expect(requests.some((u) => u.endsWith('backdrops/level-6/sky.webp'))).toBe(true);
+    expect(requests.some((u) => u.endsWith('backdrops/level-6/garden.webp'))).toBe(true);
+    await page.screenshot({ path: resolve(SHOTS, 'level-6-start.png') });
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+    // Landmarks on the roof-hops: the lift roof, the checkpoint roof, the boss roof.
+    for (const [name, x] of [['level-6-lift', 1900], ['level-6-checkpoint', 3000], ['level-6-boss-roof', 3800]] as const) {
+      await stepUntil(page, { x });
+      await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
+    }
+    await advanceUntilDone(page);
+    const h = await hooks(page);
+    expect(h.status).toBe('complete');
+    expect(h.simTicks).toBe(fixture.expect.ticks);
+    expect(Math.round(h.player.x)).toBe(fixture.expect.x);
+    expect(h.errors).toEqual([]);
+    await page.screenshot({ path: resolve(SHOTS, 'level-6-complete.png') });
+  });
 
   test('level-4 loads dressed from ?level= and replays its fixture up the tower', async ({ page }) => {
     test.setTimeout(60_000);

@@ -1,5 +1,6 @@
 import { BlendFunction, BloomEffect, DepthOfFieldEffect, EffectComposer, EffectPass, NoiseEffect, RenderPass, VignetteEffect } from 'postprocessing';
 import { HalfFloatType, type PerspectiveCamera, type Scene, type WebGLRenderer } from 'three';
+import { presentedGrainOpacity } from './motion';
 import { LENS } from './stage';
 
 /**
@@ -30,6 +31,7 @@ export const POST_TUNING = {
 
 export class PostStack {
   private readonly composer: EffectComposer;
+  private readonly noise: NoiseEffect | null = null;
 
   constructor(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera, opts: PostOptions = {}) {
     const o = { ...POST_DEFAULTS, ...opts };
@@ -47,11 +49,22 @@ export class PostStack {
     }
     if (o.vignette) effects.push(new VignetteEffect({ ...POST_TUNING.vignette }));
     if (o.grain) {
-      const noise = new NoiseEffect({ blendFunction: BlendFunction.SOFT_LIGHT, premultiply: true });
-      noise.blendMode.opacity.value = POST_TUNING.grainOpacity;
-      effects.push(noise);
+      this.noise = new NoiseEffect({ blendFunction: BlendFunction.SOFT_LIGHT, premultiply: true });
+      this.noise.blendMode.opacity.value = POST_TUNING.grainOpacity;
+      effects.push(this.noise);
     }
     if (effects.length) this.composer.addPass(new EffectPass(camera, ...effects));
+  }
+
+  /** Drop film grain while reduce-motion is on. The pass stays installed so toggling does not rebuild the composer. */
+  setReduceMotion(on: boolean): void {
+    if (!this.noise) return;
+    this.noise.blendMode.opacity.value = presentedGrainOpacity(POST_TUNING.grainOpacity, on);
+  }
+
+  /** True while grain is contributing. False when it was never installed or reduce-motion zeroed it. */
+  get grainEnabled(): boolean {
+    return (this.noise?.blendMode.opacity.value ?? 0) > 0;
   }
 
   setSize(width: number, height: number): void {

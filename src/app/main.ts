@@ -4,9 +4,22 @@ import { App, installHooks, postOptionsFromQuery } from './app';
 import { lockstepFromQuery } from './lockstep';
 import { GameAudio } from './audio';
 import { Overlay } from './shell/overlay';
+import { reduceMotionQuery } from './shell/save';
 import { Shell } from './shell/shell';
 
 const hooks = installHooks();
+showBuildStamp();
+
+/** Corner label plus a console line so a playtester can see which commit is deployed. */
+function showBuildStamp(): void {
+  const sha = __BUILD_SHA__;
+  const short = sha === 'dev' ? 'dev' : sha.slice(0, 7);
+  const when = __BUILD_TIME__.replace(/:\d{2}(?:\.\d+)?Z$/, 'Z').replace('T', ' ');
+  console.info(`BatoMan ${__APP_VERSION__} ${short}${when ? ` ${when}` : ''}`);
+  const el = document.getElementById('build-stamp');
+  if (!el || sha === 'dev') return;
+  el.textContent = when ? `${short} · ${when}` : short;
+}
 
 const canvas = document.getElementById('game-canvas');
 if (!(canvas instanceof HTMLCanvasElement)) {
@@ -33,7 +46,9 @@ async function boot(): Promise<void> {
     lockstep: import.meta.env.VITE_E2E_LOCKSTEP === '1' ? lockstepFromQuery(location.search) : null,
   });
   const audio = new GameAudio(import.meta.env.BASE_URL);
-  const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage);
+  const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage, {
+    reduceMotion: reduceMotionQuery(location.search),
+  });
   app.start();
   shell.start(direct ? levelId : null);
   if (edit) {

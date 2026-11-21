@@ -45,8 +45,8 @@ async function main(): Promise<void> {
   for (const specPath of backdropSpecs) {
     try {
       for (const w of await buildBackdrops(specPath, PATHS.backdrops)) {
-        total += w.bytes;
-        console.info(`backdrop ${w.path}: ${fmtBytes(w.bytes)}${w.lossless ? ' (lossless)' : ''}`);
+        total += w.bytes + w.ktx2Bytes;
+        console.info(`backdrop ${w.path}: webp ${fmtBytes(w.bytes)}, ktx2 ${fmtBytes(w.ktx2Bytes)}${w.lossless ? ' (lossless)' : ''}`);
       }
     } catch (err) {
       failed = true;

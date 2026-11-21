@@ -29,7 +29,9 @@ export function expectedAtlasOutputs(recipeName: string, recipePath: string, atl
 }
 
 export function expectedBackdropOutputs(level: string, layers: readonly string[], specPath: string, backdropDir: string = PATHS.backdrops): ExpectedOutput[] {
-  return layers.map((layer) => ({ path: `${backdropDir}/${level}/${layer}.webp`, producedBy: specPath }));
+  return layers.flatMap((layer) =>
+    ['.webp', '.ktx2', '.meta.json'].map((ext) => ({ path: `${backdropDir}/${level}/${layer}${ext}`, producedBy: specPath })),
+  );
 }
 
 export interface ImageDims {

@@ -139,7 +139,8 @@ drones every 480 ticks, two at a time but never past two alive (`countAlive`). C
 `shift`: 72 invulnerable ticks, and the new phase opens with its new move (a rush after the first shift, a
 summon after the second). The World emits `bossPhase` when it sees `phase` change. The weak point
 (`weakPointRect`, 24 px tall from 56 px up) doubles damage while stunned; `BossSnapshot.exposed` and
-`weakPoint` let the renderer show the core only then. Its death fires `bossDefeated`, shakes the camera and
+`weakPoint` let the renderer show the core only then (a magenta diamond with a white outline, section 5.3,
+so the window is not colour-only). Its death fires `bossDefeated`, shakes the camera and
 opens the exit; the bar hides once the death clip ends.
 
 Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
@@ -156,14 +157,46 @@ tick (fixed fractions, no `exp`, so replays are exact). While airborne the upwar
 so the design view (`viewW x viewH`) never shows outside it; levels smaller than the view are centred.
 `shake(amplitude, ticks)` draws per-tick offsets from the world RNG with linearly decaying amplitude; a
 weaker shake never replaces a stronger one in progress. Hurt and death shake the camera; respawn snaps it.
+The offset stays on the snapshot either way, so reduce-motion (section 6.1) does not change the RNG stream
+or a replay: the renderer is what drops it.
 
-### 4.5 Input (`src/core/sim/input.ts`, `src/app/keyboard.ts`)
+### 4.5 Input (`src/core/sim/input.ts`, `src/app/bindings.ts`, `src/app/keyboard.ts`) `[implemented: Phase 8.2]`
 
-`InputFrame` is seven booleans; `InputEdges` derives presses and releases from consecutive frames so a
-replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
-a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
+`InputFrame` is seven booleans (`left`, `right`, `up`, `down`, `jump`, `fire`, `dash`). `InputEdges`
+derives presses and releases from consecutive frames, so a replay stores only held state. `packInput` /
+`unpackInput` store a frame as one bit per button in `INPUT_BUTTONS` order. That packed form is the sim's
+only input API: rebinding a key does not change it, and existing clear fixtures stay valid.
+`window.__batoman.replay` feeds those bits straight into `World.step` and never consults the keyboard map.
 
-## 5. Renderer `[implemented: Phase 3-6]`
+The binding table maps each button to one to four `KeyboardEvent.code` values (`MAX_BINDS`). Defaults,
+matching the README: Left/A left, Right/D right, Up up, Down/S down, Space/W/Up jump, Z/J fire, X/K/both
+Shifts dash. ArrowUp is listed under both Move up and Jump, which is why Up jumps. Nothing in the sim
+treats one button as another: a frame with only `up` set does not jump. The player reads left/right
+(axis), down (crouch, drop-through), jump, fire and dash. `up` is its own bit so a later ladder or aim
+can use it; today it only matters because the default jump binding shares ArrowUp.
+
+`Keyboard` tracks physical codes, not buttons, so two keys bound to the same action can be held and
+released independently. `frame()` unions the held set with codes latched since the previous call, which
+keeps a tap shorter than one render frame. `attach` is idempotent. `setBindings` swaps the table and
+forgets a code the new table dropped, including one still physically down. `reset()` clears held and
+latched keys when the app mode changes.
+
+The Controls screen (last title item, and the pause menu) toggles keys: Enter, then a key, adds it to the
+selected action or removes it if it was already there. An action keeps at least one key and at most four.
+Escape cancels a capture; Escape again leaves. Reset to defaults restores the table above. A code may sit
+on more than one action (ArrowUp does, by default); toggling it on one action leaves the others.
+`Escape`, `Enter`, `P`, `M`, `N`, `R` and backtick are reserved for the shell and the debug overlay and cannot
+be bound, so a remap cannot trap pause, the menus, or the reduce-motion toggle. Menu cursor keys stay on the arrows and W/S
+regardless of the gameplay map. Gamepad mapping is out of scope.
+
+Bindings persist in the v1 save (`batoman.v2.save`) as `bindings`. A missing or invalid table loads as the
+defaults and does not discard unlocked levels or best times. `tests/replay/fixtures/input-remap.json` is a
+105-tick Level 1 run whose bits are exactly what the default keys produce for right, then right+jump, then
+right. The same bits fall out of a rebound layout (the test rebinds right and jump), and the fixture
+replays to a pinned undamaged outcome. `npm run replay:record` does not regenerate it; the four
+level-clear fixtures are unchanged.
+
+## 5. Renderer `[implemented: Phase 3-8]`
 
 `Stage` (`src/render/stage.ts`) owns the `WebGLRenderer`, `Scene`, `PerspectiveCamera` (`LENS`: FOV 30,
 distance 22, looking at Z=0), fog, ambient + key/rim lights, and the optional `PostStack`. `LAYER_Z` fixes
@@ -214,6 +247,24 @@ bottom sunk 0.8 units below the ground line so the silhouettes sit behind the fl
 horizontally with a 5% edge fade baked into the texture (section 7.3). Backdrop textures use linear
 filtering without mipmaps (mipmap generation on two full-screen layers cost ~10 fps under software GL).
 
+The plane is split into tiles about one view wide (`backdropTiles`) so the part of a long level behind the
+camera is frustum-culled instead of submitted as one level-sized triangle. `backdropContentBand` shrinks a
+layer to the rows the packer recorded in `<layer>.meta.json` (alpha above 8, padded 2px). Level 4's keyed
+street is the bottom third of its image; the empty sky above it is not rasterised. An opaque layer (the far
+skies) is drawn without blending or alpha test.
+
+Decor is instanced (`decorBatches` in `batches.ts`): one `InstancedMesh` per layer, screen-sized chunk,
+frame and flip. The chunk bounds are what the frustum test sees, so crates at the other end of the level
+are not drawn. Flip is its own batch because a negative instance scale is back-face culled inside a batch
+of unflipped copies; the mirrored batch swaps UVs and keeps a positive scale. Placement is `framePlacement`,
+the same function `SpriteQuad` uses. Dynamic sprites are not instanced: a few dozen of them change frame
+every tick, and rebuilding an instance buffer for that is not a win.
+
+The far slot is packed smaller (`farLodDimensions`). At a 720px framebuffer a far texel is about two screen
+pixels on the sharper axis; the texture is never upscaled, and the mid layer stays full resolution. The
+far plane is fogged, so the softer sample reads as depth. Level 1's sky goes from 1408x736 to 1008x528;
+Level 4's skyline from 2816x1536 to 1008x548.
+
 ### 5.3 Entity view and post
 
 `EntityView(assets)` (`entity-view.ts`) mirrors dynamic entities by id. The player is one `SpriteQuad` at
@@ -225,8 +276,16 @@ way the painted frames face (patroller and tikbalang right, drone left; the view
 facing) and the clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look
 at 1.6x with a lilac tint. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
 `stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
-dropped enemies go to a per-type free list and are reused. The boss core is an additive magenta orb over
-`BossSnapshot.weakPoint`, shown pulsing only while `exposed` (ART: visible during vulnerability windows).
+dropped enemies go to a per-type free list and are reused. The boss core sits on `BossSnapshot.weakPoint`
+and is shown only while `exposed` and `hp > 0`. It is a diamond, not the round plasma orb: an additive
+magenta (`#ff2d78`) fill plus a larger white (`#ffffff`) outline, both from `weakPointDiamond` in
+`motion.ts`. The outline is the colourblind-safe channel. It stays a high-luminance diamond under
+protanopia, deuteranopia, and tritanopia, where magenta shifts toward blue or brown and can disappear
+into the boss's lilac tint. There is no colour-blind post pass; the second channel is the accommodation,
+and `hooks.weakPoint` reports `{ shape: 'diamond', ring: 'white', pulsing }` while the core is up. With
+motion allowed the fill opacity breathes from 0.3 to 0.8 over 20 ticks and its scale by ±12%
+(`PRESENTATION.weakPoint`); the ring does not move. Reduce-motion holds the fill at opacity 0.55 and
+scale 1.
 Projectiles are keyed by kind: plasma is the `orb` frame at 0.4, nova at 0.9 tinted white-hot, enemy shots
 the first loaded enemy sheet's `projectile` clip; their quads are pooled too. A moving solid with `prop`
 set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top edge;
@@ -249,10 +308,12 @@ only emissive planes and highlights glow, vignette (offset 0.32, darkness 0.55),
 (opacity 0.35), and optional depth of field focused at `LENS.distance` (range 6, bokeh 3). `POST_DEFAULTS`
 enables bloom, vignette and grain; DOF is off (11 fps under SwiftShader). `?post=0` disables the stack
 (and re-enables canvas MSAA, which the stack otherwise replaces); `?dof=1` turns DOF on
-(`postOptionsFromQuery` in `app.ts`).
+(`postOptionsFromQuery` in `app.ts`). Reduce-motion sets the grain opacity to 0 without rebuilding the
+composer (`presentedGrainOpacity`); `?post=0` still removes the whole stack.
 
 Camera framing comes from the sim (`CameraController`, section 4.4); the app lerps the centre between
-snapshots and adds the current tick's shake offset unlerped.
+snapshots and, unless reduce-motion is on, adds the current tick's shake offset unlerped
+(`presentedCamera`). `hooks.shake` carries the sim offset and the offset that was actually added.
 
 ## 6. App `[implemented: Phase 3-7]`
 
@@ -260,7 +321,9 @@ snapshots and adds the current tick's shake offset unlerped.
 else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
 `droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
 `status`, `level` (id), `mode` (`play` | `paused` | `edit`), `screen` (shell screen kind), `score`, `music`
-(track requested), `audio` (context running), `editor` (section 11, null unless the editor is attached), and
+(track requested), `audio` (context running), `reduceMotion`, `grain` (film grain contributing), `shake`
+(`simX`/`simY` from the snapshot and `x`/`y` added to the camera), `weakPoint` (the exposed-core cue, or
+null), `editor` (section 11, null unless the editor is attached), and
 `replay(fixture)`, which restarts the level and feeds a recorded input sequence instead of the keyboard.
 
 `main.ts` loads the first level's assets, builds the `App`, and wraps it in the `Shell` (section 6.1). `/`
@@ -272,9 +335,9 @@ error, not a fallback to Level 1.
 (replay source if active, otherwise `Keyboard.frame()`), keep the last two snapshots, present with
 interpolation, update the debug overlay and HUD. After `complete` or `gameover` the world freezes itself;
 the shell decides what happens next. On a respawn the previous snapshot is replaced by the current one so
-neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key
-pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets held keys when a
-screen changes.
+neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`, section 4.5)
+latches a key pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets
+held keys when the mode changes, and `setBindings` installs the saved key table. Replays skip the keyboard.
 
 `App.loadLevel(level)` swaps the level in place (new `LevelView`, fresh world) for the editor; the prop
 atlas and backdrops stay the ones loaded at boot, so a level cannot change `art.props` at runtime.
@@ -292,7 +355,7 @@ shows collider outlines on every collider, static and dynamic. `Hud` (`hud.ts`, 
 top-left with lost ones greyed, lives, the six-digit score top-right, and the boss bar bottom-centre while
 `boss.engaged`; it rebuilds its DOM only when one of those values changes.
 
-Levels 3 and 6 stay grey-box (section 8) and the title, level select and game over cards are text
+Level 3 stays grey-box and Level 6 is dressed (section 8). The title, level select and game over cards are text
 (ART.md's silhouettes, thumbnails and salakot need art that does not exist yet); the results card does not
 yet dim or tally (Phase 8 polish).
 
@@ -309,8 +372,22 @@ covers every transition.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
 Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx
-(saved). While playing only Esc and P reach the shell, and nothing does while the editor is attached (its
-playtest owns P and Esc). `startLevel` fetches the level and its assets and calls `replaceLevel` (or
+(saved), R toggles reduce-motion (saved). The title menu and the pause menu open Controls (section 4.5).
+While playing only Esc, P, M, N and R reach the shell, and nothing does while the editor is attached (its
+playtest owns P and Esc). A controls row that is listening consumes the next key before those shortcuts,
+so M, N and R are not toggled by accident while rebinding. R is reserved (section 4.5) and cannot be bound.
+Reduce-motion is presentation only, the same kind of switch as `?post=0`: it does not change the 120 Hz sim,
+so existing replay fixtures stay bit-identical and are not re-pinned. It zeroes the camera-shake offset at
+present time (the snapshot still carries it, and the world RNG still draws it), sets film-grain opacity to 0,
+holds the weak-point fill steady, stops the charge-glow pulse (±10% over 12 ticks), holds invulnerability at
+opacity 0.72 instead of blinking 0.45/1 every 6 ticks, and holds an enemy hurt flash at white instead of
+strobing magenta every 3 ticks. Drone bob, boss-phase hit-stop, and particle bursts stay; they are gameplay
+reads. `options.reduceMotion` is `true`, `false`, or `null`. `null` (missing or not a boolean) follows
+`prefers-reduced-motion: reduce` at boot and when that media query changes. R writes an explicit boolean and
+stops following the OS. `?reduceMotion=1` or `0` overrides the session without writing until R is pressed.
+The title and pause hints show `R motion on/off`, and `#overlay` carries `data-reduce-motion`.
+
+`startLevel` fetches the level and its assets and calls `replaceLevel` (or
 `restartLevel` when it is the current level); the intro card advances on Enter or after `SHELL_TIMING.intro`
 2.2 s (re-armed while the level is still loading). One timer slot holds the pending delayed event and every
 screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is watched
@@ -322,10 +399,14 @@ the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the curre
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
 
-`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options }`.
-`loadSave` validates and degrades to the defaults (first level unlocked, music and sfx on) on anything
-unexpected; `recordClear` unlocks the next manifest level and keeps the fewer-tick result; `writeSave`
-swallows storage failures. The store is an injected `KeyValueStore`, so tests use a Map.
+`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
+`options` holds music, sfx, and `reduceMotion` (`true`, `false`, or `null` to follow the OS). `bindings` is
+optional on read; a missing or rejected table becomes the defaults in section 4.5 and the rest of the save
+is kept, including the reduce-motion choice. The version stays 1 so a Phase 7 save still loads. `loadSave`
+validates and degrades to the defaults (first level unlocked, music and sfx on, reduce-motion following the
+OS, default bindings) on anything unexpected; `recordClear` unlocks the next manifest level and keeps the
+fewer-tick result; `writeSave` swallows storage failures. The store is an injected `KeyValueStore`, so tests
+use a Map.
 
 ### 6.2 Audio (`src/app/audio/`)
 
@@ -416,8 +497,14 @@ horizontally without a seam. Level 1 ships `sky` (opaque, from `background.png`)
 `skyline` (opaque) and `street` (keyed from magenta `#fd6cf7` at tolerance 96, lossy at quality 90); both
 erase the watermark with `fill`.
 
-Atlases are WebP only. KTX2/Basis output needs an encoder dependency and a runtime `KTX2Loader` path; it is
-deferred until a measured GPU-memory or decode-time problem justifies it.
+Atlases stay lossless WebP. Their alpha-tested edges pick up block artefacts under Basis, and they are not
+the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`, Basis Universal via
+`@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. The loader
+(`useCompressedBackdrops`) fetches the KTX2 when the GPU reports S3TC or BC7 and the unmasked renderer is
+not a software implementation (SwiftShader, llvmpipe). Software GL advertises those extensions and then
+decompresses them on the CPU, which is slower than the WebP path, so CI stays on WebP. ETC2 and ASTC are
+not selected: on desktop Linux they are often emulated. The transcoder is the three.js Basis wasm, loaded
+only when a KTX2 is requested.
 
 ### 7.4 Outputs and payload
 
@@ -430,7 +517,10 @@ deferred until a measured GPU-memory or decode-time problem justifies it.
 | `level-1-props` | 24 | 1024x1024 | 769 KB |
 | `level-4-props` | 27 | 1024x1024 | 791 KB |
 
-Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops: `sky` 60 KB, `town` 225 KB.
+Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops, WebP / KTX2: `sky` 35 / 66 KB (far LOD,
+1008x528), `town` 225 / 183 KB. Level 4: `skyline` 57 / 88 KB (far LOD, 1008x548), `street` 166 / 412 KB.
+The KTX2 is what a desktop GPU samples; the WebP is the software-GL fallback. Both are in the payload
+budget because `dist/` carries every file.
 
 The Level 1 set a player downloads today (BatoMan and props atlases with their JSON, two backdrops) is
 1,729,694 bytes; with the patroller and drone atlases Phase 6 adds it is 2,741,238 bytes. v1 loaded
@@ -476,11 +566,13 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies) |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
-| `level-6` | Abandoned Rooftop Garden | 4480x896 | Grey-box: six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift mover, a 128 px drop, planter one-way steps; spikes, a checkpoint. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet) |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
-Levels 3 and 6 have no `art` block and render as grey boxes with the zone glows until their art exists;
-Phase 7 planned to dress them but no source art for either exists (Level 3 has one concept painting,
-Level 6 nothing), so dressing waits on art rather than on code. Level 4 was added in Phase 7b because its
+Level 3 has source art in `art-source/level-3/` (`nave` and `chapel` backdrops, plus a props recipe) and still
+no `art` block, so it renders as grey boxes until it is dressed. Level 6 is dressed from
+`art-source/level-6/` in the Level 1 inked-painterly style, relit as a sunny rooftop farm: `sky` and
+`garden` backdrops and 144 decor quads. Geometry is still the Phase 5 block-out, so the painted lying path
+between roofs is not solid, and the `tikbalang` at 4100 is still a spawn with no behaviour. Level 4 was added in Phase 7b because its
 art does exist; it is the first vertical level and is why drones and stealths got a `sightHeight`, so an
 enemy on one storey does not react to the player climbing past on another. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
@@ -506,8 +598,8 @@ other Tiled maps.
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
 (`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by
 scripted routes (`bots.ts`) that read the live world; only the inputs are saved, and `expect` pins status,
-tick count, lives, hp and final x. `npm run replay:record` re-records all of them; commit the diff with the
-tuning or level change that caused it.
+tick count, lives, hp and final x. `npm run replay:record` re-records the level-clear fixtures; commit the diff
+with the tuning or level change that caused it. `input-remap.json` is not a route recording (section 4.5).
 
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
 until its `done` condition holds, then handing over to the next (`run(dir, untilX)`, `jump(dir)`,
@@ -524,7 +616,9 @@ boss winds up within 150 px, hold fire for a nova while it is stunned, stop when
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
+`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `input-remap` (section 4.5) is a separate
+105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
+alone. `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
 each manifest level; its World-rules block uses Level 1 without enemies.
 
@@ -562,8 +656,10 @@ to `dist/` and fails on any breach of `BUDGET`:
 E2E specs: `smoke.spec.ts` (boot to the title with the sim frozen, Enter starts it, pixels drawn, keyboard
 drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and locked
 level select, credits, intro card, pause freezing the tick count and resuming, quit; music element playing
-after the first key and M saving the mute; the full loop title to credits by replaying all three fixtures
-in sequence, then a reload showing every level unlocked with best times), and `level.spec.ts` (loading
+after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
+in sequence, then a reload showing every level unlocked with best times), `a11y.spec.ts` (the OS
+reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
+`?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that
 the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
 3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
@@ -571,18 +667,30 @@ written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with th
 asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
 checks six enemies and the dormant boss are live sprites from the first frame, screenshots the first
 fight, one-way, mover and first dash-gap sections, checks the first patroller is gone, waits for the boss
-to engage (HUD bar), reach phase 3 and die (bar gone), and requires the browser build to finish on the same
+to engage (HUD bar), show the weak-point diamond (`hooks.weakPoint`, screenshot `level-1-weak-point.png`),
+reach phase 3 and die (bar gone), and requires the browser build to finish on the same
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
 snapshot's enemy list, boss bar state and sprite count), then the results card and Enter moving on to
-Level 3; the same load-and-replay check runs for `level-3` and `level-6` through
-`?level=`, a dressed variant for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
-first balcony, the lift and the roof), plus a check that an unknown id is a boot error. The shell's
+Level 3; the same load-and-replay check runs for `level-3` through
+`?level=`, and dressed variants for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
+first balcony, the lift and the roof) and `level-6` (atlas plus `sky` and `garden`, screenshots the start,
+the lift, the checkpoint roof and the last roof), plus a check that an unknown id is a boot error. The shell's
 full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL
 output is not stable enough across machines to gate on. Playwright runs one worker: two SwiftShader pages
 halve each other's frame rate.
 
-Measured under SwiftShader at 1280x720: grey-box 60 fps; art with the post stack 37-41 fps; `?post=0` about
-38 fps (the two full-screen backdrop layers are the fill cost, not the post stack); `?dof=1` 11 fps.
+Measured under SwiftShader at 1280x720 on a laptop, before Phase 8.1: grey-box 60 fps; art with the post
+stack 37-41 fps; `?post=0` about 38 fps (the two full-screen backdrop layers are the fill cost, not the post
+stack); `?dof=1` 11 fps.
+
+Phase 8.1 remeasured the same viewport with `node tools/perf/frame-budget.mjs` (Playwright Chromium,
+`--use-angle=swiftshader`, 1280x720, `window.__batoman.frames` over 4s after 20 warmup frames, two samples,
+no input). The machine was this cloud VM: no GPU, renderer `SwiftShader Device (Subzero)`. It is not a mid
+laptop, and it does not reach the historical 37-41. On that probe the post-on Level 1 path went from
+5.99/5.24 fps to 11.23/10.98 fps. Level 4 went from 2.66/5.74 fps to 2.42/8.99 fps (the first sample of a
+fresh document still includes a stall). `?post=0` stayed at about 2.5 fps on both builds; that path turns
+MSAA back on, and the backdrop work is not what it is waiting on. A mid-laptop 60 fps figure was not taken:
+this environment has no discrete or integrated GPU to sample.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
 uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally. On a pull
