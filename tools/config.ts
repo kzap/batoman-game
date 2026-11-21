@@ -14,7 +14,10 @@ export interface Budget {
  * Numbers are deliberate ceilings, not targets - raise them in a PR with a reason.
  */
 export const BUDGET: Budget = {
-  totalServed: 12 * 1024 * 1024,
+  // Four dressed levels (1, 3, 4, 6), boss atlases, and a finale. dist/ counts
+  // both KTX2 and WebP for every backdrop; a player downloads only the current
+  // level. Served 10.93 MB at 188085ca914e34a66c7482b5f8496a0682336dae, 2026-11-20.
+  totalServed: 20 * 1024 * 1024,
   code: 900 * 1024,
   singleImage: 1.5 * 1024 * 1024,
   singleAudio: 6 * 1024 * 1024,

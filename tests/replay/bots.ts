@@ -154,7 +154,7 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     run(1, 850),
     fight(1200), // drone at 1000
     run(1, 1210),
-    dashJump(1), // dash gap 1248..1376
+    dashJump(1), // true landing: the rope bridge at 1248..1376 is a pit
     run(1, 1650),
     jump(1), // vent at 1700
     run(1, 2000),
@@ -182,6 +182,21 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     run(1, 4480),
   ],
 };
+
+/**
+ * Trust the painted rope bridge. Same opening as the clear route through the
+ * drone, then a walk off roof 2 with no jump. The bridge is not a floor.
+ */
+export const lyingPathRoute = (): Policy =>
+  route([
+    run(1, 612),
+    jump(1), // roof 2 (+32 over a 64 gap)
+    run(1, 726),
+    jump(1), // planter at 760
+    run(1, 850),
+    fight(1200), // drone at 1000
+    run(1, 1600), // off the lip at 1248; the bridge does not hold
+  ]);
 
 /**
  * Hold jump in place. Records the Level 1 HP Up, which sits in the spawn

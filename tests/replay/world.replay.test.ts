@@ -5,7 +5,7 @@ import { World } from '@game/world';
 import { NO_INPUT } from '@core/sim/input';
 import { decodeInputs } from '@core/sim/replay';
 import { CAMERA, PLAYER, SIGBIN } from '@game/tuning';
-import { clearRoute } from './bots';
+import { clearRoute, lyingPathRoute } from './bots';
 import { FIXTURE_DIR, loadLevel, record, replay, toFixture, type ReplayFixture } from './harness';
 
 /**
@@ -279,6 +279,33 @@ describe('World rules', () => {
     for (let i = 0; i < 240; i++) w.step();
     expect(w.player.body.x).toBeGreaterThan(x0 + 60);
     expect(w.player.grounded).toBe(true);
+  });
+});
+
+describe('level 6 lying path replay', () => {
+  it('walking the painted bridge falls into the pit', () => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-6-lying-path.json'), 'utf8')) as ReplayFixture;
+    const final = replay(fixture);
+    expect(final.status).toBe('playing');
+    expect(final.tick).toBe(fixture.expect.ticks);
+    expect(final.lives).toBe(3);
+    expect(final.player.hp).toBe(0);
+    expect(Math.round(final.player.x)).toBe(fixture.expect.x);
+    expect(final.player.x).toBeGreaterThan(1200);
+    expect(final.player.x).toBeLessThan(1400);
+    expect(final.player.y).toBeLessThan(80);
+
+    const again = replay(fixture);
+    expect(again).toEqual(final);
+  });
+
+  it('the scripted walk dies in the gap instead of reaching roof 3', () => {
+    const rec = record(loadLevel('level-6'), 1, lyingPathRoute(), 5000, (snap) => snap.player.hp <= 0);
+    expect(rec.final.player.hp).toBe(0);
+    expect(rec.final.lives).toBe(3);
+    expect(rec.final.player.x).toBeGreaterThan(1200);
+    expect(rec.final.player.x).toBeLessThan(1400);
+    expect(rec.final.player.y).toBeLessThan(80);
   });
 });
 
