@@ -2,7 +2,7 @@
 
 **Status:** Plan only. Nothing in this document adds a level, an atlas, a track, or a boss to the tree.
 **Decision (Andre, 20 Nov 2026, [#51](https://github.com/kzap/batoman-game/issues/51)):** "Build the Level 5 finale now as part of finishing the levels."
-**Caps (Andre, same day, [#53](https://github.com/kzap/batoman-game/issues/53)):** 900 KB code and 12 MB served stay in `tools/config.ts`. Compression and reuse come first. A raise happens only in the PR that actually overflows, or in a dedicated PR stacked with it, and that PR states the new number, the `npm run budget` line, and the commit it was measured on. This plan does not edit the caps.
+**Caps (Andre, [#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819), #54 merged as `44c4288`):** 900 KB code and 20 MB served. `tools/config.ts` sets `totalServed` to `20 * 1024 * 1024` and `code` to `900 * 1024`. Single-image and single-audio limits are unchanged. Compression is still worth doing for load time. This plan does not edit the caps. A further served raise is stated only in a PR whose measured `npm run budget` total exceeds 20 MB.
 **Companions:** [VISION.md](VISION.md), [STORY.md](STORY.md), [PRD.md](PRD.md), [ART.md](ART.md), [TDD.md](TDD.md).
 
 The district is the three blocks the prototype leveled, the Pasig in the street, and Bakunawa-Prime. Story order 5. Challenge: gauntlet. No new verb ([VISION.md](VISION.md) "Rules" and "5 — Destroyed City Block").
@@ -188,7 +188,7 @@ Bakunawa: submarine-black hull, bioluminescent blue marks, head 192×128, body s
 | `tikbalang` atlas (447,618 bytes WebP, [#53](https://github.com/kzap/batoman-game/issues/53)) | Reused elsewhere | The horse stays on `level-6`. Phase 3's fake position is Bakunawa's own posing, not a second spawn of that sheet. |
 | `level-1` ogg, "Tondo Sublevel", 1.92 MB | Reused as the stand-in | Manifest `music` until the cue exists. [TDD.md](TDD.md) §7.5: 191 s at 80 kbps. |
 | `src/content/levels/level-5.json` | New, small | Static asset, outside the JS budget. |
-| Moving death volume | New code | `content/level-5`. One rect with a moving top. |
+| Moving death volume | New code | `content/level-5`. Two rects, one `world.tick` clock. |
 | Boss type and phase machine | New code | `phase/9-bakunawa-boss`. |
 | Far backdrop, dusk | New | `art-source/level-5/`. |
 | Mid backdrop, the block | New | Hanging infrastructure, fires, the river under the street. |
@@ -199,12 +199,12 @@ Bakunawa: submarine-black hull, bioluminescent blue marks, head 192×128, body s
 
 ### First-pass bytes
 
-Caps in `tools/config.ts`: served `12 * 1024 * 1024`, code `900 * 1024`, single image `1.5 * 1024 * 1024`, single audio `6 * 1024 * 1024`. Both WebP and KTX2 count, because `dist/` carries every file ([TDD.md](TDD.md) §7.4). Far backdrops already pack a smaller LOD; the mid layer stays full resolution.
+Caps in `tools/config.ts` after `44c4288`: served `20 * 1024 * 1024`, code `900 * 1024`, single image `1.5 * 1024 * 1024`, single audio `6 * 1024 * 1024`. Both WebP and KTX2 count, because `dist/` carries every file ([TDD.md](TDD.md) §7.4). Far backdrops already pack a smaller LOD; the mid layer stays full resolution.
 
-This branch does not run `npm run budget`. The neighborhood is the one [#53](https://github.com/kzap/batoman-game/issues/53) recorded:
+This branch does not run `npm run budget`. The neighborhood is the one [#53](https://github.com/kzap/batoman-game/issues/53) recorded, measured against the 20 MB ceiling:
 
-- Code **840.0 KB / 900 KB** on PR #46. #53 forecast #40 at +5.9 KB and #41 at +5.4 KB, leaving about 49 KB. Tip `e9d3a81` is the #40 results card, so part of that forecast is already on `v2`.
-- Served **10.93 MB / 12 MB** on the #46 worktree (about 1.07 MB of room). #45's sigbin atlas is **864.6 KB**, and that PR's pre-diet served total was **11.72 MB**, after which #53 calls the remaining room a few hundred KB. Treat 10.93 MB as the neighborhood, not a new count of `e9d3a81`.
+- Code **840.0 KB / 900 KB** on PR #46. #53 forecast #40 at +5.9 KB and #41 at +5.4 KB, leaving about 49 KB. Tip `e9d3a81` is the #40 results card, so part of that forecast is already on `v2`. #41 has since merged.
+- Served **10.93 MB** on the #46 worktree (`188085ca` in the `tools/config.ts` comment). #45's sigbin atlas is **864.6 KB**, and that PR's pre-diet served total was **11.72 MB**. Against 20 MB that is about 8.3 to 9.1 MB of room.
 
 | Addition | Analogue | First pass |
 |---|---|---|
@@ -215,23 +215,25 @@ This branch does not run `npm run budget`. The neighborhood is the one [#53](htt
 | Mid WebP + KTX2 | Level 6 `garden` 378 KB; Level 4 `street` 166 / 412 KB | ~300 + ~350 KB |
 | Cue at 80 kbps | Level 2, 60 s, 620 KB. Level 1, 191 s, 1.92 MB. | ~620 KB. The 6 MB audio cap is not the constraint. |
 
-Art plus the short cue is about 850 + 300 + 160 + 650 + 620 = **2580 KB, about 2.5 MB**, on top of a remaining **0.3 to 1.1 MB**. The dressed finale does not fit the 12 MB cap on these analogues.
+Art plus the short cue is about 850 + 300 + 160 + 650 + 620 = **2580 KB, about 2.5 MB**. That sits inside the roughly 8 to 9 MB of room under the 20 MB cap.
 
-Cuts to try before any raise, in the art and music PRs ([#53](https://github.com/kzap/batoman-game/issues/53), Andre: compression and reuse first):
+Compression is still worth doing for load time ([#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819)). It is no longer what makes the finale fit:
 
-- Keep the cue at the 60 s / ~620 KB size. A Tondo-length file is ~1.3 MB of extra weight and is the wrong first move.
+- Keep the cue at the 60 s / ~620 KB size. A Tondo-length file is about 1.9 MB and still under 20 MB; the short loop is the load-time choice.
 - Hold the props atlas near 300 KB, not 636–791.
 - Keep the body segment tiled.
 - Let the far plate use the existing far LOD. Do not add a second copy of the Level 1–6 atlases.
 
 ### Where a stated cap-raise PR may be needed
 
-- **`art/level-5` (served).** Likely. A Bakunawa sheet near 850 KB, plus the mid WebP/KTX2 pair near 650 KB, is about 1.5 MB before props and music. If `npm run budget` on that PR is over 12 MB after the cuts above, that PR or a dedicated one stacked with it raises `totalServed` and states the measured bytes and the commit. It does not raise the code cap.
-- **`content/level-5-music` (served).** If the art PR fitted only by leaving the `level-1` stand-in in place, the cue is the file that overflows. The music PR then states the raise. If the cue can be the short loop and the served line still passes, no raise.
-- **`content/level-5` and `phase/9-bakunawa-boss` (code).** Unlikely at +5 to +15 KB against the ~49 KB neighborhood, and not something to spend in advance. If Sigbin, Tikbalang-X, and Manananggal-7 land first and the code line is within ~15 KB of 900, the boss PR measures again. A code raise is stated only when that build's code line exceeds 900 KB.
+Each art and music PR pastes `npm run budget` and measures it against 20 MB served and 900 KB code.
+
+- **`art/level-5` (served).** A Bakunawa sheet near 850 KB, plus the mid WebP/KTX2 pair near 650 KB, is about 1.5 MB before props and music. The dressed set is about 2.5 MB. On these analogues it fits under 20 MB. A served raise is stated only if that PR's measured total exceeds 20 MB. It does not raise the code cap.
+- **`content/level-5-music` (served).** The short cue is about 620 KB. A served raise is stated only if the measured total exceeds 20 MB.
+- **`content/level-5` and `phase/9-bakunawa-boss` (code).** Unlikely at +5 to +15 KB against the ~49 KB neighborhood, and not something to spend in advance. If Tikbalang-X and Manananggal-7 land first and the code line is within ~15 KB of 900, the boss PR measures again. A code raise is stated only when that build's code line exceeds 900 KB.
 - **Single image and single audio.** The analogues sit under 1.5 MB and under 6 MB. A raise of those two is not the expected outcome. A sheet that blows the 1.5 MB image cap gets cut or split before anyone touches `singleImage`.
 
-`tools/config.ts` stays as it is in every PR that still fits.
+`tools/config.ts` stays at 20 MB served and 900 KB code in every PR that still fits.
 
 ---
 
@@ -276,7 +278,7 @@ Acceptance:
 - [ ] Far and mid plates match the Level 10 row and the dusk hour in §4. The four borrowed lights are in the paintings.
 - [ ] The sheet is the ART silhouette: 192×128 head, tiled 96×96 segment, black hull, blue marks, magenta glyph with a white diamond outline.
 - [ ] Enemy sheets are not repacked. Props stay a short atlas, aimed at ~300 KB rather than the Level 4 or Level 6 prop atlases.
-- [ ] The PR pastes `npm run budget` for its commit. Over 12 MB after the §4 cuts, it states a `totalServed` raise or stacks a dedicated raise PR. A single image over 1.5 MB is cut or split instead.
+- [ ] The PR pastes `npm run budget` for its commit, measured against 20 MB served. Over 20 MB, it states a `totalServed` raise or stacks a dedicated raise PR. A single image over 1.5 MB is cut or split instead.
 - [ ] `npm run ci` is green. Quinn's #52 note covers the new plates (below).
 
 ### `content/level-5-music` — Sining
@@ -287,7 +289,7 @@ Acceptance:
 
 - [ ] `npm run validate` accepts the track id. The level plays it, and the title track is unchanged.
 - [ ] The loop is about a minute, in the 620 KB neighborhood of the Level 2 cue, not a second 1.92 MB Tondo file.
-- [ ] The PR pastes `npm run budget`. If this file is what crosses 12 MB, the PR states the served raise. If the short loop fits, the caps stay.
+- [ ] The PR pastes `npm run budget`, measured against 20 MB served. If this file is what crosses 20 MB, the PR states the served raise. If the short loop fits, the caps stay.
 - [ ] `npm run ci` is green.
 
 ### `phase/9-bakunawa-boss` — Rio

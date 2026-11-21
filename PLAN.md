@@ -16,7 +16,7 @@ today ships four level files. The finale is the fifth, not built yet. The plan f
 | 4 Rooftop garden | `level-6` | Tikbalang-X | Dressed. Scout AI landed in #26. The boss is unbuilt |
 | 5 Destroyed block | proposed `level-5` | Bakunawa-Prime | Not in the tree |
 
-Andre's decision on [#51](https://github.com/kzap/batoman-game/issues/51): build Level 5 now, as part of finishing the levels. The 900 KB code cap and the 12 MB served cap stay. The plan is [docs/FINALE.md](docs/FINALE.md).
+Andre's decision on [#51](https://github.com/kzap/batoman-game/issues/51): build Level 5 now, as part of finishing the levels. The caps are 900 KB code and 20 MB served ([#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819), #54 at `44c4288`). The plan is [docs/FINALE.md](docs/FINALE.md).
 
 Dress Level 3 (#14) and the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off) continue beside that. The scout AI is in (#26). Still open beside that: the #11 coverage pins, the lying-path collider, a second mid layer, a Level 6 music track, and Tikbalang-X itself.
 
