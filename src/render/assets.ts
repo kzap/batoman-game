@@ -51,6 +51,8 @@ export const ENEMY_LOOK: Readonly<Record<EnemyType, EnemyLook>> = {
   patroller: PATROLLER_LOOK,
   stealth: PATROLLER_LOOK,
   aswang: { ...PATROLLER_LOOK, scale: 1.6, tint: 0xd8b4ff },
+  // Placeholder until the Manananggal sheet exists (issue #53). Warm red, patroller clips.
+  manananggal: { ...PATROLLER_LOOK, scale: 1.8, tint: 0xff5a3c },
   drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', faces: 'left', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },
   tikbalang: { atlas: 'tikbalang', scale: 1, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'run', shoot: 'stomp' } },
 };

@@ -1,9 +1,20 @@
+import type { AABB } from '@core/math/aabb';
 import { Body, type CollisionWorld } from '@core/sim/collision';
 import { SIM_DT } from '@core/sim/clock';
 import type { StateDef } from '@core/sim/fsm';
 import type { EnemyType } from '@content/level';
 import { Health } from '../health';
 import { ENEMY } from '../tuning';
+
+/** Which body a shot landed on. A one-body enemy is always `body`. */
+export type HurtPart = 'body' | 'planted';
+
+/** A shot target. `core` is the weak-point rect, or null when the body has none. */
+export interface Hurtbox {
+  readonly id: HurtPart;
+  readonly box: AABB;
+  readonly core: AABB | null;
+}
 
 /** Poses the renderer maps to clips. `windup`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
 export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'rush' | 'stunned' | 'shift';
@@ -39,7 +50,7 @@ export interface ShotRequest {
 /** What the world exposes to enemy behaviour each tick. Enemies read the player; they never mutate it. */
 export interface EnemyCtx {
   readonly cw: CollisionWorld;
-  readonly player: { readonly body: Body; readonly dead: boolean };
+  readonly player: { readonly body: Body; readonly dead: boolean; readonly grounded: boolean };
   readonly tick: number;
   fire(shot: ShotRequest): void;
   /** Boss summons: spawn a regular enemy at a feet position. */
@@ -103,9 +114,28 @@ export abstract class Enemy {
     return this.deathTicks >= this.stats.deathTicks;
   }
 
-  /** Can be shot and hurts on contact. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
+  /** Can be shot. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
   get hittable(): boolean {
     return this.alive;
+  }
+
+  /**
+   * Touching this body hurts the player. Defaults to `hittable`, so a cloak
+   * that cannot be shot also does not bite. A boss can be shot during a
+   * punish window and still save contact for the strike itself.
+   */
+  get harmsOnContact(): boolean {
+    return this.hittable;
+  }
+
+  /** Bodies a player shot can land on. The core rect is what counts as a weak-point hit. */
+  hurtboxes(): readonly Hurtbox[] {
+    return [{ id: 'body', box: this.body, core: null }];
+  }
+
+  /** Bodies that deal contact damage this tick. */
+  contactBoxes(): readonly AABB[] {
+    return this.harmsOnContact ? [this.body] : [];
   }
 
   get alpha(): number {
@@ -130,8 +160,11 @@ export abstract class Enemy {
 
   protected abstract behave(ctx: EnemyCtx): void;
 
-  /** Apply damage from a player shot. `dir` is the shot's travel direction. Returns the damage dealt (0 when ignored). */
-  hit(damage: number, dir: 1 | -1, weakPoint = false): number {
+  /**
+   * Apply damage from a player shot. `dir` is the shot's travel direction.
+   * `part` says which hurtbox overlapped. Returns the damage dealt (0 when ignored).
+   */
+  hit(damage: number, dir: 1 | -1, weakPoint = false, _part: HurtPart = 'body'): number {
     if (!this.hittable) return 0;
     const dealt = this.damageFor(damage, weakPoint);
     if (!this.health.hit(dealt)) return 0;

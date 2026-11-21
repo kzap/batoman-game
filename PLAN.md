@@ -118,7 +118,7 @@ undamaged clears in `tests/replay/fixtures/`.
 |---|---|---|
 | 1 Tondo Sublevel Docks | Dressed | `art` block, `level-1-props`, `sky`/`town`, 58 decor quads. Full source set in `art-source/level-1/`. Patrollers, drones, and the `aswang` boss (patroller sheet, 1.6x, lilac). Fixture 5567 ticks. |
 | 3 Quiapo Underground Chapel | Grey-box JSON | Source art is on `v2` (#32): `background.png`, `foreground.png`, `tileset.png`, `backdrops.json` (`nave` / `chapel`), a props recipe, plus the older concept painting. No `art` block, so it still renders as boxes. Remaining: #14 dresses it, #41 adds the Sigbin Unit. Stealth, drone, patroller. Music `level-2`. Fixture 2642 ticks. E2E loads it as grey-box. |
-| 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth. No boss in the tree. PR #25 names Manananggal-7; that fight is not built. Music `level-2`. Fixture 2802 ticks. E2E asserts the atlas and both backdrops. |
+| 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth, Manananggal-7 on the roof (fight in, sheet still the patroller placeholder). Music `level-2`. Fixture 4961 ticks, undamaged, through the kill and the return climb. E2E asserts the atlas and both backdrops and screenshots the split and the descent. |
 | 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 144 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a tikbalang scout at x 4100 (#26: burst chase and stomp). Music `level-1`. Fixture 4059 ticks, undamaged. |
 
 Tikbalang. The scout landed in #26 (`src/game/enemies/tikbalang.ts`). It patrols in bursts, then on the
@@ -234,7 +234,7 @@ Merged as PR #9 (`content/level-4` into `v2`). Outcome: as planned, plus two thi
 The foreground art came on a solid magenta background, so backdrop layers gained a `key` chroma-key option in
 the pipeline. Drones and stealths gained a `sightHeight` (128 px) so an enemy does not react to the player climbing past on another
 storey; the existing fixtures were unaffected. Route DSL gained `wallClimb`, `waitMoverSettling` and a
-direction for `fight`. 86 decor quads; fixture 2802 ticks undamaged.
+direction for `fight`. 86 decor quads. The clear was 2802 ticks until Manananggal-7; it is 4961 ticks undamaged through that kill.
 
 ### Level 6 source art and dressing (`content/level-6`)
 

@@ -1,7 +1,8 @@
 import { SIM_DT } from '@core/sim/clock';
 import { Fsm } from '@core/sim/fsm';
 import { BOSS } from '../tuning';
-import { Enemy, type EnemyCtx, type EnemyPose } from './enemy';
+import { BossUnit } from './boss-kit';
+import { type EnemyCtx, type EnemyPose, type Hurtbox } from './enemy';
 
 type State = 'dormant' | 'walk' | 'shoot' | 'rushWindup' | 'rush' | 'stunned' | 'shift' | 'summon';
 
@@ -13,7 +14,7 @@ type State = 'dormant' | 'walk' | 'shoot' | 'rushWindup' | 'rush' | 'stunned' | 
  * adds drone summons and a faster burst. Phase changes are a brief invulnerable
  * shift. Its own shots never hurt it; contact does the usual damage.
  */
-export class Boss extends Enemy {
+export class Boss extends BossUnit {
   private phaseIndex = 0;
   private cooldown: number = BOSS.shotCooldownTicks[0]!;
   private burstLeft = 0;
@@ -142,6 +143,19 @@ export class Boss extends Enemy {
   /** 1-based phase for the HUD and renderer. */
   override get phase(): number {
     return this.phaseIndex + 1;
+  }
+
+  override get label(): string {
+    return 'ASWANG PROTOTYPE';
+  }
+
+  /** Double-damage window: stunned after a rush. */
+  override get exposed(): boolean {
+    return this.fsm.state === 'stunned';
+  }
+
+  override hurtboxes(): readonly Hurtbox[] {
+    return [{ id: 'body', box: this.body, core: this.weakPointRect() }];
   }
 
   override get hittable(): boolean {

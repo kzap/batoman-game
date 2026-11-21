@@ -33,8 +33,8 @@ export interface CheckpointJson extends Rect {
   readonly id: number;
 }
 
-/** `aswang` is the Level 1 boss. `tikbalang` is the Level 6 scout. */
-export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang';
+/** `aswang` is the Level 1 boss. `manananggal` is the Level 4 boss. `tikbalang` is the Level 6 scout. */
+export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang' | 'manananggal';
 
 export interface EnemySpawnJson {
   readonly type: EnemyType;
@@ -83,7 +83,7 @@ export interface LevelJson {
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 export const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
-export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'stealth', 'tikbalang', 'aswang'];
+export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'stealth', 'tikbalang', 'aswang', 'manananggal'];
 export const PICKUP_KINDS: readonly PickupKind[] = ['hp-up'];
 
 

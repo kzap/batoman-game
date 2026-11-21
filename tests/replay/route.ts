@@ -1,6 +1,6 @@
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
 import type { Player } from '@game/player';
-import { BOSS, ENEMY, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
+import { BOSS, ENEMY, MANANANGGAL, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
 import type { EnemySnapshot, WorldSnapshot } from '@game/world';
 import type { Policy } from './harness';
 
@@ -317,6 +317,94 @@ export function bossFight(): Step {
       return nudge;
     },
     done: (c) => c.snap.boss === null || c.snap.boss.hp <= 0,
+  };
+}
+
+/** A rushing Manananggal (roof sweep or shaft dive) this close is jumped, same timing as the ASWANG rush. */
+function manaRush(c: Ctx, body: EnemySnapshot): boolean {
+  if (body.pose !== 'rush' || Math.abs(body.y - c.y) > 96) return false;
+  return gapTo(c, body) / MANANANGGAL.sweepSpeed < RUSH_ALARM_S;
+}
+
+/**
+ * Level 4 boss. `split` fights the whole body on the roof until phase 2.
+ * `base` stands on the balcony already passed and shoots the conduit while it is open.
+ * `dead` does the same to the flyer once the half is gone, until the bar hits zero.
+ */
+export function manananggal(goal: 'split' | 'base' | 'dead'): Step {
+  let sinceTap = TAP_EVERY;
+  let airborne = false;
+  // Roof: far enough left that the sweep has a 0.2 s run-up and the roof patroller cannot see us.
+  // Balcony: left of the planted half and of the hanging column, so the shot goes right and the flyer can climb away.
+  const hold = goal === 'split' ? { min: 1100, max: 1140 } : { min: 868, max: 900 };
+  return {
+    name: `manananggal ${goal}`,
+    input: (c) => {
+      sinceTap++;
+      const boss = c.snap.boss;
+      const body = c.snap.enemies.find((e) => e.type === 'manananggal' && e.pose !== 'death');
+      if (!boss || !body || boss.hp <= 0) return {};
+      if ((manaRush(c, body) || shotIncoming(c)) && c.grounded) {
+        airborne = true;
+        return { jump: true };
+      }
+      if (airborne && !c.grounded) return { jump: c.rising };
+      airborne = false;
+      if (c.grounded && c.x < hold.min) return { right: true };
+      if (c.grounded && c.x > hold.max) return { left: true };
+      const aimX = goal === 'split' || !boss.planted ? body.x + body.w / 2 : boss.planted.x + boss.planted.w / 2;
+      const nudge = faceToward(c, aimX);
+      const wantShot = goal === 'split' ? body.pose !== 'shift' && body.pose !== 'rush' : boss.exposed;
+      if (wantShot && sinceTap >= TAP_EVERY) {
+        sinceTap = 0;
+        return { ...nudge, fire: true };
+      }
+      return nudge;
+    },
+    done: (c) => {
+      const boss = c.snap.boss;
+      if (goal === 'dead') return boss === null || boss.hp <= 0;
+      return (boss?.phase ?? 0) >= (goal === 'split' ? 2 : 3);
+    },
+  };
+}
+
+/**
+ * Step off the roof into the shaft and drop through any rung above `untilY`.
+ * A solid that will not drop (the hanging column) is walked off to the left.
+ */
+export function descendTo(untilY: number): Step {
+  let off = false;
+  let drop = true;
+  let floorY = Infinity;
+  return {
+    name: `descend below ${untilY}`,
+    input: (c) => {
+      if (!off) {
+        if (c.y < 1360) {
+          off = true;
+          floorY = c.y;
+        } else return { left: true };
+      }
+      // A new floor below the last one may be a rung. A jump that went up is not one.
+      if (c.y < floorY - 12) {
+        floorY = c.y;
+        drop = true;
+      }
+      if (!c.grounded) {
+        // Stay in the shaft, right of the hanging column (x 1056) and left of the tower.
+        if (c.x > 1112) return { left: true };
+        if (c.x < 1064) return { right: true };
+        return {};
+      }
+      if (c.y <= untilY) return {};
+      if (drop) {
+        drop = false;
+        return { down: true, jump: true };
+      }
+      return { left: true };
+    },
+    done: (c) => off && c.grounded && c.y <= untilY && c.y >= untilY - 96,
   };
 }
 

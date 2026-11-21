@@ -28,7 +28,7 @@ const runs: Run[] = [
     level,
     seed: 1,
     policy: () => clearRoute(level),
-    maxTicks: 6000,
+    maxTicks: level === 'level-4' ? 12000 : 6000,
   })),
   {
     name: 'level-1-hp-up',

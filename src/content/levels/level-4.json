@@ -49,7 +49,8 @@
     { "type": "drone", "x": 960, "y": 150, "patrolDistance": 60 },
     { "type": "stealth", "x": 1100, "y": 832 },
     { "type": "drone", "x": 900, "y": 1290, "patrolDistance": 40 },
-    { "type": "patroller", "x": 1540, "y": 1408, "patrolDistance": 20 }
+    { "type": "patroller", "x": 1540, "y": 1408, "patrolDistance": 20 },
+    { "type": "manananggal", "x": 1280, "y": 1408 }
   ],
   "art": {
     "props": "level-4-props",

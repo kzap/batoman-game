@@ -1,6 +1,6 @@
 import { NO_INPUT } from '@core/sim/input';
 import type { Policy } from './harness';
-import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
+import { bossFight, dashJump, descendTo, dropThrough, fight, jump, manananggal, ride, route, run, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -127,7 +127,20 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // rung at 1344 (992..1120)
     run(1, 1090),
     jump(1), // roof (top 1408)
-    fight(1600), // roof guard patrolling 1520..1560 in front of the exit
+    manananggal('split'), // whole body. Phase 2 plants the half on balcony 2.
+    descendTo(900), // back down the shaft to the perch
+    manananggal('base'), // conduit on the planted half
+    manananggal('dead'), // flyer alone
+    run(1, 1070), // under the hanging column, back into the shaft
+    wallClimb(1, 1216),
+    run(-1, 1110),
+    jump(-1), // rung at 1280
+    fight(700, -1), // the upper drone is already dead; this step ends at once
+    run(1, 960),
+    jump(1), // rung at 1344
+    run(1, 1090),
+    jump(1), // roof again
+    fight(1600), // roof guard, in front of the exit
     run(1, 1600),
   ],
 

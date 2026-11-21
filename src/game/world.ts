@@ -7,12 +7,12 @@ import { Rng } from '@core/sim/rng';
 import type { AABB } from '@core/math/aabb';
 import type { EnemyType, LevelJson, MovingSolidJson, PickupKind, Rect } from '@content/level';
 import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
-import { Boss, spawnEnemy, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
+import { BossUnit, spawnEnemy, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
 import { Health } from './health';
 import { createPickups, type Pickup, type PickupSnapshot } from './pickups';
 import { Player, type PlayerPose } from './player';
 import { advanceProjectile, ProjectilePool, projectileBox, type Projectile, type ProjectileKind, type ProjectileSnapshot } from './projectiles';
-import { BOSS, CAMERA, ENEMY, ENEMY_SHOT, NOVA, PLAYER, PROJECTILE } from './tuning';
+import { CAMERA, ENEMY, ENEMY_SHOT, NOVA, PLAYER, PROJECTILE } from './tuning';
 
 const overlapsRect = (b: AABB, r: Rect): boolean => overlaps(b, r);
 
@@ -70,8 +70,16 @@ export interface BossSnapshot {
   readonly phase: number;
   /** Weak point rect in level px, for the renderer's core glow. */
   readonly weakPoint: Rect;
-  /** Double-damage window open (stunned after a rush). */
+  /** Punish window open. The core glow draws on `weakPoint` while this is set. */
   readonly exposed: boolean;
+  /** HUD name ("ASWANG PROTOTYPE", "MANANANGGAL-7"). */
+  readonly label: string;
+  /** Planted half. Null while the boss is still one body. */
+  readonly planted: Rect | null;
+  /** Wing-shadow hint. Null once the fight has started, and for bosses that have none. */
+  readonly shadow: Rect | null;
+  /** Mark on a perch the player will have to return to. Null when the boss has none. */
+  readonly perch: Rect | null;
 }
 
 export interface SolidSnapshot extends Rect {
@@ -173,14 +181,14 @@ export class World {
     }
   }
 
-  get boss(): Boss | null {
-    return this.enemies.find((e): e is Boss => e instanceof Boss) ?? null;
+  get boss(): BossUnit | null {
+    return this.enemies.find((e): e is BossUnit => e instanceof BossUnit) ?? null;
   }
 
-  /** The exit works only once any boss is dead. */
+  /** The exit works only once the boss says the fight is over. */
   get exitOpen(): boolean {
     const boss = this.boss;
-    return boss === null || !boss.alive;
+    return boss === null || boss.releasesExit;
   }
 
   private cameraTarget(): CameraTarget {
@@ -262,13 +270,18 @@ export class World {
     const ctx = this.enemyCtx();
     for (const e of this.enemies) {
       e.update(ctx);
-      if (e instanceof Boss && e.phase !== this.bossPhaseSeen) {
+      if (e instanceof BossUnit && e.phase !== this.bossPhaseSeen) {
         this.bossPhaseSeen = e.phase;
         this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
       }
-      // Touching a live, visible enemy hurts; knockback away from its centre.
-      if (e.hittable && !this.player.dead && overlaps(this.player.body, e.body)) {
-        this.damage(ENEMY.contactDamage, this.player.body.centerX < e.body.centerX ? -1 : 1);
+      // Contact is per box: a planted half and a diving flyer are not the same body.
+      if (!this.player.dead) {
+        for (const box of e.contactBoxes()) {
+          if (!overlaps(this.player.body, box)) continue;
+          const mid = box.x + box.w / 2;
+          this.damage(ENEMY.contactDamage, this.player.body.centerX < mid ? -1 : 1);
+          break;
+        }
       }
     }
     // Finished dying, or fell out of the level (a pushed drone, a mis-tuned patrol): drop it.
@@ -298,24 +311,28 @@ export class World {
   /** A player shot against every hittable enemy it overlaps; plasma stops at the first, nova carries on. */
   private hitEnemies(p: Projectile, box: AABB): void {
     for (const e of this.enemies) {
-      if (!e.hittable || !overlaps(box, e.body) || p.hitIds.includes(e.id)) continue;
-      const weakPoint = e instanceof Boss && overlaps(box, e.weakPointRect());
+      if (!e.hittable || p.hitIds.includes(e.id)) continue;
       const dir: 1 | -1 = p.vx < 0 ? -1 : 1;
-      const dealt = e.hit(p.damage, dir, weakPoint);
-      if (dealt === 0) continue;
-      this.events.emit('enemyHit', { id: e.id, type: e.type, x: p.x, y: p.y, dir, damage: dealt, weakPoint });
-      if (!e.alive) {
-        const centre = { x: e.body.centerX, y: e.body.y + e.body.h / 2 };
-        this.events.emit('enemyDeath', { id: e.id, type: e.type, ...centre });
-        if (e instanceof Boss) {
-          this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
-          this.events.emit('bossDefeated', centre);
+      for (const part of e.hurtboxes()) {
+        if (!overlaps(box, part.box)) continue;
+        const weakPoint = part.core !== null && overlaps(box, part.core);
+        const dealt = e.hit(p.damage, dir, weakPoint, part.id);
+        if (dealt === 0) continue;
+        this.events.emit('enemyHit', { id: e.id, type: e.type, x: p.x, y: p.y, dir, damage: dealt, weakPoint });
+        if (!e.alive) {
+          const centre = { x: e.body.centerX, y: e.body.y + e.body.h / 2 };
+          this.events.emit('enemyDeath', { id: e.id, type: e.type, ...centre });
+          if (e instanceof BossUnit) {
+            this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
+            this.events.emit('bossDefeated', centre);
+          }
         }
-      }
-      p.hitIds.push(e.id);
-      if (!p.pierce) {
-        this.projectiles.release(p);
-        return;
+        p.hitIds.push(e.id);
+        if (!p.pierce) {
+          this.projectiles.release(p);
+          return;
+        }
+        break;
       }
     }
   }
@@ -429,7 +446,18 @@ export class World {
   private bossSnapshot(): BossSnapshot | null {
     const boss = this.boss;
     if (!boss) return null;
-    return { engaged: boss.engaged, hp: boss.health.hp, maxHp: BOSS.hp, phase: boss.phase, weakPoint: boss.weakPointRect(), exposed: boss.state === 'stunned' };
+    return {
+      engaged: boss.engaged,
+      hp: boss.health.hp,
+      maxHp: boss.health.max,
+      phase: boss.phase,
+      label: boss.label,
+      weakPoint: boss.weakPointRect(),
+      exposed: boss.exposed,
+      planted: boss.plantedRect(),
+      shadow: boss.shadowRect(),
+      perch: boss.perchRect(),
+    };
   }
 
   snapshot(): WorldSnapshot {

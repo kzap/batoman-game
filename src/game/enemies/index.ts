@@ -3,12 +3,16 @@ import { ENEMY } from '../tuning';
 import { Boss } from './boss';
 import { Drone } from './drone';
 import type { Enemy } from './enemy';
+import { Manananggal } from './manananggal';
 import { Patroller } from './patroller';
 import { Stealth } from './stealth';
 import { Tikbalang } from './tikbalang';
 
-export type { Enemy, EnemyCtx, EnemyPose, EnemySnapshot, ShotRequest } from './enemy';
+export type { Enemy, EnemyCtx, EnemyPose, EnemySnapshot, Hurtbox, HurtPart, ShotRequest } from './enemy';
+export type { BossTell } from './boss-kit';
 export { Boss } from './boss';
+export { BossUnit } from './boss-kit';
+export { Manananggal } from './manananggal';
 export { Drone } from './drone';
 export { Patroller } from './patroller';
 export { Stealth } from './stealth';
@@ -26,6 +30,8 @@ export function spawnEnemy(id: number, spec: EnemySpawnJson): Enemy | null {
       return new Stealth(id, spec.x, spec.y);
     case 'aswang':
       return new Boss(id, spec.x, spec.y);
+    case 'manananggal':
+      return new Manananggal(id, spec.x, spec.y);
     case 'tikbalang':
       return new Tikbalang(id, spec.x, spec.y, patrol);
   }
