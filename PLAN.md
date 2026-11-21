@@ -6,7 +6,7 @@ Level 3 has source art (#32) and its level JSON is still grey-box. The playtest 
 and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
 
 The game is five levels, one themed boss each, as set out in `docs/VISION.md` (#25, now on `v2`). The tree
-today ships four level files. The finale is the fifth, not built yet.
+today ships four level files. The finale is the fifth, not built yet. The plan for it is [docs/FINALE.md](docs/FINALE.md) (#51).
 
 | Order | Id | Boss | Where it stands |
 |---|---|---|---|
