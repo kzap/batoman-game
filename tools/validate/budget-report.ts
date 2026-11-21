@@ -220,7 +220,7 @@ function levelArt(entry: ManifestEntry): LevelArt {
     id: entry.id,
     music: entry.music,
     enemies: json.enemies ?? [],
-    props: json.art?.props,
+    ...(json.art?.props ? { props: json.art.props } : {}),
     backdrops: Object.values(json.art?.backdrops ?? {}),
   };
 }
