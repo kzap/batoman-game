@@ -22,12 +22,21 @@ test.describe('level-intro cutscene', () => {
     await screen(page, 'intro');
     await expect(page.locator('#overlay')).toContainText('Tondo Sublevel Docks');
     expect((await hooks(page)).simTicks).toBe(0);
-
-    await page.keyboard.press('Enter'); // leave intro card → cutscene
-    await screen(page, 'cutscene');
+    // Leave intro without racing SHELL_TIMING.intro (2200 ms). Confirm while loading is
+    // dropped; after load, confirm leaves intro. If the intro timeout already moved us to
+    // cutscene, do not press Enter again — that would skip-ahead past beat 0.
+    await expect
+      .poll(async () => {
+        const s = (await hooks(page)).screen;
+        if (s === 'cutscene') return s;
+        await page.keyboard.press('Enter');
+        return (await hooks(page)).screen;
+      }, { timeout: 15_000 })
+      .toBe('cutscene');
+    // First line before any other wall-clock work — holdMs on beat 0 is 3200 ms.
+    await expect(page.locator('.shell-line')).toContainText('Golden hour on the piers');
     await expect(page.locator('.shell-card[data-screen="cutscene"]')).toBeVisible();
     await expect(page.locator('.shell-speaker')).toHaveText('Ando');
-    await expect(page.locator('.shell-line')).toContainText('Golden hour on the piers');
     expect((await hooks(page)).simTicks).toBe(0);
     expect((await hooks(page)).mode).toBe('paused');
     await expect.poll(async () => (await hooks(page)).camera.x).toBeGreaterThan(5000);
