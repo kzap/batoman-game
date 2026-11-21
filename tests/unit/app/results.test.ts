@@ -117,7 +117,7 @@ describe('results spotlight', () => {
 describe('results presentation', () => {
   it('dims the level around Ando on the results card and nowhere else', () => {
     expect(PRESENTATION.complete).toEqual({ dim: false, spotlight: true, hideHud: false });
-    for (const kind of ['title', 'levelSelect', 'intro', 'playing', 'paused', 'gameover', 'credits'] as const) {
+    for (const kind of ['title', 'levelSelect', 'intro', 'playing', 'paused', 'gameover', 'credits', 'controls'] as const) {
       expect(PRESENTATION[kind].spotlight).toBe(false);
     }
     expect(PRESENTATION.title.dim).toBe(true);

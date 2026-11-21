@@ -147,7 +147,7 @@ test.describe('shell', () => {
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
       await advanceUntilDone(page);
       await screen(page, 'complete', 10_000);
-      await expectResultsCard(page);
+      await expectResultsCard(page, i === 0 ? { kills: 1750, clear: 500, hearts: 300, total: 2550 } : undefined);
       if (i === 0) await page.screenshot({ path: resolve(SHOTS, 'shell-results.png') });
       await page.keyboard.press('Enter');
       if (next) {
@@ -170,5 +170,144 @@ test.describe('shell', () => {
     await screen(page, 'levelSelect');
     await expect(page.locator('.shell-menu li.shell-locked')).toHaveCount(0);
     await expect(page.locator('.shell-best').first()).toContainText('best');
+  });
+
+  test('controls: rebind jump, persist across reload, reset to defaults', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.goto('/');
+    await ready(page);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+
+    const selected = () => page.locator('.shell-menu li.shell-selected');
+    const select = async (action: string): Promise<void> => {
+      for (let i = 0; i < 8; i++) {
+        if ((await selected().getAttribute('data-action')) === action) return;
+        await page.keyboard.press('ArrowDown');
+      }
+      throw new Error(`controls row ${action} not reached`);
+    };
+    const toggle = async (key: string): Promise<void> => {
+      await page.keyboard.press('Enter');
+      await expect(page.locator('.shell-card[data-listening="1"]')).toBeVisible();
+      await page.keyboard.press(key);
+      await expect(page.locator('.shell-card[data-listening="0"]')).toBeVisible();
+    };
+    const jumpKeys = () => page.evaluate(() => (JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { bindings: { jump: string[] } }).bindings.jump);
+
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
+    await select('jump');
+    await toggle('KeyQ');
+    await toggle('Space');
+    await toggle('KeyW');
+    await toggle('ArrowUp');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Q');
+    expect(await jumpKeys()).toEqual(['KeyQ']);
+
+    await page.reload();
+    await ready(page);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Q');
+
+    await page.keyboard.press('Escape');
+    await screen(page, 'title');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await screen(page, 'intro');
+    await page.keyboard.press('Enter');
+    await screen(page, 'playing');
+    await page.waitForFunction(() => (window.__batoman?.simTicks ?? 0) > 5);
+
+    const y = (await hooks(page)).player.y;
+    const frames = (await hooks(page)).frames;
+    await page.keyboard.press('Space');
+    await page.waitForFunction((n) => (window.__batoman?.frames ?? 0) > n + 20, frames);
+    expect((await hooks(page)).player.y).toBeLessThanOrEqual(y + 1);
+
+    await page.keyboard.press('KeyQ');
+    await page.waitForFunction((baseline) => (window.__batoman?.player.y ?? 0) > baseline + 1, y);
+    await page.waitForFunction(() => {
+      const pose = window.__batoman?.player.pose;
+      return pose === 'idle' || pose === 'run';
+    });
+
+    await page.keyboard.press('Escape');
+    await screen(page, 'paused');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+    await select('reset');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
+    expect(await jumpKeys()).toEqual(['Space', 'KeyW', 'ArrowUp']);
+
+    await page.keyboard.press('Escape');
+    await screen(page, 'paused');
+    await page.keyboard.press('Escape');
+    await screen(page, 'playing');
+    const grounded = (await hooks(page)).player.y;
+    await page.keyboard.press('Space');
+    await page.waitForFunction((baseline) => (window.__batoman?.player.y ?? 0) > baseline + 1, grounded);
+
+    await page.reload();
+    await ready(page);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    await screen(page, 'controls');
+    await expect(page.locator('li[data-action="jump"] .shell-keys')).toHaveText('Space  W  Up');
+    expect((await hooks(page)).errors).toEqual([]);
+  });
+
+  test('a saved reduce-motion flag snaps the results tally', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'batoman.v2.save',
+        JSON.stringify({ version: 1, unlocked: ['level-1'], best: {}, options: { music: false, sfx: false, reduceMotion: true } }),
+      );
+    });
+    await page.goto(withLockstep('/?level=level-1'));
+    await ready(page);
+    expect((await hooks(page)).reduceMotion).toBe(true);
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture('level-1'));
+    await advanceUntilDone(page);
+    const first = await page.waitForFunction(() => {
+      if (window.__batoman?.screen !== 'complete') return '';
+      return document.getElementById('overlay')?.dataset['tally'] ?? '';
+    });
+    // The first paint is already the finished card. An animated count would still be `running`.
+    expect(await first.jsonValue()).toBe('done');
+    await expectResultsCard(page, { kills: 1750, clear: 500, hearts: 300, total: 2550 });
+  });
+
+  test('explicit reduce-motion off still counts when the OS prefers it, and R snaps', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'batoman.v2.save',
+        JSON.stringify({ version: 1, unlocked: ['level-1'], best: {}, options: { music: false, sfx: false, reduceMotion: false } }),
+      );
+    });
+    await page.goto(withLockstep('/?level=level-1'));
+    await ready(page);
+    expect((await hooks(page)).reduceMotion).toBe(false);
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture('level-1'));
+    await advanceUntilDone(page);
+    const first = await page.waitForFunction(() => {
+      if (window.__batoman?.screen !== 'complete') return '';
+      return document.getElementById('overlay')?.dataset['tally'] ?? '';
+    });
+    expect(await first.jsonValue()).toBe('running');
+    await expect(page.locator('[data-line="kills"] .shell-tally-num')).not.toHaveText('001750');
+    await page.keyboard.press('KeyR');
+    await expect(page.locator('#overlay')).toHaveAttribute('data-tally', 'done');
+    await expectResultsCard(page, { kills: 1750, clear: 500, hearts: 300, total: 2550 });
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { options?: { reduceMotion?: boolean } });
+    expect(saved.options?.reduceMotion).toBe(true);
   });
 });

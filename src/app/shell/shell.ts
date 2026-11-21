@@ -3,10 +3,11 @@ import type { World } from '@game/world';
 import { HttpAssetSource, loadAssets } from '@render/assets';
 import type { App } from '../app';
 import type { GameAudio } from '../audio';
+import { CONTROL_ROWS, toggleBinding } from '../bindings';
 import type { Overlay, OverlayModel } from './overlay';
-import { loadSave, recordClear, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
-import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { tallyAt, tallyPlan } from './results';
+import { loadSave, recordClear, resetBindings, resolveReduceMotion, setBindings, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
+import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { clearPoints, killPoints } from './score';
 
 /** Keyboard to shell events; the game's own bindings (arrows, Space, Z, Shift) are separate and read by `Keyboard`. */
@@ -20,6 +21,10 @@ const KEYS: Readonly<Record<string, ShellEvent>> = {
   KeyS: 'down',
 };
 
+function systemPrefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 /** Timings of the shell's own delays, in ms. */
 export const SHELL_TIMING = {
   /** The intro card advances by itself after this long. */
@@ -29,6 +34,11 @@ export const SHELL_TIMING = {
   /** After the last life, before the game over card. */
   gameOver: 1200,
 } as const;
+
+export interface ShellOptions {
+  /** Session override from `?reduceMotion=`. Not written until the player toggles with R. */
+  readonly reduceMotion?: boolean | null;
+}
 
 /** The current run: score so far and the points earned in the level being played. Reset by "Start game" and level select. */
 interface Run {
@@ -52,14 +62,23 @@ export class Shell {
   /** Wall-clock start of the results tally, and the frame that advances it. */
   private tallyStart = 0;
   private tallyFrame = 0;
-  /** `prefers-reduced-motion` paints the finished tally on the first frame. Not a save option. */
-  private reduceMotion = false;
   private loading: Promise<void> | null = null;
   private readonly levelIds = LEVELS.map((l) => l.id);
+  /** `?reduceMotion=` for this page load. Cleared once the player toggles, which writes the save. */
+  private sessionOverride: boolean | null;
+  private systemReduceMotion: boolean;
+  private media: MediaQueryList | null = null;
   private readonly onKeyDown = (e: KeyboardEvent): void => this.handleKey(e);
   private readonly onPointer = (): void => this.audio.unlock();
+  private readonly onPageHide = (): void => this.stop();
   private readonly onResize = (): void => {
-    if (this.screen.kind === 'complete') this.overlay.render(this.screen, this.overlayModel(this.resultsElapsed()));
+    if (this.screen.kind !== 'complete') return;
+    this.paintResults(this.resultsElapsed());
+  };
+  private readonly onMotionPreference = (): void => {
+    this.systemReduceMotion = this.media?.matches ?? false;
+    if (this.sessionOverride !== null || this.save.options.reduceMotion !== null) return;
+    this.applyMotion(true);
   };
 
   constructor(
@@ -67,11 +86,17 @@ export class Shell {
     private readonly overlay: Overlay,
     private readonly audio: GameAudio,
     private readonly storage: KeyValueStore,
+    options: ShellOptions = {},
   ) {
     this.save = loadSave(storage, this.levelIds);
+    this.sessionOverride = options.reduceMotion ?? null;
+    this.systemReduceMotion = systemPrefersReducedMotion();
+    app.setBindings(this.save.bindings);
     audio.engine.setMusicEnabled(this.save.options.music);
     audio.engine.setSfxEnabled(this.save.options.sfx);
     app.onWorld = (w): void => this.watchWorld(w);
+    this.applyMotion(false);
+    this.watchSystemMotion();
   }
 
   /**
@@ -84,6 +109,7 @@ export class Shell {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('pointerdown', this.onPointer);
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('pagehide', this.onPageHide);
     this.app.restartLevel();
     if (directLevelId) {
       this.setScreen({ kind: 'playing', levelId: directLevelId }, [{ type: 'resume' }]);
@@ -97,14 +123,43 @@ export class Shell {
     this.audio.unlock();
     this.publishAudio();
     if (this.app.currentMode === 'edit' || this.editorPlaytest) return; // the editor owns the keyboard
+    if (this.captureBinding(e)) return;
     if (e.code === 'KeyM') return this.toggleOption('music');
     if (e.code === 'KeyN') return this.toggleOption('sfx');
+    if (e.code === 'KeyR') return this.toggleReduceMotion();
     const event = KEYS[e.code];
     if (!event) return;
     // While playing, arrows move the player and Enter is nothing; only pause keys reach the shell.
     if (this.screen.kind === 'playing' && event !== 'pause' && event !== 'back') return;
     e.preventDefault();
     this.dispatch(event);
+  }
+
+  /**
+   * Controls row is waiting for a physical key. Escape cancels; anything else
+   * toggles that key on the action. Returns true when the event was consumed,
+   * so menu keys (including M, N and R) do not also fire.
+   */
+  private captureBinding(e: KeyboardEvent): boolean {
+    if (this.screen.kind !== 'controls' || !this.screen.listening) return false;
+    e.preventDefault();
+    if (e.repeat) return true;
+    if (e.code === 'Escape') {
+      this.dispatch('back');
+      return true;
+    }
+    const row = CONTROL_ROWS[this.screen.index];
+    if (row === undefined || row === 'reset') return true;
+    const next = toggleBinding(this.save.bindings, row, e.code);
+    if (!next) {
+      this.audio.play('menuBack');
+      return true;
+    }
+    this.save = setBindings(this.save, next);
+    writeSave(this.storage, this.save);
+    this.app.setBindings(next);
+    this.dispatch('stopListen');
+    return true;
   }
 
   /** The editor's playtest runs the sim in `play` mode with its own keys (P, Esc); the shell stays out of it. */
@@ -120,6 +175,38 @@ export class Shell {
     this.audio.play('menuMove');
   }
 
+  /** Flip the effective preference, store the boolean, and stop following the OS or the query string. */
+  private toggleReduceMotion(): void {
+    const next = !this.effectiveReduceMotion();
+    this.sessionOverride = null;
+    this.save = setOption(this.save, 'reduceMotion', next);
+    writeSave(this.storage, this.save);
+    this.applyMotion(true);
+    this.audio.play('menuMove');
+  }
+
+  private effectiveReduceMotion(): boolean {
+    return resolveReduceMotion(this.save.options.reduceMotion, this.systemReduceMotion, this.sessionOverride);
+  }
+
+  private applyMotion(render: boolean): void {
+    this.app.setReduceMotion(this.effectiveReduceMotion());
+    if (!render) return;
+    if (this.screen.kind === 'complete') {
+      cancelAnimationFrame(this.tallyFrame);
+      this.paintResults(this.resultsElapsed());
+      if (!this.effectiveReduceMotion()) this.armTally();
+      return;
+    }
+    this.renderOverlay();
+  }
+
+  private watchSystemMotion(): void {
+    if (typeof matchMedia !== 'function') return;
+    this.media = matchMedia('(prefers-reduced-motion: reduce)');
+    this.media.addEventListener('change', this.onMotionPreference);
+  }
+
   dispatch(event: ShellEvent): void {
     // A level is still loading: the intro card waits for it, so its timeout re-arms; other input is dropped.
     if (this.loading) {
@@ -133,6 +220,7 @@ export class Shell {
   }
 
   private menuSound(before: Screen, after: Screen, event: ShellEvent): void {
+    if (event === 'stopListen') return this.audio.play('menuConfirm');
     if (event === 'up' || event === 'down') return this.audio.play('menuMove');
     if (after.kind === 'paused' && before.kind === 'playing') return this.audio.play('pause');
     if (after.kind === 'playing' && before.kind === 'paused') return this.audio.play('unpause');
@@ -143,18 +231,31 @@ export class Shell {
   private setScreen(screen: Screen, effects: readonly Effect[]): void {
     clearTimeout(this.timer);
     cancelAnimationFrame(this.tallyFrame);
-    if (screen.kind === 'complete') {
-      this.tallyStart = performance.now();
-      this.reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }
+    if (screen.kind === 'complete' && this.screen.kind !== 'complete') this.tallyStart = performance.now();
     this.screen = screen;
     this.app.hooks.screen = screen.kind;
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
     if (screen.kind === 'credits') this.audio.music.play(MANIFEST.titleMusic);
-    this.overlay.render(screen, this.overlayModel(0));
-    if (screen.kind === 'complete' && !this.reduceMotion) this.armTally();
+    this.renderOverlay();
+    if (screen.kind === 'complete' && !this.effectiveReduceMotion()) this.armTally();
     this.publishAudio();
+  }
+
+  /** Drop the window listeners. `pagehide` calls this; nothing else keeps the resize hook. */
+  stop(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('pointerdown', this.onPointer);
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('pagehide', this.onPageHide);
+    this.media?.removeEventListener('change', this.onMotionPreference);
+    this.media = null;
+    clearTimeout(this.timer);
+    cancelAnimationFrame(this.tallyFrame);
+  }
+
+  private renderOverlay(): void {
+    this.overlay.render(this.screen, this.overlayModel(0));
   }
 
   private overlayModel(elapsedMs: number): OverlayModel {
@@ -164,6 +265,7 @@ export class Shell {
       save: this.save,
       score: this.run.score,
       result: this.run.result,
+      reduceMotion: this.effectiveReduceMotion(),
       results: complete
         ? {
             levelScore: this.run.levelScore,
@@ -175,9 +277,9 @@ export class Shell {
     };
   }
 
-  /** Elapsed tally time. Reduced motion jumps to the finished card. */
+  /** Elapsed tally time. The effective preference (save, query, then OS) snaps the count. */
   private resultsElapsed(elapsedMs?: number): number {
-    if (this.reduceMotion) return Number.POSITIVE_INFINITY;
+    if (this.effectiveReduceMotion()) return Number.POSITIVE_INFINITY;
     return elapsedMs ?? performance.now() - this.tallyStart;
   }
 
@@ -185,12 +287,18 @@ export class Shell {
   private armTally(): void {
     const step = (): void => {
       if (this.screen.kind !== 'complete') return;
-      const elapsed = performance.now() - this.tallyStart;
-      this.overlay.render(this.screen, this.overlayModel(elapsed));
+      const elapsed = this.resultsElapsed();
+      this.paintResults(elapsed);
       const frame = tallyAt(tallyPlan(this.run.score, this.run.levelScore, this.run.result?.hp ?? 0), elapsed);
       if (!frame.done) this.tallyFrame = requestAnimationFrame(step);
     };
     this.tallyFrame = requestAnimationFrame(step);
+  }
+
+  /** Refresh the open card. A missing card falls back to a full render. */
+  private paintResults(elapsedMs: number): void {
+    const model = this.overlayModel(elapsedMs);
+    if (!this.overlay.updateResults(model)) this.overlay.render(this.screen, model);
   }
 
   /** Schedule the one delayed event, replacing any pending one. */
@@ -231,6 +339,11 @@ export class Shell {
         this.app.setMode('paused');
         this.audio.engine.setPaused(false);
         this.audio.music.play(MANIFEST.titleMusic);
+        break;
+      case 'resetBindings':
+        this.save = resetBindings(this.save);
+        writeSave(this.storage, this.save);
+        this.app.setBindings(this.save.bindings);
         break;
     }
   }

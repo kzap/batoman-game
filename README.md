@@ -68,10 +68,13 @@ Three.js or touch the DOM.
 Levels: `?level=level-4` loads another manifest level (`level-1`, `level-3`, `level-4`, `level-6`); `?edit=1` opens the current level in the editor, whose
 `Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
 
-Controls: arrows or WASD move, `Space` jumps (down + jump drops through platforms), `Shift` or `X` dashes, `Z` fires; hold
-`Z` for 0.8 s and release for a piercing nova. `Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N`
-toggle music and sound effects. Level 1 ends at the ASWANG prototype; the exit opens when it falls.
-Progress (unlocked levels, best times, audio options) is saved in `localStorage`.
+Controls: arrows or A/D move, Down or S crouches, `Space`, `W` or `Up` jumps (down + jump drops through
+platforms), `Shift` or `X` dashes, `Z` or `J` fires; hold `Z` for 0.8 s and release for a piercing nova.
+`Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N` toggle music and sound effects. The title menu
+and the pause menu open Controls, where Enter on an action then a key adds or removes that key (one to four
+keys per action; the last key cannot be removed). Reset to defaults restores the layout above. `Esc`,
+`Enter`, `P`, `M`, `N` and backtick cannot be bound. Level 1 ends at the ASWANG prototype; the exit opens
+when it falls. Progress (unlocked levels, best times, audio options, key bindings) is saved in `localStorage`.
 
 Music sources live in `art-source/audio/` and are transcoded to Opus by `npm run assets` (via
 `ffmpeg-static`); sound effects are synthesised in the browser, so there are no sample files.
@@ -112,3 +115,9 @@ Conventions that matter most:
 | Language | TypeScript 5.9, strict |
 | Bundler | Vite 7 |
 | Tests | Vitest 5, Playwright 1.63 |
+
+---
+
+## PR screenshots
+
+`npm run shots` builds `dist/`, serves it, and writes the title, Level 1 start, Level 1 mid, and the editor to `pr-shots/head/`, plus a short walk clip. `npm run shots -- --baseline <ref>` captures the same frames from another commit so a before/after pair lines up. Commit the pictures a PR body shows under `docs/pr-assets/<slug>/`, then `npm run shots -- --links <slug>` prints markdown pinned to that commit's SHA. How to embed them so GitHub renders them is in [AGENTS.md](AGENTS.md).

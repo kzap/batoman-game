@@ -139,7 +139,8 @@ drones every 480 ticks, two at a time but never past two alive (`countAlive`). C
 `shift`: 72 invulnerable ticks, and the new phase opens with its new move (a rush after the first shift, a
 summon after the second). The World emits `bossPhase` when it sees `phase` change. The weak point
 (`weakPointRect`, 24 px tall from 56 px up) doubles damage while stunned; `BossSnapshot.exposed` and
-`weakPoint` let the renderer show the core only then. Its death fires `bossDefeated`, shakes the camera and
+`weakPoint` let the renderer show the core only then (a magenta diamond with a white outline, section 5.3,
+so the window is not colour-only). Its death fires `bossDefeated`, shakes the camera and
 opens the exit; the bar hides once the death clip ends.
 
 Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
@@ -156,12 +157,44 @@ tick (fixed fractions, no `exp`, so replays are exact). While airborne the upwar
 so the design view (`viewW x viewH`) never shows outside it; levels smaller than the view are centred.
 `shake(amplitude, ticks)` draws per-tick offsets from the world RNG with linearly decaying amplitude; a
 weaker shake never replaces a stronger one in progress. Hurt and death shake the camera; respawn snaps it.
+The offset stays on the snapshot either way, so reduce-motion (section 6.1) does not change the RNG stream
+or a replay: the renderer is what drops it.
 
-### 4.5 Input (`src/core/sim/input.ts`, `src/app/keyboard.ts`)
+### 4.5 Input (`src/core/sim/input.ts`, `src/app/bindings.ts`, `src/app/keyboard.ts`) `[implemented: Phase 8.2]`
 
-`InputFrame` is seven booleans; `InputEdges` derives presses and releases from consecutive frames so a
-replay needs only held state. `packInput` stores a frame as one bit per button. The keyboard layer latches
-a key pressed and released inside one render frame so a quick tap still reaches one sim tick.
+`InputFrame` is seven booleans (`left`, `right`, `up`, `down`, `jump`, `fire`, `dash`). `InputEdges`
+derives presses and releases from consecutive frames, so a replay stores only held state. `packInput` /
+`unpackInput` store a frame as one bit per button in `INPUT_BUTTONS` order. That packed form is the sim's
+only input API: rebinding a key does not change it, and existing clear fixtures stay valid.
+`window.__batoman.replay` feeds those bits straight into `World.step` and never consults the keyboard map.
+
+The binding table maps each button to one to four `KeyboardEvent.code` values (`MAX_BINDS`). Defaults,
+matching the README: Left/A left, Right/D right, Up up, Down/S down, Space/W/Up jump, Z/J fire, X/K/both
+Shifts dash. ArrowUp is listed under both Move up and Jump, which is why Up jumps. Nothing in the sim
+treats one button as another: a frame with only `up` set does not jump. The player reads left/right
+(axis), down (crouch, drop-through), jump, fire and dash. `up` is its own bit so a later ladder or aim
+can use it; today it only matters because the default jump binding shares ArrowUp.
+
+`Keyboard` tracks physical codes, not buttons, so two keys bound to the same action can be held and
+released independently. `frame()` unions the held set with codes latched since the previous call, which
+keeps a tap shorter than one render frame. `attach` is idempotent. `setBindings` swaps the table and
+forgets a code the new table dropped, including one still physically down. `reset()` clears held and
+latched keys when the app mode changes.
+
+The Controls screen (last title item, and the pause menu) toggles keys: Enter, then a key, adds it to the
+selected action or removes it if it was already there. An action keeps at least one key and at most four.
+Escape cancels a capture; Escape again leaves. Reset to defaults restores the table above. A code may sit
+on more than one action (ArrowUp does, by default); toggling it on one action leaves the others.
+`Escape`, `Enter`, `P`, `M`, `N`, `R` and backtick are reserved for the shell and the debug overlay and cannot
+be bound, so a remap cannot trap pause, the menus, or the reduce-motion toggle. Menu cursor keys stay on the arrows and W/S
+regardless of the gameplay map. Gamepad mapping is out of scope.
+
+Bindings persist in the v1 save (`batoman.v2.save`) as `bindings`. A missing or invalid table loads as the
+defaults and does not discard unlocked levels or best times. `tests/replay/fixtures/input-remap.json` is a
+105-tick Level 1 run whose bits are exactly what the default keys produce for right, then right+jump, then
+right. The same bits fall out of a rebound layout (the test rebinds right and jump), and the fixture
+replays to a pinned undamaged outcome. `npm run replay:record` does not regenerate it; the four
+level-clear fixtures are unchanged.
 
 ## 5. Renderer `[implemented: Phase 3-8]`
 
@@ -243,8 +276,16 @@ way the painted frames face (patroller and tikbalang right, drone left; the view
 facing) and the clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look
 at 1.6x with a lilac tint. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
 `stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
-dropped enemies go to a per-type free list and are reused. The boss core is an additive magenta orb over
-`BossSnapshot.weakPoint`, shown pulsing only while `exposed` (ART: visible during vulnerability windows).
+dropped enemies go to a per-type free list and are reused. The boss core sits on `BossSnapshot.weakPoint`
+and is shown only while `exposed` and `hp > 0`. It is a diamond, not the round plasma orb: an additive
+magenta (`#ff2d78`) fill plus a larger white (`#ffffff`) outline, both from `weakPointDiamond` in
+`motion.ts`. The outline is the colourblind-safe channel. It stays a high-luminance diamond under
+protanopia, deuteranopia, and tritanopia, where magenta shifts toward blue or brown and can disappear
+into the boss's lilac tint. There is no colour-blind post pass; the second channel is the accommodation,
+and `hooks.weakPoint` reports `{ shape: 'diamond', ring: 'white', pulsing }` while the core is up. With
+motion allowed the fill opacity breathes from 0.3 to 0.8 over 20 ticks and its scale by ±12%
+(`PRESENTATION.weakPoint`); the ring does not move. Reduce-motion holds the fill at opacity 0.55 and
+scale 1.
 Projectiles are keyed by kind: plasma is the `orb` frame at 0.4, nova at 0.9 tinted white-hot, enemy shots
 the first loaded enemy sheet's `projectile` clip; their quads are pooled too. A moving solid with `prop`
 set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top edge;
@@ -267,10 +308,12 @@ only emissive planes and highlights glow, vignette (offset 0.32, darkness 0.55),
 (opacity 0.35), and optional depth of field focused at `LENS.distance` (range 6, bokeh 3). `POST_DEFAULTS`
 enables bloom, vignette and grain; DOF is off (11 fps under SwiftShader). `?post=0` disables the stack
 (and re-enables canvas MSAA, which the stack otherwise replaces); `?dof=1` turns DOF on
-(`postOptionsFromQuery` in `app.ts`).
+(`postOptionsFromQuery` in `app.ts`). Reduce-motion sets the grain opacity to 0 without rebuilding the
+composer (`presentedGrainOpacity`); `?post=0` still removes the whole stack.
 
 Camera framing comes from the sim (`CameraController`, section 4.4); the app lerps the centre between
-snapshots and adds the current tick's shake offset unlerped.
+snapshots and, unless reduce-motion is on, adds the current tick's shake offset unlerped
+(`presentedCamera`). `hooks.shake` carries the sim offset and the offset that was actually added.
 
 ## 6. App `[implemented: Phase 3-7]`
 
@@ -278,7 +321,9 @@ snapshots and adds the current tick's shake offset unlerped.
 else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
 `droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
 `status`, `level` (id), `mode` (`play` | `paused` | `edit`), `screen` (shell screen kind), `score`, `music`
-(track requested), `audio` (context running), `editor` (section 11, null unless the editor is attached), and
+(track requested), `audio` (context running), `reduceMotion`, `grain` (film grain contributing), `shake`
+(`simX`/`simY` from the snapshot and `x`/`y` added to the camera), `weakPoint` (the exposed-core cue, or
+null), `editor` (section 11, null unless the editor is attached), and
 `replay(fixture)`, which restarts the level and feeds a recorded input sequence instead of the keyboard.
 
 `main.ts` loads the first level's assets, builds the `App`, and wraps it in the `Shell` (section 6.1). `/`
@@ -290,9 +335,9 @@ error, not a fallback to Level 1.
 (replay source if active, otherwise `Keyboard.frame()`), keep the last two snapshots, present with
 interpolation, update the debug overlay and HUD. After `complete` or `gameover` the world freezes itself;
 the shell decides what happens next. On a respawn the previous snapshot is replaced by the current one so
-neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`) latches a key
-pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets held keys when a
-screen changes.
+neither the camera nor the player lerps across the teleport. `Keyboard` (`keyboard.ts`, section 4.5)
+latches a key pressed and released inside one frame so a tap still reaches one tick; `reset()` forgets
+held keys when the mode changes, and `setBindings` installs the saved key table. Replays skip the keyboard.
 
 `App.loadLevel(level)` swaps the level in place (new `LevelView`, fresh world) for the editor; the prop
 atlas and backdrops stay the ones loaded at boot, so a level cannot change `art.props` at runtime.
@@ -327,8 +372,22 @@ covers every transition.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
 Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx
-(saved). While playing only Esc and P reach the shell, and nothing does while the editor is attached (its
-playtest owns P and Esc). `startLevel` fetches the level and its assets and calls `replaceLevel` (or
+(saved), R toggles reduce-motion (saved). The title menu and the pause menu open Controls (section 4.5).
+While playing only Esc, P, M, N and R reach the shell, and nothing does while the editor is attached (its
+playtest owns P and Esc). A controls row that is listening consumes the next key before those shortcuts,
+so M, N and R are not toggled by accident while rebinding. R is reserved (section 4.5) and cannot be bound.
+Reduce-motion is presentation only, the same kind of switch as `?post=0`: it does not change the 120 Hz sim,
+so existing replay fixtures stay bit-identical and are not re-pinned. It zeroes the camera-shake offset at
+present time (the snapshot still carries it, and the world RNG still draws it), sets film-grain opacity to 0,
+holds the weak-point fill steady, stops the charge-glow pulse (±10% over 12 ticks), holds invulnerability at
+opacity 0.72 instead of blinking 0.45/1 every 6 ticks, and holds an enemy hurt flash at white instead of
+strobing magenta every 3 ticks. Drone bob, boss-phase hit-stop, and particle bursts stay; they are gameplay
+reads. `options.reduceMotion` is `true`, `false`, or `null`. `null` (missing or not a boolean) follows
+`prefers-reduced-motion: reduce` at boot and when that media query changes. R writes an explicit boolean and
+stops following the OS. `?reduceMotion=1` or `0` overrides the session without writing until R is pressed.
+The title and pause hints show `R motion on/off`, and `#overlay` carries `data-reduce-motion`.
+
+`startLevel` fetches the level and its assets and calls `replaceLevel` (or
 `restartLevel` when it is the current level); the intro card advances on Enter or after `SHELL_TIMING.intro`
 2.2 s (re-armed while the level is still loading). One timer slot holds the pending delayed event and every
 screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is watched
@@ -344,19 +403,26 @@ The results card (`complete`) does not use that flat dim. `results.ts` is the pr
 unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
 lines for this level: kills (whatever remains), the 500 clear bonus, and 100 per heart. `tallyAt` counts
 one non-zero line every 400 ms and the running total lands on the HUD figure; a zero-point line finishes
-immediately, and `Infinity` (what `prefers-reduced-motion: reduce` asks for) paints the finished card.
-Enter still advances during the count — the reducer is unchanged, and the tally does not gate it. The
-overlay paints the same `rgba(13, 13, 26, 0.72)` wash as the other cards, as a radial gradient that stays
-clear for 96 sim pixels around the player's body centre and feathers across the next 80
-(`resultsSpotlight`). The hole is projected with the play lens (`LENS`, distance 22, FOV 30), so it sits on
-Ando at the canvas aspect. The card itself is placed on the left: every exit is at the right edge of its
-level, and that is where the pool of light falls. The HUD stays up, so the counted total can be read
-against the score it is catching.
+immediately. Whether the count plays is `effectiveReduceMotion()`: the save flag, then `?reduceMotion=`,
+then the OS preference while the save is still `null`. An explicit `false` still counts when the OS asks
+for reduced motion. R, which writes that flag, snaps a count that is already running. Enter still advances
+during the count. The reducer is unchanged, and the tally does not gate it. The line figures update in
+place. A polite live region is created empty with the card, and its text is set one frame after the count
+lands, so the finished tally is announced without reading out every tick. The overlay paints the same
+`rgba(13, 13, 26, 0.72)` wash as the other cards, as a radial gradient that stays clear for 96 sim pixels
+around the player's body centre and feathers across the next 80 (`resultsSpotlight`). The hole is projected
+with the play lens (`LENS`, distance 22, FOV 30), so it sits on Ando at the canvas aspect. The card itself
+is placed on the left: every exit is at the right edge of its level, and that is where the pool of light
+falls. The HUD stays up, so the counted total can be read against the score it is catching.
 
-`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options }`.
-`loadSave` validates and degrades to the defaults (first level unlocked, music and sfx on) on anything
-unexpected; `recordClear` unlocks the next manifest level and keeps the fewer-tick result; `writeSave`
-swallows storage failures. The store is an injected `KeyValueStore`, so tests use a Map.
+`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
+`options` holds music, sfx, and `reduceMotion` (`true`, `false`, or `null` to follow the OS). `bindings` is
+optional on read; a missing or rejected table becomes the defaults in section 4.5 and the rest of the save
+is kept, including the reduce-motion choice. The version stays 1 so a Phase 7 save still loads. `loadSave`
+validates and degrades to the defaults (first level unlocked, music and sfx on, reduce-motion following the
+OS, default bindings) on anything unexpected; `recordClear` unlocks the next manifest level and keeps the
+fewer-tick result; `writeSave` swallows storage failures. The store is an injected `KeyValueStore`, so tests
+use a Map.
 
 ### 6.2 Audio (`src/app/audio/`)
 
@@ -548,8 +614,8 @@ other Tiled maps.
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
 (`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by
 scripted routes (`bots.ts`) that read the live world; only the inputs are saved, and `expect` pins status,
-tick count, lives, hp and final x. `npm run replay:record` re-records all of them; commit the diff with the
-tuning or level change that caused it.
+tick count, lives, hp and final x. `npm run replay:record` re-records the level-clear fixtures; commit the diff
+with the tuning or level change that caused it. `input-remap.json` is not a route recording (section 4.5).
 
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
 until its `done` condition holds, then handing over to the next (`run(dir, untilX)`, `jump(dir)`,
@@ -566,7 +632,9 @@ boss winds up within 150 px, hold fire for a nova while it is stunned, stop when
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `world.replay.test.ts` runs the same four checks (route completes
+`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `input-remap` (section 4.5) is a separate
+105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
+alone. `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
 each manifest level; its World-rules block uses Level 1 without enemies.
 
@@ -604,8 +672,10 @@ to `dist/` and fails on any breach of `BUDGET`:
 E2E specs: `smoke.spec.ts` (boot to the title with the sim frozen, Enter starts it, pixels drawn, keyboard
 drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and locked
 level select, credits, intro card, pause freezing the tick count and resuming, quit; music element playing
-after the first key and M saving the mute; the full loop title to credits by replaying all three fixtures
-in sequence, then a reload showing every level unlocked with best times), and `level.spec.ts` (loading
+after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
+in sequence, then a reload showing every level unlocked with best times), `a11y.spec.ts` (the OS
+reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
+`?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that
 the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
 3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
@@ -613,7 +683,8 @@ written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with th
 asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
 checks six enemies and the dormant boss are live sprites from the first frame, screenshots the first
 fight, one-way, mover and first dash-gap sections, checks the first patroller is gone, waits for the boss
-to engage (HUD bar), reach phase 3 and die (bar gone), and requires the browser build to finish on the same
+to engage (HUD bar), show the weak-point diamond (`hooks.weakPoint`, screenshot `level-1-weak-point.png`),
+reach phase 3 and die (bar gone), and requires the browser build to finish on the same
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
 snapshot's enemy list, boss bar state and sprite count), then the results card — dimmed level,
 spotlight on the player, tally equal to the HUD score, screenshot `level-1-complete.png` — and Enter moving on to

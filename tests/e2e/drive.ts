@@ -27,12 +27,14 @@ export type SimUntil =
   | { readonly y: number }
   | { readonly engaged: true }
   | { readonly phase: number }
+  | { readonly exposed: true }
   | { readonly done: true };
 
 /**
  * Step the sim in chunks until `until` holds. The replay frame budget stays 0, so the sim
  * does not move while the test is screenshotting or asserting between calls.
  * Chunk size is below the shortest boss-phase window in the Level 1 fixture (337 ticks).
+ * The stun window is only 100 ticks: pass a step under that when waiting for `{ exposed: true }`.
  */
 export async function stepUntil(page: Page, until: SimUntil, timeout = 30_000, step = 120): Promise<void> {
   await page.waitForFunction(
@@ -43,6 +45,7 @@ export async function stepUntil(page: Page, until: SimUntil, timeout = 30_000, s
         if ('done' in until) return h.status !== 'playing';
         if ('engaged' in until) return h.boss?.engaged === true;
         if ('phase' in until) return (h.boss?.phase ?? 0) >= until.phase;
+        if ('exposed' in until) return h.weakPoint !== null;
         if ('x' in until) return h.player.x > until.x;
         return h.player.y >= until.y;
       };

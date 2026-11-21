@@ -1,9 +1,10 @@
 import type { ManifestEntry } from '@content/levels';
+import { SIM_HZ } from '@core/sim/clock';
+import { ACTION_LABELS, CONTROL_ROWS, keyLabel } from '../bindings';
+import { resultsSpotlight, tallyAt, tallyPlan, type Spotlight, type TallyFrame } from './results';
 import type { SaveData } from './save';
 import { GAMEOVER_ITEMS, PAUSE_ITEMS, TITLE_ITEMS, type Screen } from './screens';
 import { formatScore } from './score';
-import { resultsSpotlight, tallyAt, tallyPlan, type Spotlight } from './results';
-import { SIM_HZ } from '@core/sim/clock';
 
 /** Player and camera at the moment the results card is showing, plus how far the tally has counted. */
 export interface ResultsView {
@@ -21,6 +22,8 @@ export interface OverlayModel {
   readonly score: number;
   /** Result of the level just finished (complete screen). */
   readonly result: { readonly ticks: number; readonly hp: number } | null;
+  /** Effective reduce-motion preference, for the hint and `data-reduce-motion`. */
+  readonly reduceMotion: boolean;
   /** Set on the results card; null on every other screen. */
   readonly results: ResultsView | null;
 }
@@ -75,19 +78,33 @@ export const PRESENTATION: Readonly<Record<Screen['kind'], { readonly dim: boole
   complete: { dim: false, spotlight: true, hideHud: false },
   gameover: { dim: true, spotlight: false, hideHud: false },
   credits: { dim: true, spotlight: false, hideHud: true },
+  controls: { dim: true, spotlight: false, hideHud: true },
 };
+
+interface TallyNodes {
+  readonly nums: ReadonlyMap<string, HTMLElement>;
+  readonly score: HTMLElement;
+  /** Polite region created empty. Its text is set only after the count lands. */
+  readonly status: HTMLElement;
+}
 
 /** Renders one screen into `#overlay`; screens that show the level behind them leave the canvas undimmed. */
 export class Overlay {
+  private tally: TallyNodes | null = null;
+  private tallyAnnounced = false;
+
   constructor(private readonly root: HTMLElement) {}
 
   render(screen: Screen, m: OverlayModel): void {
     const root = this.root;
     root.textContent = '';
+    this.tally = null;
+    this.tallyAnnounced = false;
     const look = PRESENTATION[screen.kind];
     root.classList.toggle('shell-visible', screen.kind !== 'playing');
     root.classList.toggle('shell-dim', look.dim);
     root.classList.toggle('shell-spotlight', look.spotlight);
+    root.dataset['reduceMotion'] = m.reduceMotion ? 'on' : 'off';
     document.body.classList.toggle('shell-hide-hud', look.hideHud);
     if (!look.spotlight) this.clearSpotlight();
     if (screen.kind === 'playing') return;
@@ -96,7 +113,7 @@ export class Overlay {
     root.append(card);
     switch (screen.kind) {
       case 'title':
-        card.append(el('h1', 'shell-title', 'BATOMAN'), el('p', 'shell-subtitle', 'NEO-MAYNILA, 2147'), menu(TITLE_ITEMS, screen.index), hint('Enter select  ·  Up/Down move  ·  M music  ·  N sfx'));
+        card.append(el('h1', 'shell-title', 'BATOMAN'), el('p', 'shell-subtitle', 'NEO-MAYNILA, 2147'), menu(TITLE_ITEMS, screen.index), hint(`Enter select  ·  Up/Down move  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
       case 'levelSelect':
         card.append(
@@ -120,31 +137,11 @@ export class Overlay {
         break;
       }
       case 'paused':
-        card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint('Esc resume  ·  M music  ·  N sfx'));
+        card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint(`Esc resume  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
-      case 'complete': {
-        const stats = el('div', 'shell-stats');
-        if (m.result) stats.append(el('div', '', `time ${ticksToClock(m.result.ticks)}`), el('div', '', `hearts left ${m.result.hp}`));
-        const view = m.results;
-        const frame = tallyAt(tallyPlan(m.score, view?.levelScore ?? 0, m.result?.hp ?? 0), view?.elapsedMs ?? 0);
-        const tally = el('ul', 'shell-tally');
-        for (const line of frame.lines) {
-          const li = el('li', '');
-          li.dataset['line'] = line.id;
-          li.append(el('span', '', line.label), el('span', 'shell-tally-num', formatScore(line.shown)));
-          tally.append(li);
-        }
-        const total = el('li', 'shell-tally-total');
-        total.dataset['line'] = 'score';
-        total.append(el('span', '', 'score'), el('span', 'shell-tally-score', formatScore(frame.shown)));
-        tally.append(total);
-        card.append(el('h2', 'shell-heading', 'LEVEL CLEAR'), stats, tally, hint('Enter continue'));
-        root.dataset['tally'] = frame.done ? 'done' : 'running';
-        // Rebuilding the card every frame would otherwise re-announce the whole tally.
-        root.setAttribute('aria-live', frame.done ? 'polite' : 'off');
-        if (view) this.applySpotlight(resultsSpotlight(view.player, view.camera, { w: root.clientWidth, h: root.clientHeight }));
+      case 'complete':
+        this.buildResults(card, m);
         break;
-      }
       case 'gameover':
         card.append(el('h2', 'shell-heading', 'GAME OVER'), el('div', 'shell-stats', `score ${formatScore(m.score)}`), menu(GAMEOVER_ITEMS, screen.index), hint('Enter select'));
         break;
@@ -157,7 +154,100 @@ export class Overlay {
         card.append(c, hint('Enter back to title'));
         break;
       }
+      case 'controls': {
+        card.dataset['listening'] = screen.listening ? '1' : '0';
+        const ul = el('ul', 'shell-menu shell-controls');
+        CONTROL_ROWS.forEach((row, i) => {
+          const li = el('li', i === screen.index ? 'shell-selected' : '');
+          li.dataset['action'] = row;
+          if (row === 'reset') {
+            li.append(el('span', 'shell-action', 'Reset to defaults'));
+          } else {
+            const listening = screen.listening && i === screen.index;
+            li.append(el('span', 'shell-action', ACTION_LABELS[row]), el('span', 'shell-keys', listening ? 'press a key…' : m.save.bindings[row].map(keyLabel).join('  ')));
+          }
+          ul.append(li);
+        });
+        card.append(el('h2', 'shell-heading', 'CONTROLS'), ul, hint('Enter toggles a key  ·  Esc back  ·  one to four keys'));
+        break;
+      }
     }
+  }
+
+  /**
+   * Move the open results tally forward without rebuilding the card. Returns
+   * false when there is no card yet, so the caller falls back to `render`.
+   */
+  updateResults(m: OverlayModel): boolean {
+    const tally = this.tally;
+    const view = m.results;
+    if (!tally || !view || !tally.status.isConnected) return false;
+    const frame = tallyAt(tallyPlan(m.score, view.levelScore, m.result?.hp ?? 0), view.elapsedMs);
+    this.paintTally(tally, frame);
+    this.root.dataset['tally'] = frame.done ? 'done' : 'running';
+    this.applySpotlight(resultsSpotlight(view.player, view.camera, { w: this.root.clientWidth, h: this.root.clientHeight }));
+    if (frame.done) this.announceTally(tally, frame);
+    return true;
+  }
+
+  private buildResults(card: HTMLElement, m: OverlayModel): void {
+    const root = this.root;
+    const stats = el('div', 'shell-stats');
+    if (m.result) stats.append(el('div', '', `time ${ticksToClock(m.result.ticks)}`), el('div', '', `hearts left ${m.result.hp}`));
+    const view = m.results;
+    const frame = tallyAt(tallyPlan(m.score, view?.levelScore ?? 0, m.result?.hp ?? 0), view?.elapsedMs ?? 0);
+    const list = el('ul', 'shell-tally');
+    const nums = new Map<string, HTMLElement>();
+    for (const line of frame.lines) {
+      const li = el('li', '');
+      li.dataset['line'] = line.id;
+      const num = el('span', 'shell-tally-num', formatScore(line.shown));
+      li.append(el('span', '', line.label), num);
+      list.append(li);
+      nums.set(line.id, num);
+    }
+    const total = el('li', 'shell-tally-total');
+    total.dataset['line'] = 'score';
+    const score = el('span', 'shell-tally-score', formatScore(frame.shown));
+    total.append(el('span', '', 'score'), score);
+    list.append(total);
+    card.append(el('h2', 'shell-heading', 'LEVEL CLEAR'), stats, list, hint('Enter continue'));
+
+    // The parent overlay is a live region. Turn it off for this card so the
+    // counting digits are not announced, and keep a separate region that
+    // already exists before its text arrives.
+    root.setAttribute('aria-live', 'off');
+    const status = el('div', 'shell-tally-status');
+    status.setAttribute('aria-live', 'polite');
+    status.setAttribute('aria-atomic', 'true');
+    root.append(status);
+    const tally: TallyNodes = { nums, score, status };
+    this.tally = tally;
+    root.dataset['tally'] = frame.done ? 'done' : 'running';
+    if (view) this.applySpotlight(resultsSpotlight(view.player, view.camera, { w: root.clientWidth, h: root.clientHeight }));
+    if (frame.done) this.announceTally(tally, frame);
+  }
+
+  private paintTally(tally: TallyNodes, frame: TallyFrame): void {
+    for (const line of frame.lines) {
+      const num = tally.nums.get(line.id);
+      const text = formatScore(line.shown);
+      if (num && num.textContent !== text) num.textContent = text;
+    }
+    const total = formatScore(frame.shown);
+    if (tally.score.textContent !== total) tally.score.textContent = total;
+  }
+
+  /** One frame later, so the live region is already in the document when the text lands. */
+  private announceTally(tally: TallyNodes, frame: TallyFrame): void {
+    if (this.tallyAnnounced) return;
+    this.tallyAnnounced = true;
+    const status = tally.status;
+    const lines = frame.lines.map((line) => `${line.label} ${formatScore(line.shown)}`).join(', ');
+    const text = `Level clear. ${lines}. Score ${formatScore(frame.shown)}.`;
+    requestAnimationFrame(() => {
+      if (status.isConnected) status.textContent = text;
+    });
   }
 
   /** CSS variables for the radial hole. Cleared off the results card so the flat dim can use a plain wash. */
@@ -177,5 +267,7 @@ export class Overlay {
     root.style.removeProperty('--spot-edge');
     delete root.dataset['tally'];
     root.setAttribute('aria-live', 'polite');
+    this.tally = null;
+    this.tallyAnnounced = false;
   }
 }

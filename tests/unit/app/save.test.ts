@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSave, loadSave, recordClear, SAVE_KEY, setOption, writeSave, type KeyValueStore } from '@app/shell/save';
+import { DEFAULT_BINDINGS, toggleBinding } from '@app/bindings';
+import { defaultSave, loadSave, recordClear, reduceMotionQuery, resetBindings, resolveReduceMotion, SAVE_KEY, setBindings, setOption, writeSave, type KeyValueStore } from '@app/shell/save';
 import { clearPoints, formatScore, killPoints } from '@app/shell/score';
 
 const levels = ['level-1', 'level-3', 'level-6'];
@@ -32,7 +33,55 @@ describe('save', () => {
     const s = loadSave(store, levels);
     expect(s.unlocked).toEqual(['level-1', 'level-3']);
     expect(s.best).toEqual({});
-    expect(s.options).toEqual({ music: true, sfx: true });
+    expect(s.options).toEqual({ music: true, sfx: true, reduceMotion: null });
+    expect(s.bindings).toEqual(DEFAULT_BINDINGS);
+  });
+
+  it('persists an explicit reduce-motion choice and leaves a missing one on the system', () => {
+    const store = memory();
+    writeSave(store, setOption(defaultSave(levels), 'reduceMotion', false));
+    expect(loadSave(store, levels).options.reduceMotion).toBe(false);
+    expect(loadSave(store, levels).bindings).toEqual(DEFAULT_BINDINGS);
+    store.setItem(SAVE_KEY, JSON.stringify({ version: 1, unlocked: ['level-1'], options: { reduceMotion: true } }));
+    expect(loadSave(store, levels).options.reduceMotion).toBe(true);
+    store.setItem(SAVE_KEY, JSON.stringify({ version: 1, unlocked: ['level-1'], options: { reduceMotion: 'yes' } }));
+    expect(loadSave(store, levels).options.reduceMotion).toBeNull();
+    expect(resolveReduceMotion(null, true)).toBe(true);
+    expect(resolveReduceMotion(null, false)).toBe(false);
+    expect(resolveReduceMotion(false, true)).toBe(false);
+    expect(resolveReduceMotion(null, false, true)).toBe(true);
+    expect(reduceMotionQuery('?reduceMotion=1')).toBe(true);
+    expect(reduceMotionQuery('reduceMotion=0')).toBe(false);
+    expect(reduceMotionQuery('?reduceMotion=yes')).toBeNull();
+    expect(reduceMotionQuery('')).toBeNull();
+  });
+
+  it('keeps progress when bindings are missing or rejected, and round-trips a custom table', () => {
+    const store = memory();
+    store.setItem(SAVE_KEY, JSON.stringify({ version: 1, unlocked: ['level-1', 'level-3'], options: { music: false, reduceMotion: true } }));
+    const legacy = loadSave(store, levels);
+    expect(legacy.unlocked).toEqual(['level-1', 'level-3']);
+    expect(legacy.options.music).toBe(false);
+    expect(legacy.options.reduceMotion).toBe(true);
+    expect(legacy.bindings).toEqual(DEFAULT_BINDINGS);
+
+    store.setItem(SAVE_KEY, JSON.stringify({ version: 1, unlocked: ['level-3'], bindings: { jump: ['Escape'] }, options: { reduceMotion: false } }));
+    const corrupt = loadSave(store, levels);
+    expect(corrupt.unlocked).toEqual(['level-1', 'level-3']);
+    expect(corrupt.options.reduceMotion).toBe(false);
+    expect(corrupt.bindings).toEqual(DEFAULT_BINDINGS);
+
+    const custom = setBindings(setOption(defaultSave(levels), 'reduceMotion', true), toggleBinding(DEFAULT_BINDINGS, 'jump', 'KeyQ')!);
+    writeSave(store, custom);
+    const loaded = loadSave(store, levels);
+    expect(loaded.bindings.jump).toEqual(['Space', 'KeyW', 'ArrowUp', 'KeyQ']);
+    expect(loaded.options.reduceMotion).toBe(true);
+    const cleared = recordClear(custom, levels, 'level-1', { ticks: 10, score: 1 });
+    expect(cleared.bindings).toEqual(custom.bindings);
+    expect(cleared.options.reduceMotion).toBe(true);
+    expect(resetBindings(cleared).bindings).toEqual(DEFAULT_BINDINGS);
+    expect(resetBindings(cleared).options.reduceMotion).toBe(true);
+    expect(resetBindings(cleared).best['level-1']).toEqual({ ticks: 10, score: 1 });
   });
 
   it('a clear unlocks the next level and keeps the faster result', () => {
