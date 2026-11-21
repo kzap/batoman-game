@@ -145,6 +145,24 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     run(1, 1600),
   ],
 
+  /**
+   * Destroyed city block (grey-box, no boss). Tide is watched from the high path;
+   * the low street is not required. Shaft drop is short; the lying gap needs a dash.
+   * `level-5-clear` is not recorded until #67 locks the tide ticks.
+   */
+  'level-5': () => [
+    fight(500), // patroller at 400; shoot from spawn before it closes
+    run(1, 1000),
+    fight(1400), // stealth at 1200
+    run(1, 1600),
+    run(1, 1720), // first shaft one-way (top 624)
+    run(1, 1820), // second one-way (top 612)
+    jump(1), // across the open shaft to the side exit at 1920
+    run(1, 2260),
+    dashJump(1), // 128 px lying gap at 2304..2432
+    run(1, 4096),
+  ],
+
   /** Rooftop garden: hop up, dash gap, vent, vertical lift, planter, spikes, drop, planter steps, spikes, exit. */
   'level-6': () => [
     run(1, 612),

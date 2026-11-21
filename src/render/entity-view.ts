@@ -145,6 +145,15 @@ export class EntityView {
   private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
   private readonly movers = new Map<number, MoverView>();
   private readonly pickups = new Map<number, PickupView>();
+  /** Live Pasig tide columns from the snapshot; resized each present. */
+  private readonly tideMeshes: Mesh[] = [];
+  private readonly tideMaterial = new MeshBasicMaterial({
+    color: PALETTE.bioTeal,
+    transparent: true,
+    opacity: 0.22,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  });
   private readonly unitBox = new BoxGeometry(1, 1, 1);
   private readonly moverMaterial = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.7 });
   /** Placeholder marks until the Manananggal sheet exists. Sim rects, no new atlas. */
@@ -263,6 +272,7 @@ export class EntityView {
     this.syncProjectiles(prev.projectiles, cur.projectiles, cur.tick, alpha);
     this.syncMovers(prev.movingSolids, cur.movingSolids, alpha);
     this.syncPickups(cur.pickups, cur.tick);
+    this.syncTide(prev.tide ?? [], cur.tide ?? [], alpha);
   }
 
   private presentPlayer(a: PlayerSnapshot, b: PlayerSnapshot, tick: number, alpha: number): void {
@@ -557,6 +567,29 @@ export class EntityView {
     }
   }
 
+  /** Tide is presentation of snapshot rects; the sim owns the kill volumes. */
+  private syncTide(prev: readonly Rect[], cur: readonly Rect[], alpha: number): void {
+    while (this.tideMeshes.length < cur.length) {
+      const mesh = new Mesh(this.unitBox, this.tideMaterial);
+      this.group.add(mesh);
+      this.tideMeshes.push(mesh);
+    }
+    for (let i = 0; i < this.tideMeshes.length; i++) {
+      const mesh = this.tideMeshes[i]!;
+      const c = cur[i];
+      if (!c || c.h <= 0) {
+        mesh.visible = false;
+        continue;
+      }
+      const p = prev[i] ?? c;
+      const h = lerp(p.h, c.h, alpha);
+      const y = lerp(p.y, c.y, alpha);
+      mesh.visible = h > 0;
+      mesh.position.set(toUnits(c.x + c.w / 2), toUnits(y + h / 2), -0.6);
+      mesh.scale.set(toUnits(c.w), toUnits(h), toUnits(8));
+    }
+  }
+
   get entityCount(): number {
     return 1 + this.projectiles.size + this.enemies.size + this.movers.size + this.pickups.size;
   }
@@ -570,6 +603,7 @@ export class EntityView {
     for (const list of this.enemyPool.values()) for (const v of list) this.disposeEnemyView(v);
     for (const m of this.movers.values()) m.quad?.dispose();
     for (const p of this.pickups.values()) p.material.dispose();
+    this.tideMaterial.dispose();
     this.unitBox.dispose();
     this.outlineGeometry.dispose();
     this.outlineMaterial.dispose();

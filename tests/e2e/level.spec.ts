@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
+import { TIDE_PERIOD_TICKS } from '../../src/game/tuning';
 import { advance, advanceUntilDone, stepUntil, withLockstep } from './drive';
 import { expectResultsCard } from './results';
 
@@ -179,6 +180,29 @@ test.describe('level 1', () => {
 });
 
 test.describe('other levels', () => {
+  test('level-5 loads as grey-box from ?level= (clear fixture pending #67)', async ({ page }) => {
+    test.setTimeout(45_000);
+    const requests: string[] = [];
+    page.on('request', (r) => requests.push(r.url()));
+    await page.goto(withLockstep('/?level=level-5', true));
+    await ready(page);
+    const h0 = await hooks(page);
+    expect(h0.level).toBe('level-5');
+    expect(h0.status).toBe('playing');
+    expect(h0.player.y).toBeGreaterThan(600);
+    expect(h0.errors).toEqual([]);
+    expect(requests.some((u) => u.includes('/assets/backdrops/'))).toBe(false);
+    await page.screenshot({ path: resolve(SHOTS, 'level-5-start.png') });
+    // One provisional tide period so the surface rises and falls while he stands above the mark.
+    await advance(page, TIDE_PERIOD_TICKS);
+    const h = await hooks(page);
+    expect(h.status).toBe('playing');
+    expect(h.simTicks).toBe(TIDE_PERIOD_TICKS);
+    expect(h.player.hp).toBeGreaterThan(0);
+    expect(h.errors).toEqual([]);
+    await page.screenshot({ path: resolve(SHOTS, 'level-5-tide-period.png') });
+  });
+
   for (const id of ['level-3']) {
     test(`${id} loads as grey-box from ?level= and replays its fixture`, async ({ page }) => {
       test.setTimeout(45_000);

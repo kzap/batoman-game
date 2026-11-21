@@ -23,8 +23,8 @@ test.describe('shell', () => {
     await page.keyboard.press('Enter');
     await screen(page, 'levelSelect');
     const items = page.locator('.shell-menu li');
-    await expect(items).toHaveCount(4);
-    for (let i = 0; i < 4; i++) await expect(items.nth(i)).not.toHaveClass(/shell-locked/);
+    await expect(items).toHaveCount(5);
+    for (let i = 0; i < 5; i++) await expect(items.nth(i)).not.toHaveClass(/shell-locked/);
     await page.screenshot({ path: resolve(SHOTS, 'shell-level-select.png') });
     // The playtest flag does not write the unlocked list. Nothing has been saved yet.
     expect(await page.evaluate(() => localStorage.getItem('batoman.v2.save'))).toBeNull();
@@ -54,11 +54,12 @@ test.describe('shell', () => {
     await page.keyboard.press('Enter');
     await screen(page, 'levelSelect');
     const items = page.locator('.shell-menu li');
-    await expect(items).toHaveCount(4);
+    await expect(items).toHaveCount(5);
     await expect(items.nth(0)).not.toHaveClass(/shell-locked/);
     await expect(items.nth(1)).toHaveClass(/shell-locked/);
     await expect(items.nth(2)).toHaveClass(/shell-locked/);
     await expect(items.nth(3)).toHaveClass(/shell-locked/);
+    await expect(items.nth(4)).toHaveClass(/shell-locked/);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     expect((await hooks(page)).screen).toBe('levelSelect');
@@ -154,7 +155,7 @@ test.describe('shell', () => {
     expect(save.options.music).toBe(false);
   });
 
-  test('full loop: title -> four levels -> credits, unlocking as it goes', async ({ page }) => {
+  test('full loop: title -> levels 1/3/4/6 -> level-5 intro, unlocking as it goes', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto(withLockstep('/'));
     await ready(page);
@@ -162,9 +163,10 @@ test.describe('shell', () => {
     await screen(page, 'intro');
     await page.keyboard.press('Enter');
     await screen(page, 'playing');
+    // level-5-clear waits on #67; clear the four pinned levels, then confirm the finale unlocks.
     const order = ['level-1', 'level-3', 'level-4', 'level-6'] as const;
     for (const [i, id] of order.entries()) {
-      const next = order[i + 1] ?? null;
+      const next = order[i + 1] ?? 'level-5';
       expect((await hooks(page)).level).toBe(id);
       await page.evaluate((f) => window.__batoman!.replay!(f), fixture(id));
       await advanceUntilDone(page);
@@ -176,20 +178,27 @@ test.describe('shell', () => {
         expect(saved.unlocked).toEqual(['level-1', 'level-3']);
       }
       await page.keyboard.press('Enter');
-      if (next) {
-        await screen(page, 'intro', 20_000);
-        await expect(page.locator('#overlay')).toContainText(`LEVEL ${i + 2}`);
+      await screen(page, 'intro', 20_000);
+      await expect(page.locator('#overlay')).toContainText(`LEVEL ${i + 2}`);
+      if (next !== 'level-5') {
         await page.keyboard.press('Enter');
         await screen(page, 'playing');
       }
     }
-    await screen(page, 'credits');
-    await page.screenshot({ path: resolve(SHOTS, 'shell-credits.png') });
+    await expect(page.locator('#overlay')).toContainText('Destroyed City Block');
     const h = await hooks(page);
     expect(h.score).toBeGreaterThan(3000);
     expect(h.errors).toEqual([]);
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { unlocked?: string[] });
-    expect(saved.unlocked).toEqual(['level-1', 'level-3', 'level-4', 'level-6']);
+    expect(saved.unlocked).toEqual(['level-1', 'level-3', 'level-4', 'level-6', 'level-5']);
+    // Credits still open from the title; the finale clear fixture is pending #67.
+    await page.goto(withLockstep('/'));
+    await ready(page);
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await screen(page, 'credits');
+    await page.screenshot({ path: resolve(SHOTS, 'shell-credits.png') });
     // Flag off, so the menu is the save and not the playtest switch.
     await page.goto(withLockstep('/?unlockAll=0'));
     await ready(page);
