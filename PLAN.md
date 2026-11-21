@@ -1,7 +1,7 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-7b and 8.1-8.3 are on `v2` (`b951af8`). CI on that commit is green
-([run 44841192251](https://github.com/kzap/batoman-game/actions/runs/44841192251)). Level 6 is dressed (#33).
+Status: Phases 0-7b and 8.1-8.3 are on `v2` (`2c1691f`). CI on that commit is green
+([run 44843452770](https://github.com/kzap/batoman-game/actions/runs/44843452770)). Level 6 is dressed (#33).
 Level 3 has source art (#32) and its level JSON is still grey-box. The playtest build deploys from `v2`
 (#24) and is live at https://mydev.org/batoman-game/. `main` still holds v1 (Phaser 3, tagged `v1-archive`)
 and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
@@ -50,7 +50,6 @@ v1's bugs trace to two root causes, neither in gameplay code:
 | Git history | Untouched. No rewrite. New heavy files must not enter `public/` |
 | Node | `^20.19 || >=22.12` |
 | Branching | All work on `v2`. Branch prefixes: `phase/`, `content/`, `infra/`, `cursor/`. PRs target `v2` |
-| Merge gate | `npm run ci` green. Another bot reviews. The author merges |
 
 ## Architecture
 
@@ -83,8 +82,9 @@ Level 1 uses two backdrop slots (far -60, mid -8) plus three decor layers (wall,
 ## Workflow per phase
 
 Branch policy: all work on `v2`. Cut `phase/N-slug`, `content/<level>`, `infra/<slug>`, or `cursor/<slug>`
-from `v2`. PRs target `v2`. Run `npm run ci` before the PR. Another bot reviews. The author merges once
-that review is in and CI is green.
+from `v2`. PRs target `v2`. Run `npm run ci` before the PR.
+
+PR process: author merges after a teammate review and green CI. See CONTRIBUTING.md.
 
 ```
 git checkout v2 && git pull
@@ -93,7 +93,6 @@ git checkout -b phase/N-<slug>          # or content/, infra/, cursor/
 # code-review skill: standards + spec; address findings
 git push -u origin <branch>
 gh pr create --base v2 --head <branch>
-# another bot reviews; author merges when CI is green
 ```
 
 `npm run ci` is lint, unit, replay, build, `check:prod-bundle`, `build:e2e` (lockstep), `check:e2e-bundle`,
@@ -217,10 +216,8 @@ Exit: Level 1 playable start to boss kill under replay.
 
 Exit: full loop menu -> three levels -> credits.
 
-Outcome: everything but the dressing shipped; Levels 3 and 6 have no source art (Level 3 one concept
-painting, Level 6 nothing), so they stay grey-box until art exists. Dressing each is a one-day content PR
-once `art-source/level-<n>/` has `background.png`, `foreground.png`, `backdrops.json`, `tileset.png` and a
-props recipe, following Level 1.
+Outcome: the shell shipped. Level 6 is dressed (#33). Level 3 has source art (#32) and its level JSON
+is still grey-box, so it renders as boxes until #14 adds the `art` block.
 
 ### Phase 7b - Level 4, NSA Tower Exterior (`content/level-4`)
 
@@ -228,7 +225,8 @@ Added after Phase 7: the only level besides Level 1 with complete source art (`a
 background, foreground, tileset, 27-prop recipe already building), unused since v1.
 
 - Manifest entry (name, music), grey-box layout in the editor: vertical tower exterior with scaffolds,
-  one-way ladders, wall-jump shafts, lifts and drones; no boss (PRD has none for Level 4).
+  one-way ladders, wall-jump shafts, lifts and drones; no boss in the tree. VISION.md (PR #25) names
+  Manananggal-7, which Andre confirmed.
 - `backdrops.json`, `art` block, dressed with `level-4-props`.
 - Route bot and fixture (undamaged clear), e2e load check, TDD level table.
 
@@ -258,8 +256,8 @@ possible second mid layer for the upper roofs, and a music track of its own (the
 Level 6 at `level-1`).
 
 Exit: Level 6 loads dressed, the existing clear fixture completes, and e2e asserts the atlas and both
-backdrops and screenshots the start, the lift, and the last roof. That exit is met. #11 adds the scout
-atlas request, the rooftop screenshot, and no enemies left at the exit once #26 lands.
+backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. That exit is met.
+#11 adds the scout atlas request, the rooftop screenshot, and no enemies left at the exit once #26 lands.
 
 ### Phase 8 - Polish and performance (`phase/8-polish-perf`)
 
@@ -315,7 +313,7 @@ Exit: 60 fps on a mid laptop; docs current.
 Not started. Open it after v0.2's close-out, and after Andre answers the boss-scope question on #25.
 
 - One merge PR from `v2` into `main`. CI already runs on PRs to `main` and to `v2`. `npm run ci` first.
-  The author merges after another bot has reviewed it and CI is green. No force-push, no history rewrite.
+  No force-push, no history rewrite.
 - `main` today is the Phaser prototype, the same commit as tag `v1-archive`. After the merge, `main` is
   the Three.js game. The tag stays, and it is what preserves v1.
 - The remote default branch is already `main`, so the merge is what retires v1 on the default branch.
