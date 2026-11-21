@@ -130,6 +130,7 @@ to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 | `drone` | drone | 48x28, 2 hp. Hovers 88 px (centre) above its spawn's ground reference with a slow bob, between its patrol bounds. Within 300 px horizontally and 128 px vertically (`sightHeight`, centre to centre) it dives to chest height (40 px above the player's feet, so a grounded shot connects), keeps a 120 px stand-off and fires aimed shots (260 px/s) every 120 ticks; it loses interest beyond `loseRange` 450 px or outside the height band. |
 | `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px and on the same storey (feet within `sightHeight` 128 px), decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px or when the player leaves the storey. |
 | `aswang` | patroller at 1.6x, lilac tint | The Level 1 boss, 64x96, 24 hp; see below. |
+| `sigbin` | patroller at 3.1x, near-black placeholder | The Level 3 boss, 192x188 (half the 378 px camera, within a pixel), 18 hp; see below. |
 | `tikbalang` | tikbalang | 64x44, 4 hp. The Level 6 scout, not Tikbalang-X: no warp, no perception twist, no stumble-only window (that boss is out of this version; STORY/PRD describe it). Patrols its spawn +/- `patrolDistance` in bursts (36 ticks at 80 px/s, then 24 ticks still), turning at bounds, walls and ledges. A player within 500 px on the same storey (`sightHeight` 128, either direction) is chased at 480 px/s to a 48 px standoff. It then rears for 24 ticks (`shoot` → the sheet's `stomp`) and lunges for up to 18 ticks at 420 px/s with the body lowered to 22 px. `rush` holds the stomp clip's last frame (`stomp_04`), and the view fits that quad to the live body height, so the impact matches the hurtbox a jump clears. The lunge is committed. It backs out to the standoff before standing up, then waits 90 ticks. It gives up past 640 px or off the storey. A hit while it is only patrolling knocks it back at 140 px/s; the chase does not. |
 
 The boss (`boss.ts`) is dormant until the player is within 560 px (`BossSnapshot.engaged` shows the HUD
@@ -144,6 +145,8 @@ summon after the second). The World emits `bossPhase` when it sees `phase` chang
 `weakPoint` let the renderer show the core only then (a magenta diamond with a white outline, section 5.3,
 so the window is not colour-only). Its death fires `bossDefeated`, shakes the camera and
 opens the exit; the bar hides once the death clip ends.
+
+The Sigbin (`sigbin.ts`) is the same contract through `BossUnit` in `boss-kit.ts` (phase gate, weak-point rect, the exposed-only damage rule). It is dormant until the player is within 420 px on its storey. It then backs off to a pocket 280 px from the player on the boss's own side, walking backward: the head points opposite the step and a footprint pointing that wrong way is left every 16 steps, fading after 96 ticks. The cloak shimmers between alpha 0.08 and 0.28 on a 40-tick triangle. Giving up or arriving starts a telegraph (72 / 56 / 48 ticks by phase). During it the boss walks toward the player at 250 px/s and holds at 180 px centre distance, so the 98 px lunge reaches someone who stayed in the 280 px pocket and misses someone who left during the tell. The lunge is 420 px/s for 28 ticks. It is the only contact attack; recovery is shot-hittable and does not hurt on touch. Shots during the lunge deal 0. Recovery opens the core: it starts on the spine (128 px up, 64 px wide) and drops to the standing shot line (26 px up, 16 px tall, still 64 px wide, centred on the 192 px body) over 40 ticks. Only a shot that overlaps that chest during recovery deals damage, at 2x. A shot through the flank does not. Phases at 12 and 6 hp; the shift is 72 invulnerable ticks and the next phase backs off before it telegraphs again, so it does not lunge from point blank. Death fires `bossDefeated` and opens the exit. `BossSnapshot.exposed` lights the weak-point mark: the colour-blind-safe diamond from `weakPointDiamond` in `src/render/motion.ts` (landed in #39). This boss only drives that flag.
 
 Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
 route bot clears Level 1 undamaged; they live in `tuning.ts` and nowhere else.
@@ -615,7 +618,7 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | Level | Name | Size | Contents |
 |---|---|---|---|
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
-| `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
+| `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100, the `sigbin` boss at 3424 on the gallery (the exit stays shut until it dies). No new arena walls; the existing gallery floor is the fight. |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
@@ -663,10 +666,13 @@ taps fire every 12 ticks while a visible enemy between here and `untilX` and wit
 height is in the plasma line, jumps enemy shots 0.16 s before they
 arrive (late enough that a three-shot burst passes under one jump) and finishes when nothing is left ahead
 and no enemy shot is in flight. `bossFight()` adds: jump a rush 0.2 s before contact, back off while the
-boss winds up within 150 px, hold fire for a nova while it is stunned, stop when it dies. Steps keep state,
+boss winds up within 150 px, hold fire for a nova while it is stunned, stop when it dies. `sigbinFight()`
+holds on the gallery clear of the spikes, and once `BossSnapshot.exposed` and the core has dropped to the
+standing line it steps in for three plasma hits, then returns. Steps keep state,
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
-outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
+outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 3889
+(through the Sigbin kill; the clear route dashes off each lunge, so it is 189 ticks longer than the stand-still version),
 `level-4-clear` 2802, `level-6-clear` 3954, all without damage, plus `level-1-hp-up` (a jump in place at the
 spawn until the heart is taken; pins hp 4 and maxHp 4). `input-remap` (section 4.5) is a separate
 105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
@@ -692,7 +698,7 @@ to `dist/` and fails on any breach of `BUDGET`:
 
 | Budget | Ceiling |
 |---|---|
-| Total served (excluding source maps) | 12 MB |
+| Total served (excluding source maps) | 20 MB |
 | JS + CSS | 900 KB |
 | Single image | 1.5 MB |
 | Single audio | 6 MB |

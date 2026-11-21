@@ -1,6 +1,6 @@
 import { NO_INPUT } from '@core/sim/input';
 import type { Policy } from './harness';
-import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
+import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, sigbinFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -90,6 +90,7 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     fight(3300), // patroller at 3100
     run(1, 2830),
     jump(1), // spikes at 2880
+    sigbinFight(),
     run(1, 3584),
   ],
 
