@@ -3,6 +3,7 @@ import {
   advanceBeat,
   advanceCutscene,
   currentBeat,
+  cutsceneHoldEnabledFromQuery,
   cutscenesEnabledFromQuery,
   holdElapsed,
   skipBeats,
@@ -84,5 +85,14 @@ describe('cutscenesEnabledFromQuery', () => {
     expect(cutscenesEnabledFromQuery('')).toBe(true);
     expect(cutscenesEnabledFromQuery('?cutscene=1')).toBe(true);
     expect(cutscenesEnabledFromQuery('?level=level-1')).toBe(true);
+  });
+});
+
+describe('cutsceneHoldEnabledFromQuery', () => {
+  it('treats ?cutsceneHold=0 as off and everything else as on', () => {
+    expect(cutsceneHoldEnabledFromQuery('?cutsceneHold=0')).toBe(false);
+    expect(cutsceneHoldEnabledFromQuery('cutsceneHold=0')).toBe(false);
+    expect(cutsceneHoldEnabledFromQuery('')).toBe(true);
+    expect(cutsceneHoldEnabledFromQuery('?cutsceneHold=1')).toBe(true);
   });
 });
