@@ -187,6 +187,42 @@ export const ENEMY = {
     knockback: 80,
     deathTicks: 96,
   },
+  /**
+   * Tikbalang scout (not the Tikbalang-X boss). Patrols in short bursts, then
+   * runs in and stomps: a rear, then a low lunge a jump can clear. The burst
+   * rhythm is the tick counter, not a random draw.
+   */
+  tikbalang: {
+    width: 64,
+    height: 44,
+    hp: 4,
+    /** Trot during a patrol burst. The chase is `burstSpeed`. */
+    speed: 80,
+    /** Gallop this many ticks, then stand, while patrolling. */
+    burstTicks: 36,
+    pauseTicks: 24,
+    /** Centre distance at which it notices the player, in either direction. */
+    sightRange: 500,
+    /** Feet-to-feet band; another storey is not a target. */
+    sightHeight: 128,
+    /** Gives up the chase past this centre distance, or off the storey. */
+    loseRange: 640,
+    burstSpeed: 480,
+    /** Edge gap it holds before stomping, so the approach itself is not the hit. */
+    standoff: 48,
+    /** Rear (the stomp clip) before the lunge. Long enough to leave the ground. */
+    windupTicks: 24,
+    /** Ticks the lunge spends closing that gap. */
+    lungeTicks: 18,
+    lungeSpeed: 420,
+    /** Collider height during the lunge: a jump clears it. */
+    lungeHeight: 22,
+    /** After a stomp, waits this long at the standoff before the next one. */
+    recoverTicks: 90,
+    hurtTicks: 16,
+    knockback: 140,
+    deathTicks: 96,
+  },
 } as const;
 
 /**

@@ -33,7 +33,7 @@ export interface CheckpointJson extends Rect {
   readonly id: number;
 }
 
-/** `aswang` is the Level 1 boss; `tikbalang` is spawn data until its behaviour exists. */
+/** `aswang` is the Level 1 boss. `tikbalang` is the Level 6 scout. */
 export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang';
 
 export interface EnemySpawnJson {
