@@ -136,7 +136,7 @@ describe('AudioEngine', () => {
     const e = new AudioEngine();
     e.unlock();
     const sfx = new Sfx(e);
-    for (const name of ['jump', 'wallJump', 'land', 'dash', 'plasma', 'nova', 'enemyShot', 'hit', 'weakHit', 'enemyDeath', 'hurt', 'death', 'respawn', 'checkpoint', 'complete', 'gameOver', 'bossPhase', 'bossDefeated', 'menuMove', 'menuConfirm', 'menuBack', 'pause', 'unpause'] as const) {
+    for (const name of ['jump', 'wallJump', 'land', 'dash', 'plasma', 'nova', 'enemyShot', 'hit', 'weakHit', 'enemyDeath', 'hurt', 'death', 'respawn', 'checkpoint', 'complete', 'gameOver', 'bossPhase', 'bossDefeated', 'sigbinTelegraph', 'menuMove', 'menuConfirm', 'menuBack', 'pause', 'unpause'] as const) {
       const before = started;
       sfx.play(name);
       expect(started, name).toBeGreaterThan(before);

@@ -47,6 +47,8 @@ const ORB_ANIMATION = 'orb';
 const ENEMY_SHOT_ANIMATION = 'projectile';
 /** The nova is drawn white-hot; plasma keeps the sheet's cyan. */
 const NOVA_TINT = 0xfffde0;
+/** Painted Sigbin trail; packed into the level-3 props atlas. Slot count is `SIGBIN.footprintCap`. */
+const PRINT_FRAME = 'footprint_back';
 /** Pickup quads sit in front of the player. The bob is visual only; the hitbox does not move. */
 const PICKUP_Z = 0.45;
 
@@ -141,8 +143,8 @@ export class EntityView {
   private reduceMotion = false;
   /** Faded stomp frame left where Tikbalang-X warped from. Not a collider. */
   private ghost: { quad: SpriteQuad; material: MeshBasicMaterial } | null = null;
-  /** Placeholder prints for the Sigbin's backward trail. One material each so they can fade independently. */
-  private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
+  /** Sigbin backward trail. Painted prop quads when the level atlas has `footprint_back`, otherwise amber boxes. */
+  private readonly prints: { mesh: Mesh; material: MeshBasicMaterial; quad: SpriteQuad | null }[] = [];
   private readonly movers = new Map<number, MoverView>();
   private readonly pickups = new Map<number, PickupView>();
   /** Live Pasig tide columns from the snapshot; resized each present. */
@@ -205,12 +207,25 @@ export class EntityView {
     this.shadowMark.visible = false;
     this.perchMark.visible = false;
     this.plantedMark.visible = false;
+    const printAtlas = assets.levelArt?.props;
+    const usePaintedPrints = printAtlas !== undefined && PRINT_FRAME in printAtlas.json.frames;
     for (let i = 0; i < SIGBIN.footprintCap; i++) {
-      const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
-      const mesh = new Mesh(this.unitBox, material);
-      mesh.visible = false;
-      mesh.name = 'footprint';
-      this.prints.push({ mesh, material });
+      if (usePaintedPrints && printAtlas) {
+        const material = atlasMaterial(printAtlas.texture);
+        material.transparent = true;
+        material.opacity = 0;
+        material.depthWrite = false;
+        const quad = new SpriteQuad(printAtlas, material, PRINT_FRAME);
+        quad.mesh.visible = false;
+        quad.mesh.name = 'footprint';
+        this.prints.push({ mesh: quad.mesh, material, quad });
+      } else {
+        const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
+        const mesh = new Mesh(this.unitBox, material);
+        mesh.visible = false;
+        mesh.name = 'footprint';
+        this.prints.push({ mesh, material, quad: null });
+      }
     }
     this.group.add(
       this.player.mesh,
@@ -323,7 +338,7 @@ export class EntityView {
       const h = lerp(p.h, c.h, alpha);
       const lunging = (c.type === 'tikbalang' && h < ENEMY.tikbalang.height) || (c.type === 'manananggal' && h < MANANANGGAL.height);
       v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, lunging ? { flip, size: { h } } : { flip, scale: look.scale });
-      // The placeholder Sigbin sheet is near-black. The lunge and its telegraph use the same hurt tint as a hit, so reduce-motion stays a steady white instead of a strobe.
+      // The lunge and its telegraph use the same hurt tint as a hit, so reduce-motion holds steady white instead of a strobe.
       const sigbinStrike = c.type === 'sigbin' && (c.pose === 'windup' || c.pose === 'rush');
       v.material.color.setHex(enemyHurtTint(c.flash > 0 || sigbinStrike, tick, this.reduceMotion, look.tint, PALETTE.neonMagenta));
       v.material.opacity = c.alpha;
@@ -427,9 +442,8 @@ export class EntityView {
   }
 
   /**
-   * Sigbin footprints. Placeholder quads until the art lane paints the trail.
-   * The print sits a step toward `dir`, which is opposite the walk, so the
-   * mark points backward. Nothing here reads the World.
+   * Sigbin footprints. The print sits a step toward `dir`, which is opposite
+   * the walk, so the mark points backward. Nothing here reads the World.
    */
   private presentPrints(boss: BossSnapshot | null): void {
     const tells = boss?.tells ?? [];
@@ -438,9 +452,15 @@ export class EntityView {
       const t = tells[i];
       slot.mesh.visible = t !== undefined;
       if (!t) continue;
-      slot.mesh.position.set(toUnits(t.x + t.dir * 8), toUnits(t.y + 3), ENEMY_Z - 0.02);
-      slot.mesh.scale.set(toUnits(16), toUnits(5), 0.2);
       slot.material.opacity = 0.2 + 0.65 * t.alpha;
+      const x = t.x + t.dir * 8;
+      const y = t.y + 3;
+      if (slot.quad) {
+        slot.quad.place(x, y, ENEMY_Z - 0.02, { flip: t.dir < 0 });
+      } else {
+        slot.mesh.position.set(toUnits(x), toUnits(y), ENEMY_Z - 0.02);
+        slot.mesh.scale.set(toUnits(16), toUnits(5), 0.2);
+      }
     }
   }
 
@@ -617,7 +637,10 @@ export class EntityView {
     this.coreRingMaterial.dispose();
     this.ghost?.quad.dispose();
     this.ghost?.material.dispose();
-    for (const p of this.prints) p.material.dispose();
+    for (const p of this.prints) {
+      p.quad?.dispose();
+      p.material.dispose();
+    }
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();
     this.moverMaterial.dispose();

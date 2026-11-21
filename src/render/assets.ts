@@ -51,8 +51,11 @@ export const ENEMY_LOOK: Readonly<Record<EnemyType, EnemyLook>> = {
   patroller: PATROLLER_LOOK,
   stealth: PATROLLER_LOOK,
   aswang: { ...PATROLLER_LOOK, scale: 1.6, tint: 0xd8b4ff },
-  /** Placeholder until a Sigbin sheet exists: the patroller cut, scaled up and near-black. The sim body is 192×188. */
-  sigbin: { ...PATROLLER_LOOK, scale: 3.1, tint: 0x1a1224 },
+  /**
+   * Own 192×188 sheet, packed at 0.5 from 2× art. Scale 2 counters
+   * `SIM_PX_PER_ATLAS_PX` (0.5) so the sprite matches the sim body.
+   */
+  sigbin: { atlas: 'sigbin', scale: 2, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'move', shoot: 'shoot' } },
   // Placeholder until the Manananggal sheet exists (issue #53). Warm red, patroller clips.
   manananggal: { ...PATROLLER_LOOK, scale: 1.8, tint: 0xff5a3c },
   drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', faces: 'left', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },
