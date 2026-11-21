@@ -204,7 +204,7 @@ test.describe('other levels', () => {
   }
 
   test('level-6 loads dressed from ?level= and replays its fixture across the roofs', async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-6-clear.json'), 'utf8')) as Fixture;
     const requests: string[] = [];
     page.on('request', (r) => requests.push(r.url()));
@@ -214,6 +214,7 @@ test.describe('other levels', () => {
     expect(h0.level).toBe('level-6');
     expect(h0.errors).toEqual([]);
     expect(requests.some((u) => u.endsWith('atlases/level-6-props.webp'))).toBe(true);
+    expect(requests.some((u) => u.endsWith('atlases/tikbalang.webp'))).toBe(true);
     expect(requests.some((u) => u.endsWith('backdrops/level-6/sky.webp'))).toBe(true);
     expect(requests.some((u) => u.endsWith('backdrops/level-6/garden.webp'))).toBe(true);
     await page.screenshot({ path: resolve(SHOTS, 'level-6-start.png') });
@@ -223,17 +224,41 @@ test.describe('other levels', () => {
       await stepUntil(page, { x });
       await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
     }
+    await stepUntil(page, { engaged: true });
+    await page.screenshot({ path: resolve(SHOTS, 'level-6-tikbalang-x.png') });
     await advanceUntilDone(page);
     const h = await hooks(page);
     expect(h.status).toBe('complete');
     expect(h.simTicks).toBe(fixture.expect.ticks);
     expect(Math.round(h.player.x)).toBe(fixture.expect.x);
+    expect(h.enemies.filter((e) => e.hp > 0 && e.pose !== 'death')).toEqual([]);
+    expect(h.boss === null || h.boss.hp <= 0).toBe(true);
     expect(h.errors).toEqual([]);
     await page.screenshot({ path: resolve(SHOTS, 'level-6-complete.png') });
   });
 
-  test('level-4 loads dressed from ?level= and replays its fixture up the tower', async ({ page }) => {
+  test('level-6 lying path is a pit under the painted bridge', async ({ page }) => {
     test.setTimeout(60_000);
+    const lie = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-6-lying-path.json'), 'utf8')) as Fixture;
+    await page.goto(withLockstep('/?level=level-6'));
+    await ready(page);
+    await page.evaluate((f) => window.__batoman!.replay!(f), lie);
+    // The last ticks are the fall. Stop short of the pit so the still shows the bridge, then finish on the death tick.
+    const falling = Math.max(0, lie.expect.ticks - 24);
+    await advance(page, falling);
+    await page.screenshot({ path: resolve(SHOTS, 'level-6-lying-path.png') });
+    await advance(page, lie.expect.ticks - falling);
+    const fell = await hooks(page);
+    expect(fell.screen).not.toBe('complete');
+    expect(fell.player.hp).toBe(0);
+    expect(fell.simTicks).toBe(lie.expect.ticks);
+    expect(Math.round(fell.player.x)).toBe(lie.expect.x);
+    expect(fell.player.y).toBeLessThan(80);
+    expect(fell.errors).toEqual([]);
+  });
+
+  test('level-4 loads dressed from ?level= and replays its fixture up the tower', async ({ page }) => {
+    test.setTimeout(90_000);
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-4-clear.json'), 'utf8')) as Fixture;
     const requests: string[] = [];
     page.on('request', (r) => requests.push(r.url()));
@@ -252,6 +277,11 @@ test.describe('other levels', () => {
       await stepUntil(page, { y });
       await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
     }
+    // The split, then the climb back down to the planted half. maxY is only safe after the roof.
+    await stepUntil(page, { phase: 2 }, 30_000, 30);
+    await page.screenshot({ path: resolve(SHOTS, 'level-4-split.png') });
+    await stepUntil(page, { maxY: 900 }, 30_000, 30);
+    await page.screenshot({ path: resolve(SHOTS, 'level-4-return.png') });
     await advanceUntilDone(page);
     const h = await hooks(page);
     expect(h.status).toBe('complete');

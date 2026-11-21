@@ -41,7 +41,7 @@ Story order is 1 through 5. The content ids in the repo are not those numbers. T
 |---|---|---|---|---|---|
 | 1 | Tondo Sublevel Docks | `level-1` | `level-1` | Combat | ASWANG prototype (shipped) |
 | 2 | Quiapo Underground Chapel | `level-3` | `level-2` | Stealth | Sigbin Unit (not built) |
-| 3 | NSA Tower Exterior | `level-4` | `level-3` | Vertical climb | Manananggal-7 (confirmed by Andre; not built) |
+| 3 | NSA Tower Exterior | `level-4` | `level-3` | Vertical climb | Manananggal-7 (fight in; sheet not packed) |
 | 4 | Abandoned Rooftop Garden | `level-6` | `level-4` | Traversal | Tikbalang-X (spawn only) |
 | 5 | Destroyed City Block | none | `level-5` | Gauntlet | Bakunawa-Prime (not built) |
 
@@ -55,8 +55,8 @@ Verified on `v2` against `src/content`, `src/game/enemies`, and `art-source/`:
 |---|---|---|
 | `level-1` | Dressed, 6400×768. Patrollers and drones. | ASWANG prototype, playable. Bursts, a rush that ends stunned with the weak point open, then drones. HUD: "ASWANG PROTOTYPE". |
 | `level-3` | Still plays grey-box, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. Source art is now in `art-source/level-3/` (nave and chapel backdrops, a props recipe) and is not wired: the level JSON has no `art` block. | None placed. The Sigbin Unit is the boss. |
-| `level-4` | Dressed, 1600×1664, vertical. Patrollers, drones, one stealth. Enemies ignore him on another storey. | None yet. Andre confirmed Manananggal-7. The exit opens today because the sim treats a missing boss as a clear. |
-| `level-6` | Dressed sunny farm, 4480×896, 144 decor quads, far `sky` and a mirrored `garden` mid. Drone, patroller, a `tikbalang` spawn. The painted lying path is not a collider. Music is still the Tondo track. | The horse sheet exists (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`) and the renderer has a look. `spawnEnemy` returns null, so the horse is not created and not drawn. |
+| `level-4` | Dressed, 1600×1664, vertical. Patrollers, drones, one stealth, Manananggal-7 on the roof. | Fight in. The exit stays shut until the death clip ends. The sheet is still the patroller placeholder. |
+| `level-6` | Dressed sunny farm, 4480×896, 145 decor quads, far `sky` and a mirrored `garden` mid. Drone, patroller, a `tikbalang` scout, and Tikbalang-X. The lying path is a rope bridge over the pit at x 1248. Music is still the Tondo track. | Tikbalang-X uses the horse sheet (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`) at 1.5x. The warp leaves a faded stomp frame. No new sheet. |
 
 Shipped kit: variable jump (a full jump is about 81 px; a 128 px gap needs a dash at the apex), coyote time, wall kick, dash with i-frames, crouch-slide, one-ways, movers, spikes, crushers, pits, plasma (tap, 1 damage), nova (hold 0.8 s, a piercing bolt, 3 damage). 3 hearts, 3 lives. No powerups in the sim. The story's wide nova explosion and the "Down + move" salakot dash are the fantasy; the sim pierces, and the dash is Shift / X / K.
 
@@ -74,7 +74,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **No boss-weapon copies.** Plasma and nova stay the guns. The short unlock list further down is a proposal.
 
-**Story is the level, plus a portrait and text.** No animated cutscenes, no dialogue system.
+**Story is the level, plus a portrait and text.** Level intros may use a short scripted dialog (static portrait or typography, camera pan) before the sim starts. No animated cutscene art and no mid-level dialogue system.
 
 ---
 
@@ -120,7 +120,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **What the level already is.** A dressed vertical climb: rungs, a hanging lift, a wall-jump shaft, enemies that do not aggro across storeys. The wall kick was optional on the docks. Here it is the path.
 
-**Boss.** **Manananggal-7, confirmed by Andre for this level.** Not built. Canon unit, previously written for the arcology, which is cut. The sheet in `art-source/level-1/concept-art-boss.png` shows the split body — wings, exposed spine, a separate hydraulic lower half — with an NSA tower in the backdrop. That painting is the design reference for this fight, not for the docks. The docks keep the prototype. The hangar fighter stays unused.
+**Boss.** **Manananggal-7, confirmed by Andre for this level.** The fight is in. The sheet is not packed; the sim uses the patroller sheet and placeholder boxes. Canon unit, previously written for the arcology, which is cut. The sheet in `art-source/level-1/concept-art-boss.png` shows the split body — wings, exposed spine, a separate hydraulic lower half — with an NSA tower in the backdrop. That painting is the design reference for this fight, not for the docks. The docks keep the prototype. The hangar fighter stays unused.
 
 The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has to reach. Phase 2 splits: the upper half owns the air of the shaft, the lower half stays planted on a balcony he already passed. Killing the flyer does not stick; it returns while the lower half lives (the folk rule ART already states: destroy the base first). He has to go back down. Phase 3 is the flyer alone, once the balcony half is gone. Wind in the top shaft, folded from the skyway, shoves jumps only, and only after a telegraph of litter and banners bending in the sun. Standing on a rung is safe.
 
@@ -136,7 +136,7 @@ The fight tests the climb. Phase 1 is the whole body on a balcony, a duel he has
 
 **Story.** A sunny, lush, colorful rooftop farm. The wound is a salakot left on a rail, and a path that does not go where it looks like it goes. Tikbalang-X bent the paths after the prototype's raid, which is why the farmers could not find their way back. He breaks the spell in the stumble, then for good. The plants are still growing. **Proposal:** under a planter the irrigation shaft is a concrete room, not a cistern. One file and one portrait of Epal: Bakunawa-Prime, coming up the Pasig, into the three blocks. That room is the laboratory. It is not a level. He goes down to the street.
 
-**What the level already is.** Dressed as the sunny farm: roofs at different heights, a hop, a 128 px dash gap, a vertical lift, a drop, one-way steps, spikes, 144 decor quads. A wrong-way scarecrow and a horseshoe on the spawn roof are already painted. The lying path is painted and is not yet a collider. That gap is still traversal with the kit he has. Crumbling planters stay a possible later pass.
+**What the level already is.** Dressed as the sunny farm: roofs at different heights, a hop, a 128 px dash gap, a vertical lift, a drop, one-way steps, spikes, 145 decor quads. A wrong-way scarecrow and a horseshoe on the spawn roof are already painted. The lying path is a rope bridge painted across the 128 px pit. Walking it falls. The dash is the true landing. Tikbalang-X is the boss on the last roof. Crumbling planters stay a possible later pass.
 
 **Boss.** Tikbalang-X (canon). [Issue #21](https://github.com/kzap/batoman-game/issues/21) makes the shipped sheet the look: a riveted mechanical horse, not the bipedal skull-head in the old ART row. **Proposal for the behaviour, on the clips that horse already has** (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`):
 
@@ -189,7 +189,7 @@ A short list, using only powerups the PRD already named. None of them solves the
 
 Said plainly.
 
-**Already on `v2`.** `level-1` is dressed and bossed. `level-4` is dressed and still has no boss; Andre has since confirmed that boss is Manananggal-7. `level-6` is dressed as the sunny farm. The tikbalang spawn still has no behaviour, the painted lying path is not a collider, and the music is still the Tondo track. `level-3` has source art and still plays grey-box. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
+**Already on `v2`.** `level-1` is dressed and bossed. `level-4` is dressed and still has no boss; Andre has since confirmed that boss is Manananggal-7. `level-6` is dressed as the sunny farm. The lying path is a rope bridge over the pit at x 1248, and the music is still the Tondo track. `level-3` has source art and still plays grey-box. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
 
 **What this review still requires.** A boss on every level. `level-3`, `level-4`, and `level-6` do not have one.
 

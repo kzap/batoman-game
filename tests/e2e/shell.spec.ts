@@ -67,7 +67,7 @@ test.describe('shell', () => {
   });
 
   test('intro card, pause freezes the sim, resume continues, quit returns to the title', async ({ page }) => {
-    await page.goto(withLockstep('/'));
+    await page.goto(withLockstep('/?cutscene=0'));
     await ready(page);
     await page.keyboard.press('Enter'); // Start game
     await screen(page, 'intro');
@@ -156,7 +156,7 @@ test.describe('shell', () => {
 
   test('full loop: title -> four levels -> credits, unlocking as it goes', async ({ page }) => {
     test.setTimeout(120_000);
-    await page.goto(withLockstep('/'));
+    await page.goto(withLockstep('/?cutscene=0'));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
@@ -202,7 +202,7 @@ test.describe('shell', () => {
 
   test('controls: rebind jump, persist across reload, reset to defaults', async ({ page }) => {
     test.setTimeout(60_000);
-    await page.goto('/');
+    await page.goto('/?cutscene=0');
     await ready(page);
     await page.keyboard.press('ArrowUp');
     await page.keyboard.press('Enter');

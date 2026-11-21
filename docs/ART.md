@@ -186,7 +186,9 @@ The shipped sheet is `art-source/characters/sigbin-sprites.png` (atlas `sigbin`)
 
 ---
 
-### Manananggal-7 (Level 9 — Arcology Atrium)
+### Manananggal-7 (Level 4 — NSA Tower Exterior)
+
+The fight is on `level-4`. The packed sheet is not in the tree yet (served-cap call, issue #53). The sim draws the patroller sheet at 1.8× in warm red, and boxes for the planted half, the perch cable, and the wing shadow. This row is the sheet Sining still owes. The arcology atrium is not this level.
 **Mythological basis:** Manananggal — winged vampire that separates its upper body to fly
 
 | Aspect | Design |
@@ -388,7 +390,7 @@ The HUD should feel like it's **Ando's own cobbled-together tech**, not NSA-clea
 ---
 
 ## Out of Scope (v0.1)
-- Animated cutscene art (story beats use static portrait + text)
-- Dr. Epal playable sprite (cutscene portrait only)
+- Animated cutscene art (level intros reuse packed atlases or typography-only nameplates; static portrait + text)
+- Dr. Epal playable sprite (cutscene portrait only; typography-only until a portrait ships)
 - Full controller UI iconography
 - Localization font variants

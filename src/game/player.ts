@@ -56,6 +56,12 @@ export class Player {
 
   /** Set by the World's damage system; blocks input while positive. */
   hurtStun = 0;
+  /**
+   * While set, a leftward knockback stops at this x instead of crossing it.
+   * The World arms it only for a hit taken standing on a roof lip, and clears
+   * it when that slide ends. A body already past the line is left where it is.
+   */
+  knockbackMinX: number | null = null;
   dead = false;
 
   constructor(x: number, y: number) {
@@ -131,6 +137,7 @@ export class Player {
     this.chargeTicks = -1;
     this.dropTicks = 0;
     this.hurtStun = 0;
+    this.knockbackMinX = null;
     this.dead = false;
   }
 
@@ -222,6 +229,7 @@ export class Player {
     }
 
     // Integrate. Collisions zero the velocity on that axis.
+    this.clampKnockback(dt);
     const hitWall = cw.moveX(b, this.vx * dt, () => (this.vx = 0));
     if (hitWall && this.dashing) this.dashTicks = 1; // end the dash next tick
     // Pushing into a wall at sub-pixel speed never triggers a move; report it as stopped anyway.
@@ -232,6 +240,19 @@ export class Player {
       ignoreOneWay: this.dropTicks > 0,
     });
     return actions;
+  }
+
+  /**
+   * A knockback may not step past `knockbackMinX`. The crossing step is dropped,
+   * so the body stops on the safe side of the line. Nothing here writes `x`.
+   */
+  private clampKnockback(dt: number): void {
+    const stop = this.knockbackMinX;
+    if (stop === null || this.vx >= 0) return;
+    const amount = this.vx * dt;
+    const move = Math.round(this.body.rx + amount);
+    if (this.body.x + move >= stop) return;
+    this.vx = 0;
   }
 
   private updateCrouch(down: boolean, cw: CollisionWorld): void {

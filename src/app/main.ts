@@ -3,6 +3,7 @@ import { HttpAssetSource, loadAssets } from '@render/assets';
 import { App, installHooks, postOptionsFromQuery } from './app';
 import { lockstepFromQuery } from './lockstep';
 import { GameAudio } from './audio';
+import { cutscenesEnabledFromQuery } from './shell/cutscene';
 import { Overlay } from './shell/overlay';
 import { resolveUnlockAll } from './shell/progression';
 import { reduceMotionQuery } from './shell/save';
@@ -50,6 +51,8 @@ async function boot(): Promise<void> {
   const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage, {
     reduceMotion: reduceMotionQuery(location.search),
     unlockAll: resolveUnlockAll(import.meta.env.VITE_UNLOCK_ALL_LEVELS, location.search),
+    // Deep links already skip the intro card; `?cutscene=0` skips dialog on the title path.
+    cutscenes: !direct && cutscenesEnabledFromQuery(location.search),
   });
   app.start();
   shell.start(direct ? levelId : null);
