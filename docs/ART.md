@@ -193,12 +193,14 @@ The fight is on `level-4`. The packed sheet is not in the tree yet (served-cap c
 
 | Aspect | Design |
 |--------|--------|
-| Form | Phase 1 — full humanoid, elegant and almost beautiful; Phase 2 — upper torso tears free and flies, trailing severed cable/viscera; lower half remains standing and attacks separately |
-| Size | 64×128 px (full); 64×72 px (upper); 48×64 px (lower) |
-| Materials | Sleek white NSA-grade chassis with gold trim — designed to look authoritative, not monstrous, until it splits |
-| Signature effect | Split event — dramatic screen flash, upper half levitates; lower half sprouts blade legs |
-| Vulnerable state | Lower half: expose the power conduit between the split. Upper half: cracked chest panel. The shared weak-point diamond is drawn on the exposed conduit |
-| Environment blend | Atrium setting — flies between elegant columns; light plays off white chassis |
+| Form | Phase 1 — the whole unit, a skull-headed mechanical torso with salvaged titanium bat-membrane wings docked onto a squat hydraulic walker. Phase 2 — the upper half tears free and flies, trailing a warm-red plasma-cable spine; the lower half stays planted on a balcony already passed and claws from the perch. Phase 3 — the flyer alone, once the balcony half is destroyed (the folk rule: destroy the base first) |
+| Size | About half the 672×378 screen height for the assembled unit, matching the Sigbin convention (source planted at about 376 px, packed at scale 0.5, rendered at ENEMY_LOOK scale 2). The flyer keeps that wingspan with a trailing spine; the planted lower half is shorter, about 100 px sim-tall |
+| Materials | Pewter and gunmetal chassis, rust and gold-warm highlights, dark brown bat membranes edged in crimson. A warm-red shape against the sunlit sunset city, not a spooky silhouette. Brightest element: glowing magenta `#ff2d78` eyes, plus a circular magenta shoulder core. No painted weak-point diamond; the renderer draws the shared magenta diamond with a white outline |
+| Signature effect | The split: the waist clamp opens, cables stretch and tear, the flyer lifts off, the walker is left with a steaming open socket. Early hints on the climb are a wing shadow on the tower face, a dropped hydraulic cable and scratched perch plate on the mid balcony, and a status light that reads `07` |
+| Vulnerable state | The shared weak-point overlay appears during the stun window. Recover frames may open a hatch or socket; they do not paint the diamond. Lower half: expose the power conduit between the split. Upper half: cracked chest panel. The shared weak-point diamond is drawn on the exposed conduit |
+| Environment blend | Posted on the NSA tower face at sunset. NSA cyan stays on the tower; the unit is the warm-red machine against that sky |
+| Music | `level-4` / "Tower Pulse": a 76.8 s loop (kulintang-like gongs, pulse bass, city-noise bed) that lifts a high gong layer mid-cue, in place of the Divisoria stand-in |
+| Sheet | `art-source/characters/manananggal-sprites.png` (`manananggal` atlas). Clips: `idle`, `move`, `shoot`, `split`, `hurt`, `death`, `fly`, `upper_shoot`, `lower_idle`, `lower_shoot`, `lower_death`. Frames face right |
 
 ---
 
@@ -267,7 +269,7 @@ Each level uses 4 background layers at different scroll speeds:
 | Structures | Rusted highway wall and corrugated scaffolds; NSA cyan on the tower itself |
 | Lighting sources | The sun, status LEDs, window-light, warm city haze |
 | Dominant colors | Sunset amber, rust, NSA cyan, the city's warm haze |
-| Ambient detail | NSA logo on every surface, security cameras, air conditioning units, window-washing drone rigs |
+| Ambient detail | NSA logo on every surface, security cameras, air conditioning units, window-washing drone rigs. Early Manananggal-7 hints: a wing shadow on the first shaft, a `07` status light, a dropped cable and a scratched perch plate on the mid balcony |
 
 #### Level 5 — Skyway Traffic
 | Element | Detail |

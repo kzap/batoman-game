@@ -142,7 +142,11 @@
       { "prop": "tires", "x": 1120, "y": 448 },
       { "prop": "barrels", "x": 1300, "y": 1408 },
       { "prop": "tires", "x": 1420, "y": 1408, "flip": true },
-      { "prop": "gantry", "x": 1568, "y": 1408, "w": 96, "h": 176 }
+      { "prop": "gantry", "x": 1568, "y": 1408, "w": 96, "h": 176 },
+      { "prop": "wing_shadow", "x": 1224, "y": 248, "w": 220, "h": 148, "layer": "wall" },
+      { "prop": "unit_light", "x": 1188, "y": 576, "w": 52, "h": 40, "layer": "wall" },
+      { "prop": "perch_scrape", "x": 980, "y": 832, "w": 120, "h": 62 },
+      { "prop": "dropped_cable", "x": 1088, "y": 832, "w": 92, "h": 96 }
     ]
   }
 }
