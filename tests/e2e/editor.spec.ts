@@ -85,10 +85,10 @@ test.describe('level editor (?edit=1)', () => {
     expect(back.errors).toEqual([]);
   });
 
-  test('a level without art opens with an empty palette and still edits', async ({ page }) => {
+  test('a dressed level opens with its prop palette and still edits', async ({ page }) => {
     await page.goto('/?edit=1&level=level-3');
     await editorReady(page);
-    await expect(page.locator('.editor-palette')).toContainText('no prop atlas');
+    await expect(page.locator('.editor-palette')).toContainText('hint_prints');
     await page.keyboard.press('Digit2'); // one-way
     await page.mouse.move(500, 400);
     await page.mouse.down();

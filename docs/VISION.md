@@ -54,7 +54,7 @@ Verified on `v2` against `src/content`, `src/game/enemies`, and `art-source/`:
 | Content id | State | Boss today |
 |---|---|---|
 | `level-1` | Dressed, 6400×768. Patrollers and drones. | ASWANG prototype, playable. Bursts, a rush that ends stunned with the weak point open, then drones. HUD: "ASWANG PROTOTYPE". |
-| `level-3` | Still plays grey-box, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. Source art is now in `art-source/level-3/` (nave and chapel backdrops, a props recipe) and is not wired: the level JSON has no `art` block. | None placed. The Sigbin Unit is the boss. |
+| `level-3` | Dressed, 3584×1024. One stealth, one drone, one patroller. Crusher, spikes, flood pit, one-way shaft. `nave`/`chapel` backdrops and props are wired, with `midFloorY` 448 and early Sigbin hints (prints, eyes, a silhouette in the flood). | None placed. The Sigbin Unit is the boss. |
 | `level-4` | Dressed, 1600×1664, vertical. Patrollers, drones, one stealth. Enemies ignore him on another storey. | None yet. Andre confirmed Manananggal-7. The exit opens today because the sim treats a missing boss as a clear. |
 | `level-6` | Dressed sunny farm, 4480×896, 144 decor quads, far `sky` and a mirrored `garden` mid. Drone, patroller, a `tikbalang` spawn. The painted lying path is not a collider. Music is still the Tondo track. | The horse sheet exists (`idle`, `run`, `stomp`, `hurt`, `death`, `projectile`) and the renderer has a look. `spawnEnemy` returns null, so the horse is not created and not drawn. |
 
@@ -110,7 +110,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **Folded in.** One sealed niche, opened by the nova and not by a tap, holding the list. That is Divisoria's lock, used once, so the stealth level still has a single aimed shot. It is not a market, and it is not the exam.
 
-**Music and look.** **Proposal:** a new cue. The Divisoria track on this level today is the wrong district. Direction: a slow procession drum, candle-crackle, the drum phrase played quietly backwards as the sigbin's tell. Look stays the dark chapel: indigo, candle gold, teal water in the nave. Dressing waits on source art. The painting is the mood of the flooded main space.
+**Music and look.** **Proposal:** a new cue. The Divisoria track on this level today is the wrong district. Direction: a slow procession drum, candle-crackle, the drum phrase played quietly backwards as the sigbin's tell. Look stays the dark chapel: indigo, candle gold, teal water in the nave. The flooded nave is dressed, with a drier altar in the gallery. The painting is the mood of the flooded main space.
 
 ### 3 — NSA Tower Exterior
 
@@ -189,13 +189,13 @@ A short list, using only powerups the PRD already named. None of them solves the
 
 Said plainly.
 
-**Already on `v2`.** `level-1` is dressed and bossed. `level-4` is dressed and still has no boss; Andre has since confirmed that boss is Manananggal-7. `level-6` is dressed as the sunny farm. The tikbalang spawn still has no behaviour, the painted lying path is not a collider, and the music is still the Tondo track. `level-3` has source art and still plays grey-box. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
+**Already on `v2`.** `level-1` is dressed and bossed. `level-4` is dressed and still has no boss; Andre has since confirmed that boss is Manananggal-7. `level-6` is dressed as the sunny farm. The tikbalang spawn still has no behaviour, the painted lying path is not a collider, and the music is still the Tondo track. `level-3` is dressed, with early Sigbin hints in the flood. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
 
 **What this review still requires.** A boss on every level. `level-3`, `level-4`, and `level-6` do not have one.
 
 **What this document does not decide.** Whether those bosses are inside the rest of v0.2. The two readings:
 
-- **Stay.** Wire Level 3's art into the level, build the tikbalang fight, and finish whatever Phase 8 still has open. The Sigbin and Manananggal-7 are the next milestone. The finale waits until the four existing levels each end on a boss.
+- **Stay.** Level 3 is dressed. Build the tikbalang fight, and finish whatever Phase 8 still has open. The Sigbin and Manananggal-7 are the next milestone. The finale waits until the four existing levels each end on a boss.
 - **Grow.** Those same tasks, plus the Sigbin Unit and Manananggal-7, so the four levels in the game are finished boss levels before anyone starts the fifth.
 
 The finale is in neither reading. It is new, and it is after. Powerups, wind, the rising water line, the nova-lock niche, and crumbling planters are not pulled forward by this page.
@@ -222,4 +222,4 @@ Possible later, only if the five-level game is finished and someone still wants 
 
 Andre's direction closed the level count, the bossless tower, and the demand for distinct challenges. He has since confirmed Manananggal-7 as the `level-4` boss. The hangar fighter stays unused. The climb exam does not change: he has to go back down for the half that stays planted.
 
-1. **v0.2.** Stay with wiring Level 3's art, the tikbalang fight, and the remainder of Phase 8, or grow to include the Sigbin and Manananggal-7 before the finale?
+1. **v0.2.** Stay with the tikbalang fight and the remainder of Phase 8, or grow to include the Sigbin and Manananggal-7 before the finale?

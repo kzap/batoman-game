@@ -65,4 +65,11 @@ describe('backdropPlacement', () => {
     expect(backdropPlacement('far', level1, aspect).mirrored).toBe(true);
     expect(backdropPlacement('mid', level1, aspect).mirrored).toBe(false);
   });
+
+  it('honours a lower mid floor so a nave can sit below the spawn ledge', () => {
+    const high = backdropPlacement('mid', { width: 3584, height: 1024, floorY: 704 }, aspect);
+    const low = backdropPlacement('mid', { width: 3584, height: 1024, floorY: 448 }, aspect);
+    expect(low.y).toBeLessThan(high.y);
+    expect(high.y - low.y).toBeCloseTo(toUnits(704 - 448) * ((LENS.distance - high.z) / LENS.distance), 5);
+  });
 });

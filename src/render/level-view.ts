@@ -100,13 +100,19 @@ export class LevelView {
     for (const c of level.checkpoints) beam(c, PALETTE.warmAmber);
     beam(level.exit, PALETTE.neonCyan);
     for (const r of level.deathZones) this.plane(r, glow(PALETTE.bioTeal, 0.18), ZONE_Z.deathZone);
-    const spikes = this.material(new MeshBasicMaterial({ color: PALETTE.neonMagenta }));
-    const crusher = this.material(new MeshStandardMaterial({ color: 0xaa2222, roughness: 0.6 }));
+    // Dressed levels paint crushers, spikes and flood themselves. The solid
+    // magenta spike bar and red crusher box sit at Z>=0 and would cover that
+    // art, so keep only a soft glow and park it behind the prop layer.
+    const dressed = Boolean(level.art);
+    const hazardGlowZ = dressed ? -0.55 : ZONE_Z.spikes;
+    const spikes = dressed ? null : this.material(new MeshBasicMaterial({ color: PALETTE.neonMagenta }));
+    const crusher = dressed ? null : this.material(new MeshStandardMaterial({ color: 0xaa2222, roughness: 0.6 }));
     for (const h of level.hazards) {
       if (h.kind === 'spikes') {
-        this.plane(h, glow(PALETTE.neonMagenta, 0.3), ZONE_Z.spikes);
-        this.box({ x: h.x, y: h.y + h.h - 3, w: h.w, h: 3 }, spikes, 0.4, ZONE_Z.spikes);
-      } else this.box(h, crusher, 1, 0);
+        this.plane(h, glow(PALETTE.neonMagenta, dressed ? 0.2 : 0.3), hazardGlowZ);
+        if (spikes) this.box({ x: h.x, y: h.y + h.h - 3, w: h.w, h: 3 }, spikes, 0.4, ZONE_Z.spikes);
+      } else if (crusher) this.box(h, crusher, 1, 0);
+      else this.plane(h, glow(0xaa2222, 0.2), hazardGlowZ);
     }
   }
 
@@ -184,7 +190,7 @@ export class LevelView {
   }
 
   private backdrop(slot: BackdropSlot, tex: Texture, meta: BackdropMeta, level: LevelJson): void {
-    const p = backdropPlacement(slot, { width: level.width, height: level.height, floorY: level.spawn.y }, meta.width / meta.height);
+    const p = backdropPlacement(slot, { width: level.width, height: level.height, floorY: level.art?.midFloorY ?? level.spawn.y }, meta.width / meta.height);
     const band = backdropContentBand(p, meta.height, meta.content.y, meta.content.h);
     const tiles = backdropTiles(p, layerViewWidth(p.z), band);
     if (tiles.length === 0) return;

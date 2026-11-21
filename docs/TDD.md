@@ -378,7 +378,7 @@ top-left up to `player.maxHp`, with lost ones greyed and a short wobble (`hud-he
 that just raised the cap (the wobble is dropped while `html[data-reduce-motion='on']`), lives, the six-digit score top-right, and the boss bar bottom-centre while
 `boss.engaged`; it rebuilds its DOM only when one of those values changes.
 
-Level 3 stays grey-box and Level 6 is dressed (section 8). The title, level select and game over cards are text
+Level 3 and Level 6 are dressed (section 8). The title, level select and game over cards are text
 (ART.md's silhouettes, thumbnails and salakot need art that does not exist yet); the results card does not
 yet dim or tally (Phase 8 polish).
 
@@ -600,12 +600,14 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 | Level | Name | Size | Contents |
 |---|---|---|---|
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
-| `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
+| `level-3` | Quiapo Underground Chapel | 3584x1024 | Entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Dressed: `level-3-props`, far `nave` and mid `chapel`, `midFloorY` 448 so the chapel band stands on the nave rather than the spawn ledge, 77 decor quads (platforms, pews, santos, votives, painted spikes, backward prints, eyes in the dark, a Sigbin silhouette in the flood). Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100 |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
-Level 3 has source art in `art-source/level-3/` (`nave` and `chapel` backdrops, plus a props recipe) and still
-no `art` block, so it renders as grey boxes until it is dressed. Level 6 is dressed from
+Level 3 is dressed from `art-source/level-3/` (`nave` and `chapel` backdrops, a props recipe, and an `art`
+block with `midFloorY` 448). The mid chapel band stands on the nave floor, 256 px below the entrance
+ledge that `spawn.y` would otherwise pin it to. Engine spike and crusher placeholders are withheld when
+art is present so they do not cover the painted props; a soft glow remains behind the prop layer. Level 6 is dressed from
 `art-source/level-6/` in the Level 1 inked-painterly style, relit as a sunny rooftop farm: `sky` and
 `garden` backdrops and 144 decor quads. Geometry is still the Phase 5 block-out, so the painted lying path
 between roofs is not solid. The tikbalang at 4100 is the scout: it burst-chases and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
@@ -615,7 +617,8 @@ killable from a spot the player reaches before entering its sight range, with no
 patroller behind a hop block cannot be shot from the ground, and one that sees a pit jump lands a free hit).
 
 `art` (`src/content/level-art.ts`, `LevelArtJson`) is presentation only; the sim never reads it.
-`props` names the prop atlas, `backdrops` maps the `far` and `mid` slots to backdrop file stems, and `decor`
+`props` names the prop atlas, `backdrops` maps the `far` and `mid` slots to backdrop file stems, optional
+`midFloorY` is the sim-pixel floor the mid layer stands on (default: the spawn floor), and `decor`
 lists quads: `{ prop, x, y, w?, h?, flip?, layer? }` with `x, y` in sim pixels at the frame's pivot
 (bottom centre), an optional `w` or `h` that scales keeping aspect, and `layer` in `wall | prop | front`
 (default `prop`). `levelArtProblems()` checks shapes and keeps positions within one level width of the
@@ -710,8 +713,8 @@ to engage (HUD bar), show the weak-point diamond (`hooks.weakPoint`, screenshot 
 reach phase 3 and die (bar gone), and requires the browser build to finish on the same
 tick, hp and x as the headless replay (`hooks.enemies`, `hooks.boss`, `hooks.entities` publish the
 snapshot's enemy list, boss bar state and sprite count), then the results card and Enter moving on to
-Level 3; the same load-and-replay check runs for `level-3` through
-`?level=`, and dressed variants for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
+Level 3; the same load-and-replay check runs as a dressed variant for `level-3` (asserts its atlas and
+both `nave`/`chapel` backdrops arrive, screenshots the nave, the water crossing and the gallery), and dressed variants for `level-4` (asserts its atlas and both backdrops arrive, screenshots the
 first balcony, the lift and the roof) and `level-6` (atlas plus `sky` and `garden`, screenshots the start,
 the lift, the checkpoint roof and the last roof), plus a check that an unknown id is a boot error. The shell's
 full-loop test plays all four fixtures in manifest order (1, 3, 4, 6) to the credits. Screenshots are artefacts for eyes, not pixel-compared baselines: software GL

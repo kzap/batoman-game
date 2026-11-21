@@ -25,7 +25,7 @@ export interface BackdropPlacement {
 interface LevelDims {
   readonly width: number;
   readonly height: number;
-  /** Y of the floor the mid layer appears to stand on (sim px); the level's spawn floor. */
+  /** Y of the floor the mid layer appears to stand on (sim px). Defaults to the spawn floor; a level may set art.midFloorY. */
   readonly floorY: number;
 }
 
