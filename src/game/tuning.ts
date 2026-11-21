@@ -3,6 +3,18 @@
  * One object so the whole feel can be diffed in a PR; the renderer never reads
  * these. Numbers are for a 24 x 48 player against 32 px tiles.
  */
+/**
+ * Pickups. The hitbox is the rect in the level file (like a hazard); the
+ * numbers here are the effect. A timed pickup (invincibility) would add its
+ * duration beside `hpUp` and a kind in `applyPickup`, not a new loop.
+ */
+export const PICKUP = {
+  hpUp: {
+    /** Added to both max HP and current HP. Current is clamped to the new max. */
+    hearts: 1,
+  },
+} as const;
+
 export const PLAYER = {
   width: 24,
   height: 48,

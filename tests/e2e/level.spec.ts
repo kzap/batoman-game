@@ -156,6 +156,25 @@ test.describe('level 1', () => {
     expect((await hooks(page)).simTicks).toBeLessThan(200);
     expect((await hooks(page)).errors).toEqual([]);
   });
+
+  test('collecting the HP Up draws the extra heart', async ({ page }) => {
+    const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-1-hp-up.json'), 'utf8')) as Fixture;
+    await page.goto(withLockstep('/?level=level-1'));
+    await ready(page);
+    await expect(page.locator('.hud-heart')).toHaveCount(3);
+    await expect(page.locator('.hud-heart-gained')).toHaveCount(0);
+    await page.evaluate((f) => window.__batoman!.replay!(f), fixture);
+    await advance(page, fixture.expect.ticks);
+    await expect(page.locator('.hud-heart')).toHaveCount(4);
+    await expect(page.locator('.hud-heart-lost')).toHaveCount(0);
+    await expect(page.locator('.hud-heart-gained')).toHaveCount(1);
+    const h = await hooks(page);
+    expect(h.simTicks).toBe(fixture.expect.ticks);
+    expect(h.player.hp).toBe(4);
+    expect(h.player.maxHp).toBe(4);
+    expect(h.errors).toEqual([]);
+    await page.screenshot({ path: resolve(SHOTS, 'level-1-hp-up.png') });
+  });
 });
 
 test.describe('other levels', () => {
