@@ -685,8 +685,8 @@ in sequence, then a reload showing every level unlocked with best times), `a11y.
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
 `?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that
-the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
-3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
+the art requests (atlases, backdrops) all succeed, a frame-time budget (fps > 1 and ticks/s > 4 over
+3 s of running under software GL; dropped frames are recorded with no cap, and the measured value is logged), screenshots
 written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with the debug overlay and HUD
 asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
 checks six enemies and the dormant boss are live sprites from the first frame, screenshots the first
@@ -716,8 +716,11 @@ fresh document still includes a stall). `?post=0` stayed at about 2.5 fps on bot
 MSAA back on, and the backdrop work is not what it is waiting on. A mid-laptop 60 fps figure was not taken:
 this environment has no discrete or integrated GPU to sample.
 
-CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
-uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally. On a pull
+CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then `npm run build:e2e`
+(`VITE_E2E_LOCKSTEP=1`) and upload that `dist/`. Playwright e2e (`npm run test:e2e`) and the blocking perf job
+(`npm run test:e2e:perf`) run on that artefact and do not rebuild. The perf job writes a job summary and uploads
+`perf-results.json`. Locally the e2e gate needs `npm run build:e2e` before `npm run test:e2e`; `npm run build` omits
+`VITE_E2E_LOCKSTEP=1`. On a pull
 request, `changes` skips those jobs and the Playwright perf job when every path is documentation (`*.md`, `docs/`, `.claude/`, or the PR template).
 A push to `v2` or `main`, and `workflow_dispatch`, run every job. Require `ci-gate`: it passes when each needed job
 succeeded or was skipped, and fails when one failed or was cancelled.
