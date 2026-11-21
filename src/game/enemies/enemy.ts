@@ -16,8 +16,8 @@ export interface Hurtbox {
   readonly core: AABB | null;
 }
 
-/** Poses the renderer maps to clips. `windup`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
-export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'rush' | 'stunned' | 'shift';
+/** Poses the renderer maps to clips. `windup`, `commit`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
+export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'commit' | 'rush' | 'stunned' | 'shift';
 
 export interface EnemySnapshot {
   readonly id: number;

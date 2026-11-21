@@ -12,6 +12,7 @@ type State =
   | 'dormant'
   | 'perch'
   | 'windup'
+  | 'commit'
   | 'sweep'
   | 'exposed'
   | 'shift'
@@ -94,7 +95,21 @@ export class Manananggal extends BossUnit {
           update: (ctx, ticks) => {
             if (this.phases.pending) return 'shift';
             this.facePlayer(ctx);
-            return ticks >= M.windupTicks ? 'sweep' : undefined;
+            return ticks >= M.windupTicks - M.commitTicks ? 'commit' : undefined;
+          },
+        },
+        commit: {
+          enter: (ctx) => {
+            this.vx = 0;
+            this.facePlayer(ctx);
+          },
+          update: (ctx, ticks) => {
+            if (this.phases.pending) return 'shift';
+            this.facePlayer(ctx);
+            // `ticks` counts finished updates. Leaving at commitTicks - 1 makes
+            // the pose last commitTicks snapshots and keeps the sweep on the
+            // same tick as the old 48-tick tell.
+            return ticks >= M.commitTicks - 1 ? 'sweep' : undefined;
           },
         },
         sweep: {
@@ -181,11 +196,14 @@ export class Manananggal extends BossUnit {
           },
           update: (ctx, ticks) => {
             this.facing = this.diveDir;
-            this.walk(ctx.cw, this.diveDir, M.diveSpeed);
+            const blocked = this.walk(ctx.cw, this.diveDir, M.diveSpeed);
             this.clampX(ctx);
             const traveled = this.diveDir > 0 ? this.body.x - this.diveStartX : this.diveStartX - this.body.x;
             const goal = Math.abs(this.diveTargetX - (this.diveStartX + this.body.w / 2)) + M.divePast;
-            if (traveled >= goal || ticks >= M.diveTicks) {
+            // A lip wall stops the body. End once the leading edge has reached the locked player.
+            const leading = this.diveDir > 0 ? this.body.right : this.body.x;
+            const reached = this.diveDir > 0 ? leading >= this.diveTargetX : leading <= this.diveTargetX;
+            if (traveled >= goal || (blocked && reached) || ticks >= M.diveTicks) {
               if (this.phases.pending) return 'shift';
               return this.phases.index === 1 ? 'return' : 'punish';
             }
@@ -334,6 +352,8 @@ export class Manananggal extends BossUnit {
       case 'windup':
       case 'diveWindup':
         return 'windup';
+      case 'commit':
+        return 'commit';
       case 'baseTell':
         return 'shoot';
       case 'sweep':

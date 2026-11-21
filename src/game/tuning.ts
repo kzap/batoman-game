@@ -366,7 +366,7 @@ export const SIGBIN = {
  * damage stops on the current threshold until the shift.
  *
  * The perch offsets are Level 4's second balcony relative to a roof spawn at
- * (1280, 1408): (960, 832). The anchor is the shaft the flyer returns to.
+ * (1280, 1408): (1000, 832). The anchor is the shaft the flyer returns to.
  */
 export const MANANANGGAL = {
   width: 64,
@@ -383,6 +383,12 @@ export const MANANANGGAL = {
   /** Still on the perch before the first tell, and between sweeps. */
   idleTicks: 24,
   windupTicks: 48,
+  /**
+   * Last ticks of the sweep tell. Pose `commit` (the shoot clip) so render and
+   * audio can mark the jump. A jump on the first wind-up frame lands in the
+   * sweep; a jump as this beat starts clears the 44 px body.
+   */
+  commitTicks: 12,
   /** Same speed family as the ASWANG rush, so a jump 0.2 s before contact clears it. */
   sweepSpeed: 420,
   /** Low enough that a full jump's feet clear it. Standing in the path does not. */
@@ -408,7 +414,12 @@ export const MANANANGGAL = {
   diveWindupTicks: 56,
   diveSpeed: 420,
   diveHeight: 36,
-  diveTicks: 80,
+  /**
+   * Safety cap, not the dive's length. The dive ends once it has passed the
+   * locked target by `divePast`. 420 px/s for 320 ticks is 1120 px, so from the
+   * shaft (body x 688) the right edge clears the roof lip at 1600 with margin.
+   */
+  diveTicks: 320,
   /** How far past the locked player x the dive travels before it ends. */
   divePast: 56,
   returnSpeed: 360,

@@ -121,7 +121,7 @@ face, fire once `shotWindupTicks` in, hold as long again, arm the cooldown) and 
 with the knockback decaying by `ENEMY.knockbackDecay`, then resume with the cooldown restarted); a hit
 interrupts a shooter into `hurt`. The tikbalang's chase and stomp do not flinch. Ground enemies fall under
 `ENEMY.gravity`. Poses
-(`idle | move | shoot | hurt | death | cloaked | windup | rush | stunned | shift`) are what the renderer maps
+(`idle | move | shoot | hurt | death | cloaked | windup | commit | rush | stunned | shift`) are what the renderer maps
 to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 
 | Type | Sheet | Behaviour |
@@ -156,14 +156,17 @@ Manananggal-7 (`manananggal.ts`, tuning `MANANANGGAL`) is the Level 4 boss, on t
 (`boss-kit.ts`: `PhaseGate`, `coreRect`, `exposedMultiplier`, `exposedOnlyDamage`). It stands on the roof
 at (1280, 1408) and stays dormant until the player is grounded there, within 420 px and 40 px of that
 floor. A jump that is still above the roof does not start the tell. Phase 1 (24–17 hp) waits 24 ticks,
-wind-up 48, then a low sweep at 420 px/s with the body cut to 44 px so a jump 0.2 s before contact clears
-it. Standing in the path does not. The chest core (in the standing plasma line) takes 2× during the
+then the sweep tell. Its last 12 ticks are `commit` (the shoot clip), the jump beat. A jump on the first
+wind-up frame lands in the sweep; a jump as `commit` starts clears it.
+The sweep is 420 px/s with the body cut to 44 px. Standing in the path does not clear it. The chest core (in the standing plasma line) takes 2× during the
 140-tick exposed window; body hits still count. Damage stops on the phase threshold, so one hit cannot
 skip the split. The shift is 72 invulnerable ticks. Phase 2 plants the lower half on the balcony already
 passed (1000, 832). Shots on the flyer deal 0 and, after the opening hover, send it back to the shaft
 anchor (720, 1000). The opening hover is 640 ticks so the climb back down finishes before the first dive.
 The planted half then telegraphs one horizontal shot; only a conduit hit during the following 170-tick
-window deals damage, at 2×. Phase 3 removes the half. The flyer dives, then the chest core is the only
+window deals damage, at 2×. If the return has not reached the anchor after 100 ticks, that window opens
+anyway. Phase 3 removes the half. The flyer dives the distance to the locked player plus 56 px (capped at
+320 ticks, 1120 px, so a player anywhere on the roof is in the path), then the chest core is the only
 hit, at 2×, until it dies. The exit stays shut through the 160-tick death clip (`releasesExit` once the
 body is gone). The ASWANG exit still opens on the killing tick. Before the fight a wing shadow sweeps the
 first shaft and a cable mark sits on the perch. Both are sim rects. The sheet is still the patroller
@@ -317,7 +320,7 @@ is one table, `ENEMY_LOOK` in `assets.ts`: sheet, scale, tint, pivot (drones piv
 way the painted frames face (patroller and tikbalang right, drone left; the view mirrors to the sim's
 facing) and the clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look
 at 1.6x with a lilac tint. Manananggal-7 is the same sheet at 1.8× tinted warm red (`#ff5a3c`). Its planted half, perch cable, and wing shadow are coloured boxes until the sheet exists. A body shorter than the full 112 px (the sweep, the dive, the flyer) is fitted to the live height, the same way the tikbalang lunge is. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
-`stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
+`commit` plays the shoot clip, `stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
 dropped enemies go to a per-type free list and are reused. The boss core sits on `BossSnapshot.weakPoint`
 and is shown only while `exposed` and `hp > 0`. It is a diamond, not the round plasma orb: an additive
 magenta (`#ff2d78`) fill plus a larger white (`#ffffff`) outline, both from `weakPointDiamond` in
@@ -638,7 +641,7 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 |---|---|---|---|
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100, the `sigbin` boss at 3424 on the gallery (the exit stays shut until it dies). No new arena walls; the existing gallery floor is the fight. |
-| `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony, the `manananggal` boss at 1280 on the roof. The exit stays shut until the death clip ends. The clear route kills the whole body, drops back to the second balcony for the planted half, kills the flyer, then climbs to the exit |
+| `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, a 16×128 parapet at x 1584 so a knockback at the right lip cannot walk off, the exit at the far right of the roof. The left lip (x 1152) still drops onto the shaft rungs. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony, the `manananggal` boss at 1280 on the roof. The exit stays shut until the death clip ends. The clear route kills the whole body, drops back to the second balcony for the planted half, kills the flyer, then climbs to the exit |
 | `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
 Level 3 has source art in `art-source/level-3/` (`nave` and `chapel` backdrops, plus a props recipe) and still
