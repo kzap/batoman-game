@@ -704,7 +704,7 @@ to `dist/` and fails on any breach of `BUDGET`:
 
 | Budget | Ceiling |
 |---|---|
-| Total served (excluding source maps) | 12 MB |
+| Total served (excluding source maps) | 20 MB |
 | JS + CSS | 900 KB |
 | Single image | 1.5 MB |
 | Single audio | 6 MB |

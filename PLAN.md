@@ -6,7 +6,7 @@ Level 3 has source art (#32) and its level JSON is still grey-box. The playtest 
 and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
 
 The game is five levels, one themed boss each, as set out in `docs/VISION.md` (#25, now on `v2`). The tree
-today ships four level files. The finale is the fifth, not built yet.
+today ships four level files. The finale is the fifth, not built yet. The plan for it is [docs/FINALE.md](docs/FINALE.md) (#51).
 
 | Order | Id | Boss | Where it stands |
 |---|---|---|---|
@@ -16,12 +16,9 @@ today ships four level files. The finale is the fifth, not built yet.
 | 4 Rooftop garden | `level-6` | Tikbalang-X | Dressed. Scout AI landed in #26. The boss is unbuilt |
 | 5 Destroyed block | proposed `level-5` | Bakunawa-Prime | Not in the tree |
 
-Whether v0.2 grows to include the unbuilt bosses is still an open question for Andre.
+Andre's decision on [#51](https://github.com/kzap/batoman-game/issues/51): build Level 5 now, as part of finishing the levels. The caps are 900 KB code and 20 MB served ([#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819), #54 at `44c4288`). The plan is [docs/FINALE.md](docs/FINALE.md).
 
-Priority until that call: dress Level 3 (#14) and finish the Phase 8 remainder (#40 results card, the
-60 fps mid-laptop sign-off). The scout AI is in (#26). Still open beside that: the #11 coverage pins, the
-a second mid layer, a Level 6 music track, and Tikbalang-X itself. The lying path is the rope
-bridge over the pit at x 1248: it reads as a floor and is not one.
+Dress Level 3 (#14) and the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off) continue beside the finale. The scout AI is in (#26). The lying path is the rope bridge over the pit at x 1248: it reads as a floor and is not one. Still open beside that: the #11 coverage pins, a second mid layer, a Level 6 music track, and Tikbalang-X itself.
 
 ## Why a remake
 
@@ -247,7 +244,7 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
   `backdrops.json`, `tileset.png`, and a 29-prop recipe.
 - `src/content/levels/level-6.json`: `art` block, 144 decor quads, the lift mover uses `platform_pallet`.
   `level-6-clear` is 4059 ticks after the scout (#26).
-- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
+- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 10.93 MB / 20 MB at 188085ca914e34a66c7482b5f8496a0682336dae, 2026-11-20.
 
 The lying path is `bridge_rope` painted over the pit at x 1248–1376. Nothing solid is under it, so a
 walk onto the bridge dies. The clear route still dash-jumps to the next roof. Still open, and each
