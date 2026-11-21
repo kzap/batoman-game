@@ -39,9 +39,10 @@ export default defineConfig({
       { find: '@app', replacement: r('./src/app') },
       { find: '@content', replacement: r('./src/content') },
       { find: '@editor', replacement: r('./src/editor') },
-      // KTX2Loader pulls three's ZSTDDecoder (~40 KB of wasm) for raw Zstd
-      // KTX2. Our backdrops are BasisLZ and never construct it. Match the
-      // whole specifier so the relative import is replaced, not prefixed.
+      // Shared resolve, so dev, Vitest, and the production build all skip
+      // three's ZSTDDecoder (~40 KB of wasm for raw Zstd KTX2). Backdrops are
+      // BasisLZ and never construct it. Match the whole specifier so the
+      // relative import is replaced, not prefixed.
       { find: /^.*zstddec\.module\.js$/, replacement: r('./src/render/ktx2-zstd-stub.ts') },
     ],
   },

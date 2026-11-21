@@ -527,9 +527,11 @@ the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`
 not a software implementation (SwiftShader, llvmpipe). Software GL advertises those extensions and then
 decompresses them on the CPU, which is slower than the WebP path, so CI stays on WebP. ETC2 and ASTC are
 not selected: on desktop Linux they are often emulated. The transcoder is the three.js Basis wasm, loaded
-only when a KTX2 is requested. `KTX2Loader` also imports a Zstandard decoder for raw KTX2; the production
-build replaces that module with `src/render/ktx2-zstd-stub.ts`, because these files are BasisLZ and the
-decoder is a wasm blob the code budget would otherwise count. A Zstd backdrop would throw from the stub.
+only when a KTX2 is requested. `KTX2Loader` also imports a Zstandard decoder for raw KTX2.
+`vite.config.ts` aliases that module to `src/render/ktx2-zstd-stub.ts` for the dev server, Vitest, and
+the production build: these files are BasisLZ, and the decoder is a wasm blob the code budget would
+otherwise count. A Zstd backdrop throws from the stub. `npm run validate` rejects a shipped `.ktx2`
+whose supercompression scheme (header offset 44) is not BasisLZ (1).
 
 ### 7.4 Outputs and payload
 
