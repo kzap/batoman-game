@@ -51,7 +51,7 @@
   "enemies": [
     { "type": "drone", "x": 1000, "y": 224, "patrolDistance": 140 },
     { "type": "patroller", "x": 2300, "y": 448, "patrolDistance": 60 },
-    { "type": "tikbalang", "x": 4100, "y": 576 }
+    { "type": "tikbalang", "x": 4100, "y": 576, "patrolDistance": 36 }
   ],
   "art": {
     "props": "level-6-props",

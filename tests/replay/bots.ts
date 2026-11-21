@@ -160,6 +160,8 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // one-way step 2
     run(1, 3600),
     jump(1), // roof 6
+    run(1, 3700), // in the tikbalang's sight, short of its patrol and the spikes
+    fight(4480), // scout at 4100: shoot the burst, jump the stomp
     run(1, 3950),
     jump(1), // spikes at 4000
     run(1, 4480),
