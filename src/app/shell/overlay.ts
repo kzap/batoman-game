@@ -1,8 +1,9 @@
 import type { ManifestEntry } from '@content/levels';
+import { SIM_HZ } from '@core/sim/clock';
+import { ACTION_LABELS, CONTROL_ROWS, keyLabel } from '../bindings';
 import type { SaveData } from './save';
 import { GAMEOVER_ITEMS, PAUSE_ITEMS, TITLE_ITEMS, type Screen } from './screens';
 import { formatScore } from './score';
-import { SIM_HZ } from '@core/sim/clock';
 
 /** What the overlay needs besides the screen: level names, progress, the run's numbers. */
 export interface OverlayModel {
@@ -11,6 +12,8 @@ export interface OverlayModel {
   readonly score: number;
   /** Result of the level just finished (complete screen). */
   readonly result: { readonly ticks: number; readonly hp: number } | null;
+  /** Effective reduce-motion preference, for the hint and `data-reduce-motion`. */
+  readonly reduceMotion: boolean;
 }
 
 export const CREDITS: readonly { readonly heading: string; readonly lines: readonly string[] }[] = [
@@ -59,6 +62,7 @@ const PRESENTATION: Readonly<Record<Screen['kind'], { readonly dim: boolean; rea
   complete: { dim: false, hideHud: false },
   gameover: { dim: true, hideHud: false },
   credits: { dim: true, hideHud: true },
+  controls: { dim: true, hideHud: true },
 };
 
 /** Renders one screen into `#overlay`; screens that show the level behind them leave the canvas undimmed. */
@@ -71,6 +75,7 @@ export class Overlay {
     const look = PRESENTATION[screen.kind];
     root.classList.toggle('shell-visible', screen.kind !== 'playing');
     root.classList.toggle('shell-dim', look.dim);
+    root.dataset['reduceMotion'] = m.reduceMotion ? 'on' : 'off';
     document.body.classList.toggle('shell-hide-hud', look.hideHud);
     if (screen.kind === 'playing') return;
     const card = el('div', 'shell-card');
@@ -78,7 +83,7 @@ export class Overlay {
     root.append(card);
     switch (screen.kind) {
       case 'title':
-        card.append(el('h1', 'shell-title', 'BATOMAN'), el('p', 'shell-subtitle', 'NEO-MAYNILA, 2147'), menu(TITLE_ITEMS, screen.index), hint('Enter select  ·  Up/Down move  ·  M music  ·  N sfx'));
+        card.append(el('h1', 'shell-title', 'BATOMAN'), el('p', 'shell-subtitle', 'NEO-MAYNILA, 2147'), menu(TITLE_ITEMS, screen.index), hint(`Enter select  ·  Up/Down move  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
       case 'levelSelect':
         card.append(
@@ -102,7 +107,7 @@ export class Overlay {
         break;
       }
       case 'paused':
-        card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint('Esc resume  ·  M music  ·  N sfx'));
+        card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint(`Esc resume  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
       case 'complete': {
         const stats = el('div', 'shell-stats');
@@ -121,6 +126,23 @@ export class Overlay {
           for (const line of s.lines) c.append(el('p', '', line));
         }
         card.append(c, hint('Enter back to title'));
+        break;
+      }
+      case 'controls': {
+        card.dataset['listening'] = screen.listening ? '1' : '0';
+        const ul = el('ul', 'shell-menu shell-controls');
+        CONTROL_ROWS.forEach((row, i) => {
+          const li = el('li', i === screen.index ? 'shell-selected' : '');
+          li.dataset['action'] = row;
+          if (row === 'reset') {
+            li.append(el('span', 'shell-action', 'Reset to defaults'));
+          } else {
+            const listening = screen.listening && i === screen.index;
+            li.append(el('span', 'shell-action', ACTION_LABELS[row]), el('span', 'shell-keys', listening ? 'press a key…' : m.save.bindings[row].map(keyLabel).join('  ')));
+          }
+          ul.append(li);
+        });
+        card.append(el('h2', 'shell-heading', 'CONTROLS'), ul, hint('Enter toggles a key  ·  Esc back  ·  one to four keys'));
         break;
       }
     }
