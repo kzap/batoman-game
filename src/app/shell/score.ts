@@ -2,7 +2,7 @@ import type { EnemyType } from '@content/level';
 
 /** Points per kill, and the bonus for reaching the exit. Presentation-side: the sim knows nothing about score. */
 export const SCORE = {
-  kill: { patroller: 100, drone: 150, stealth: 200, tikbalang: 500, aswang: 1000, sigbin: 1000, 'tikbalang-x': 1000 } satisfies Record<EnemyType, number>,
+  kill: { patroller: 100, drone: 150, stealth: 200, tikbalang: 500, aswang: 1000, sigbin: 1000, manananggal: 1000, 'tikbalang-x': 1000 } satisfies Record<EnemyType, number>,
   levelClear: 500,
   /** Per heart still full at the exit. */
   perHeart: 100,

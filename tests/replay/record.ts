@@ -28,7 +28,7 @@ const runs: Run[] = [
     level,
     seed: 1,
     policy: () => clearRoute(level),
-    maxTicks: 9000,
+    maxTicks: level === 'level-4' ? 12000 : level === 'level-6' ? 9000 : 6000,
   })),
   {
     name: 'level-6-tikbalang-phases',

@@ -1,5 +1,5 @@
 import type { Rect } from '@content/level';
-import { Enemy } from './enemy';
+import { Enemy, type Hurtbox } from './enemy';
 
 /**
  * Shared boss pieces for the Sigbin Unit, and for Manananggal-7 and Tikbalang-X
@@ -53,9 +53,38 @@ export abstract class BossUnit extends Enemy {
   }
 
   /**
+   * The exit may open. The default is the first tick of the death clip, which
+   * is what the ASWANG and Sigbin clears already pin. A fight that plays the
+   * clip out before the door opens overrides this.
+   */
+  get releasesExit(): boolean {
+    return !this.alive;
+  }
+
+  /** One body, and the weak-point rect is the core. A split boss overrides this. */
+  override hurtboxes(): readonly Hurtbox[] {
+    return [{ id: 'body', box: this.body, core: this.weakPointRect() }];
+  }
+
+  /** Wing-shadow hint in level px. Null when this boss shows none. */
+  shadowRect(): Rect | null {
+    return null;
+  }
+
+  /** Mark on the perch the player has to come back to. Null when there is none. */
+  perchRect(): Rect | null {
+    return null;
+  }
+
+  /** Planted half, once it is a body in the fight. Null while the boss is one piece. */
+  plantedRect(): Rect | null {
+    return null;
+  }
+
+  /**
    * A decoy left behind a warp. It is not a body, so shots never land on it.
-   * Null when this boss is not showing one. Aswang and Sigbin leave none,
-   * so their clears stay on the old pins.
+   * Null when this boss is not showing one. Aswang, Sigbin, and Manananggal
+   * leave none, so their clears stay on the old pins.
    */
   afterimage(): (Rect & { readonly alpha: number }) | null {
     return null;

@@ -424,6 +424,91 @@ export const TIKBALANG_X = {
 } as const;
 
 /**
+ * Level 4 boss, Manananggal-7. One health bar, three phases. Phase 1 is the
+ * whole body on the roof. Phase 2 plants the lower half on the balcony the
+ * climb already passed (`perchDx`/`perchDy` from the spawn feet) and the flyer
+ * does not stay dead. Phase 3 is the flyer alone. A hit cannot skip a phase:
+ * damage stops on the current threshold until the shift.
+ *
+ * The perch offsets are Level 4's second balcony relative to a roof spawn at
+ * (1280, 1408): (1000, 832). The anchor is the shaft the flyer returns to.
+ */
+export const MANANANGGAL = {
+  width: 64,
+  height: 112,
+  flyerHeight: 72,
+  baseWidth: 48,
+  baseHeight: 64,
+  hp: 24,
+  /** Hp at which phases 2 and 3 begin. The bar cannot fall through one of these until that phase's shift. */
+  phaseHp: [16, 8] as readonly number[],
+  engageRange: 420,
+  /** Feet within this of the roof. The rung 64 px below the roof does not wake it. */
+  storeyBand: 40,
+  /** Still on the perch before the first tell, and between sweeps. */
+  idleTicks: 24,
+  windupTicks: 48,
+  /**
+   * Last ticks of the sweep tell. Pose `commit` (the shoot clip) so render and
+   * audio can mark the jump. A jump on the first wind-up frame lands in the
+   * sweep; a jump as this beat starts clears the 44 px body.
+   */
+  commitTicks: 12,
+  /** Same speed family as the ASWANG rush, so a jump 0.2 s before contact clears it. */
+  sweepSpeed: 420,
+  /** Low enough that a full jump's feet clear it. Standing in the path does not. */
+  sweepHeight: 44,
+  sweepMaxTicks: 80,
+  exposedTicks: 140,
+  /** In the standing plasma line (muzzle at 30, shot 6 px tall). */
+  core: { y: 24, h: 16, w: 40 },
+  coreMultiplier: 2,
+  phaseShiftTicks: 72,
+  /** Planted half, feet, relative to the spawn feet. Far enough right that a shot from the balcony's left edge is jumpable. */
+  perchDx: -280,
+  perchDy: -576,
+  /**
+   * Shaft hover the flyer returns to, feet, relative to the spawn feet.
+   * Left of the balcony and the hanging column, so the climb back up is open air.
+   */
+  anchorDx: -560,
+  anchorDy: -408,
+  /** First hover after the split: long enough to drop back to the perch before the dive. */
+  openingHoverTicks: 640,
+  hoverTicks: 30,
+  diveWindupTicks: 56,
+  diveSpeed: 420,
+  diveHeight: 36,
+  /**
+   * Safety cap, not the dive's length. The dive ends once it has passed the
+   * locked target by `divePast`. 420 px/s for 320 ticks is 1120 px, so from the
+   * shaft (body x 688) the right edge clears the roof lip at 1600 with margin.
+   */
+  diveTicks: 320,
+  /** How far past the locked player x the dive travels before it ends. */
+  divePast: 56,
+  returnSpeed: 360,
+  returnMaxTicks: 100,
+  baseTellTicks: 48,
+  baseShotSpeed: 240,
+  baseMuzzleY: 28,
+  punishTicks: 170,
+  /** Conduit on the planted half, also in the standing plasma line. */
+  conduit: { y: 22, h: 16, w: 48 },
+  hurtTicks: 8,
+  deathTicks: 160,
+  /** Wing shadow swept across the first shaft while the fight has not started. */
+  shadowX0: 640,
+  shadowX1: 1040,
+  shadowY: 220,
+  shadowW: 96,
+  shadowH: 28,
+  shadowPeriod: 200,
+  /** Dropped-cable mark on the perch, shown before the half is planted. */
+  perchMarkH: 6,
+} as const;
+
+/**
  * Camera, in sim pixels and ticks. The view size is the design viewport at the
  * gameplay plane (16:9 at 32 px per stage unit with the Phase 0 camera); the
  * renderer may show slightly more or less at other aspect ratios.

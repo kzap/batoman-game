@@ -258,7 +258,7 @@ test.describe('other levels', () => {
   });
 
   test('level-4 loads dressed from ?level= and replays its fixture up the tower', async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     const fixture = JSON.parse(readFileSync(resolve(HERE, '../replay/fixtures/level-4-clear.json'), 'utf8')) as Fixture;
     const requests: string[] = [];
     page.on('request', (r) => requests.push(r.url()));
@@ -277,6 +277,11 @@ test.describe('other levels', () => {
       await stepUntil(page, { y });
       await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
     }
+    // The split, then the climb back down to the planted half. maxY is only safe after the roof.
+    await stepUntil(page, { phase: 2 }, 30_000, 30);
+    await page.screenshot({ path: resolve(SHOTS, 'level-4-split.png') });
+    await stepUntil(page, { maxY: 900 }, 30_000, 30);
+    await page.screenshot({ path: resolve(SHOTS, 'level-4-return.png') });
     await advanceUntilDone(page);
     const h = await hooks(page);
     expect(h.status).toBe('complete');

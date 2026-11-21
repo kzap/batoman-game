@@ -18,7 +18,7 @@ import {
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, PickupKind, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
-import { ENEMY, PROJECTILE, SIGBIN } from '@game/tuning';
+import { ENEMY, MANANANGGAL, PROJECTILE, SIGBIN } from '@game/tuning';
 import type { BossSnapshot, EnemySnapshot, PickupSnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
@@ -147,6 +147,13 @@ export class EntityView {
   private readonly pickups = new Map<number, PickupView>();
   private readonly unitBox = new BoxGeometry(1, 1, 1);
   private readonly moverMaterial = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.7 });
+  /** Placeholder marks until the Manananggal sheet exists. Sim rects, no new atlas. */
+  private readonly shadowMaterial = new MeshBasicMaterial({ color: 0x140810, transparent: true, opacity: 0.45, depthWrite: false });
+  private readonly perchMaterial = new MeshBasicMaterial({ color: 0x39e7ff, transparent: true, opacity: 0.9, depthWrite: false });
+  private readonly plantedMaterial = new MeshBasicMaterial({ color: 0xff4d3a, transparent: true, opacity: 0.95, depthWrite: false });
+  private readonly shadowMark: Mesh;
+  private readonly perchMark: Mesh;
+  private readonly plantedMark: Mesh;
   private readonly outlineGeometry = new EdgesGeometry(new BoxGeometry(1, 1, 1));
   private readonly outlineMaterial = new LineBasicMaterial({ color: 0x40ff80 });
   private readonly enemyOutlineMaterial = new LineBasicMaterial({ color: 0xff8080 });
@@ -183,6 +190,12 @@ export class EntityView {
     this.core.add(this.coreFill, this.coreRing);
     this.core.visible = false;
     this.playerOutline = this.outline(this.outlineMaterial);
+    this.shadowMark = new Mesh(this.unitBox, this.shadowMaterial);
+    this.perchMark = new Mesh(this.unitBox, this.perchMaterial);
+    this.plantedMark = new Mesh(this.unitBox, this.plantedMaterial);
+    this.shadowMark.visible = false;
+    this.perchMark.visible = false;
+    this.plantedMark.visible = false;
     for (let i = 0; i < SIGBIN.footprintCap; i++) {
       const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
       const mesh = new Mesh(this.unitBox, material);
@@ -190,7 +203,16 @@ export class EntityView {
       mesh.name = 'footprint';
       this.prints.push({ mesh, material });
     }
-    this.group.add(this.player.mesh, this.playerOutline, this.chargeGlow.mesh, this.core, ...this.prints.map((p) => p.mesh));
+    this.group.add(
+      this.player.mesh,
+      this.playerOutline,
+      this.chargeGlow.mesh,
+      this.core,
+      this.shadowMark,
+      this.perchMark,
+      this.plantedMark,
+      ...this.prints.map((p) => p.mesh),
+    );
   }
 
   /** Enemy shots use the first loaded enemy sheet that has a projectile clip (the sheets share the look). */
@@ -236,6 +258,7 @@ export class EntityView {
     this.syncEnemies(prev.enemies, cur.enemies, cur.tick, alpha);
     this.presentCore(prev.boss, cur.boss, cur.tick, alpha);
     this.presentGhost(cur.boss);
+    this.presentBossMarks(cur.boss);
     this.presentPrints(cur.boss);
     this.syncProjectiles(prev.projectiles, cur.projectiles, cur.tick, alpha);
     this.syncMovers(prev.movingSolids, cur.movingSolids, alpha);
@@ -288,7 +311,7 @@ export class EntityView {
       // live height (feet stay on the pivot) so a jump that clears the hurtbox
       // also clears the sprite. Every other pose keeps the sheet's own scale.
       const h = lerp(p.h, c.h, alpha);
-      const lunging = c.type === 'tikbalang' && h < ENEMY.tikbalang.height;
+      const lunging = (c.type === 'tikbalang' && h < ENEMY.tikbalang.height) || (c.type === 'manananggal' && h < MANANANGGAL.height);
       v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, lunging ? { flip, size: { h } } : { flip, scale: look.scale });
       // The placeholder Sigbin sheet is near-black. The lunge and its telegraph use the same hurt tint as a hit, so reduce-motion stays a steady white instead of a strobe.
       const sigbinStrike = c.type === 'sigbin' && (c.pose === 'windup' || c.pose === 'rush');
@@ -377,6 +400,20 @@ export class EntityView {
     this.ghost.quad.mesh.visible = true;
     this.ghost.material.opacity = g.alpha;
     this.ghost.quad.place(g.x + g.w / 2, g.y, ENEMY_Z - 0.05, { scale: look.scale });
+  }
+
+  /** Wing shadow, perch cable, and the planted half. Boxes stand in for the sheet. */
+  private presentBossMarks(boss: BossSnapshot | null): void {
+    this.placeMark(this.shadowMark, boss?.shadow ?? null, ENEMY_Z - 0.05);
+    this.placeMark(this.perchMark, boss?.perch ?? null, ENEMY_Z - 0.02);
+    this.placeMark(this.plantedMark, boss?.planted ?? null, ENEMY_Z);
+  }
+
+  private placeMark(mesh: Mesh, r: Rect | null, z: number): void {
+    mesh.visible = r !== null;
+    if (!r) return;
+    mesh.position.set(toUnits(r.x + r.w / 2), toUnits(r.y + r.h / 2), z);
+    mesh.scale.set(toUnits(r.w), toUnits(r.h), OUTLINE_DEPTH);
   }
 
   /**
@@ -550,6 +587,9 @@ export class EntityView {
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();
     this.moverMaterial.dispose();
+    this.shadowMaterial.dispose();
+    this.perchMaterial.dispose();
+    this.plantedMaterial.dispose();
     this.group.removeFromParent();
   }
 

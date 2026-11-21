@@ -1,3 +1,4 @@
+import type { AABB } from '@core/math/aabb';
 import { Body, type CollisionWorld } from '@core/sim/collision';
 import { SIM_DT } from '@core/sim/clock';
 import type { StateDef } from '@core/sim/fsm';
@@ -5,8 +6,18 @@ import type { EnemyType } from '@content/level';
 import { Health } from '../health';
 import { ENEMY } from '../tuning';
 
-/** Poses the renderer maps to clips. `windup`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
-export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'rush' | 'stunned' | 'shift';
+/** Which body a shot landed on. A one-body enemy is always `body`. */
+export type HurtPart = 'body' | 'planted';
+
+/** A shot target. `core` is the weak-point rect, or null when the body has none. */
+export interface Hurtbox {
+  readonly id: HurtPart;
+  readonly box: AABB;
+  readonly core: AABB | null;
+}
+
+/** Poses the renderer maps to clips. `windup`, `commit`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
+export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'commit' | 'rush' | 'stunned' | 'shift';
 
 export interface EnemySnapshot {
   readonly id: number;
@@ -117,6 +128,16 @@ export abstract class Enemy {
     return this.hittable;
   }
 
+  /** Bodies a player shot can land on. The core rect is what counts as a weak-point hit. */
+  hurtboxes(): readonly Hurtbox[] {
+    return [{ id: 'body', box: this.body, core: null }];
+  }
+
+  /** Bodies that deal contact damage this tick. One body when `harmsOnContact` is set. */
+  contactBoxes(): readonly AABB[] {
+    return this.harmsOnContact ? [this.body] : [];
+  }
+
   get alpha(): number {
     return 1;
   }
@@ -139,8 +160,11 @@ export abstract class Enemy {
 
   protected abstract behave(ctx: EnemyCtx): void;
 
-  /** Apply damage from a player shot. `dir` is the shot's travel direction. Returns the damage dealt (0 when ignored). */
-  hit(damage: number, dir: 1 | -1, weakPoint = false): number {
+  /**
+   * Apply damage from a player shot. `dir` is the shot's travel direction.
+   * `part` says which hurtbox overlapped. Returns the damage dealt (0 when ignored).
+   */
+  hit(damage: number, dir: 1 | -1, weakPoint = false, _part: HurtPart = 'body'): number {
     if (!this.hittable) return 0;
     const dealt = this.damageFor(damage, weakPoint);
     if (!this.health.hit(dealt)) return 0;
