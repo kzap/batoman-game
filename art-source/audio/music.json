@@ -12,6 +12,10 @@
     "level-4": {
       "source": "level-4.wav",
       "title": "Tower Pulse"
+    },
+    "sigbin-telegraph": {
+      "source": "sigbin-telegraph.wav",
+      "title": "Sigbin Telegraph"
     }
   }
 }

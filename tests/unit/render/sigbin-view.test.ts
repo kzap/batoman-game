@@ -7,8 +7,8 @@ import { enemyHurtTint, PRESENTATION } from '@render/motion';
 import { PALETTE } from '@render/stage';
 import { Mesh, MeshBasicMaterial, Texture } from 'three';
 
-/** Placeholder tint from ENEMY_LOOK.sigbin. */
-const ENEMY_TINT = 0x1a1224;
+/** Shipped sheet is untinted. The lunge still runs through `enemyHurtTint`. */
+const ENEMY_TINT = 0xffffff;
 
 const frame = (): AtlasFrame => ({ x: 0, y: 0, w: 8, h: 8, pivot: { x: 4, y: 8 } });
 const anim = (prefix: string, n: number, fps = 8) => ({ fps, loop: true, frames: Array.from({ length: n }, (_, i) => `${prefix}${i}`) });
@@ -37,11 +37,22 @@ const patroller = atlas({
   death: anim('pd', 2),
 });
 
+const sigbinSheet = atlas({
+  idle: anim('si', 2),
+  move: anim('sm', 2),
+  shoot: anim('ss', 2),
+  hurt: anim('sh', 2),
+  death: anim('sd', 2),
+});
+
 function view(): EntityView {
   const texture = new Texture();
   return new EntityView({
     batoman: { json: batoman, texture },
-    enemies: new Map([['patroller', { json: patroller, texture }]]),
+    enemies: new Map([
+      ['patroller', { json: patroller, texture }],
+      ['sigbin', { json: sigbinSheet, texture }],
+    ]),
     levelArt: null,
   });
 }
@@ -63,15 +74,16 @@ function snap(extra: Partial<WorldSnapshot> = {}): WorldSnapshot {
   };
 }
 
-/** Atlas quads only. The diamond lives under `weak-point` and is not the lunge tint. */
-function bodyMaterials(v: EntityView): MeshBasicMaterial[] {
-  const found: MeshBasicMaterial[] = [];
+/** The Sigbin body, not the player quad (also untinted) and not a footprint box. */
+function sigbinBody(v: EntityView): MeshBasicMaterial {
+  let found: MeshBasicMaterial | undefined;
   v.group.traverse((o) => {
-    if (o.parent?.name === 'weak-point') return;
-    if (!(o instanceof Mesh)) return;
+    if (o.parent?.name === 'weak-point' || o.name === 'footprint') return;
+    if (!(o instanceof Mesh) || o.position.x < 2) return;
     const mat = o.material;
-    if (mat instanceof MeshBasicMaterial) found.push(mat);
+    if (mat instanceof MeshBasicMaterial) found = mat;
   });
+  if (!found) throw new Error('sigbin body was not drawn');
   return found;
 }
 
@@ -125,10 +137,8 @@ describe('Sigbin view', () => {
     const v = view();
     const idle = snap({ enemies: [sigbinEnemy('idle')] });
     v.present(idle, idle, 0);
-    // The placeholder sheet is the only quad in this tint. The diamond never is.
-    const body = bodyMaterials(v).filter((m) => m.color.getHex() === ENEMY_TINT);
-    expect(body).toHaveLength(1);
-    const sigbin = body[0]!;
+    const sigbin = sigbinBody(v);
+    expect(sigbin.color.getHex()).toBe(ENEMY_TINT);
 
     const flashOn = snap({ tick: 0, enemies: [sigbinEnemy('windup')] });
     v.present(idle, flashOn, 0);
@@ -145,7 +155,8 @@ describe('Sigbin view', () => {
     const steady = enemyHurtTint(true, offTick, true, ENEMY_TINT, PALETTE.neonMagenta);
     expect(sigbin.color.getHex()).toBe(steady);
     expect(sigbin.color.getHex()).not.toBe(PALETTE.neonMagenta);
-    expect(sigbin.color.getHex()).not.toBe(ENEMY_TINT);
+    // The shipped sheet is already white, so the steady reduce-motion tint matches the idle base.
+    expect(steady).toBe(ENEMY_TINT);
     v.dispose();
   });
 });
