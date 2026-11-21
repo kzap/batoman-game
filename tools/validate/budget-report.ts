@@ -22,6 +22,7 @@ const ENEMY_ATLAS: Readonly<Record<string, string>> = {
   patroller: 'patroller',
   stealth: 'patroller',
   aswang: 'patroller',
+  sigbin: 'patroller',
   drone: 'drone',
   tikbalang: 'tikbalang',
 };

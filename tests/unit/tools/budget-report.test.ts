@@ -73,6 +73,7 @@ describe('summarize', () => {
 describe('sessionBytes', () => {
   it('counts one backdrop format and the sheets that level spawns', () => {
     expect(atlasesForLevel(level)).toEqual(['batoman', 'drone', 'level-1-props', 'patroller']);
+    expect(atlasesForLevel({ id: 'level-3', music: 'level-2', enemies: [{ type: 'sigbin' }], backdrops: [] })).toEqual(['batoman', 'patroller']);
     const gpu = sessionBytes(dist(), level, 'ktx2');
     const soft = sessionBytes(dist(), level, 'webp');
     expect(gpu.missing).toEqual([]);

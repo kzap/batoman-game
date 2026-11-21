@@ -1,16 +1,22 @@
 # Asset budget plan
 
-Written for Andre. Measured on v2 commit `e9d3a81f453bc75a28806cc0684428ff25b6f4cc` (Phase 8.4, the tip when this plan was written). Caps were read from `tools/config.ts` and were not changed.
+Written for Andre. The served cap is **20 MB**, landed in [#54](https://github.com/kzap/batoman-game/pull/54) at `44c4288`. The code cap stays **900 KB**. This branch merges that tip. The byte counts below are from `npm run budget` after that merge, with [#41](https://github.com/kzap/batoman-game/pull/41) (the Sigbin fight) already on v2. The Sigbin sheet is not in the tree yet. `tools/config.ts` is v2's file; this plan does not edit it.
 
 ## Recommendation
 
-Keep the current caps: **12 MB served** and **900 KB code**. The single-image cap stays 1.5 MB and the single-audio cap stays 6 MB. [PR #54](https://github.com/kzap/batoman-game/pull/54) would raise served to 20 MB. That alternative is not adopted. [Andre's decision on #53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7055947438) is to compress and reuse first, and to raise a cap only inside a PR that has actually gone over, with the new number and the measured bytes on a named commit.
+Plan against **20 MB served** and **900 KB code**. The single-image cap stays 1.5 MB and the single-audio cap stays 6 MB. The full planned stack fits under 20 MB without changing how atlases are encoded.
 
-The compression step is atlas WebP quality 90. Sining (art and audio director) reviewed this plan and approved that setting. The encoder call is `.webp({ quality: 90, alphaQuality: 100, effort: 6 })`. On the sheets already shipping, that removes **3,189,622 bytes**. Her pass found the alpha bit-exact on every sheet. Do not go below quality 90.
+| Stack | Served bytes | Headroom under 20,971,520 |
+|---|---:|---:|
+| Today, after #41 and #54 | 11,476,698 (10.95 MB) | 9,494,822 (9.05 MB) |
+| Full stack, atlases left lossless | 16,577,348 (15.81 MB) | 4,394,172 (4.19 MB) |
+| Full stack, atlases at WebP quality 90 | 13,091,736 (12.49 MB) | 7,879,784 (7.51 MB) |
 
-Her build of v2 plus [#45](https://github.com/kzap/batoman-game/pull/45) plus Manananggal-7, all at quality 90, is **10.01 MB**, **2.09 MB under 12** (2,090,000 bytes of headroom against the 12,582,912 byte ceiling, a total of 10,492,912 bytes). Manananggal at quality 90 is **544 KB** (1,005 KB lossless, RMSE 6.99). It is the weakest sheet and it is fine in play. It is not a Sigbin-sized file. The encoder change itself is a separate PR, `infra/atlas-q90`. This plan does not change `writeAtlas`.
+The full stack is Sigbin from [#45](https://github.com/kzap/batoman-game/pull/45), Tikbalang-X at 0 bytes (the shipped horse sheet), Manananggal-7, Bakunawa counted at Sigbin's quality-90 size until a sheet exists, a finale the size of Level 6 (both backdrop formats plus the prop sheet), and a 90-second finale cue. L4 Tower Pulse (962 KB at 100 kbps) still fits on either row: lossless headroom stays about 3.27 MB, quality-90 headroom about 6.60 MB.
 
-From that 10.01 MB, a 90-second finale cue (about 952 KB at ~84 kbps VBR) leaves **1,137,954 bytes**. A new finale the size of Level 6 (both backdrop formats, plus the prop sheet at quality 90) leaves **126,814 bytes**. Bakunawa, still unpainted and counted at Sigbin's quality-90 size, needs 502,952 bytes more than that. L4 Tower Pulse (962 KB at 100 kbps, [#50](https://github.com/kzap/batoman-game/issues/50)) is the squeeze candidate when that room has to come from somewhere. The code cap has 54,945 bytes free after #40. Keep 900 KB.
+Quality 90 is optional. It is a load-time and download-size win, not a requirement to fit the cap. On the eight shipped atlases it removes **3,189,622 bytes** (3.04 MB). Sining (art and audio director) approved the call `.webp({ quality: 90, alphaQuality: 100, effort: 6 })` if that win is taken. Alpha is bit-exact on every sheet. Do not go below quality 90. Do not enable `sharp_yuv` globally (Batoman's max error goes from 71 to 126, and the drone RMSE gets worse). `smartSubsample` is optional on the Manananggal sheet only (+16 KB). `-exact` is unnecessary; frames already have a 1 px extrude. Her Manananggal sheet is **544 KB at quality 90** (1,005 KB lossless, RMSE 6.99, the weakest sheet, fine in play). Her 90-second finale cue is about **952 KB** at ~84 kbps VBR. A 60-second loop is the shipped Level 2 file, 634,697 bytes (~635 KB). The encoder change, if taken, is a separate PR on `infra/atlas-q90`.
+
+Code is 872,480 bytes (852.0 KB). Headroom is 49,120 bytes (48.0 KB). #41 added 5,825 code bytes over the previous tip. Keep 900 KB.
 
 ```mermaid
 flowchart LR
@@ -21,33 +27,33 @@ flowchart LR
 
 ## Caps against this build
 
-`npm run budget` on `e9d3a81`:
+`npm run budget` on this branch after merging `44c4288`:
 
 | Cap | Ceiling | Measured | Headroom |
 |---|---:|---:|---:|
-| Served total, `dist/` minus source maps | 12,582,912 (12.00 MB) | 11,470,826 (10.94 MB) | 1,112,086 (1.06 MB) |
-| Code, `.js` / `.mjs` / `.css` | 921,600 (900.0 KB) | 866,655 (846.3 KB) | 54,945 (53.7 KB) |
+| Served total, `dist/` minus source maps | 20,971,520 (20.00 MB) | 11,476,698 (10.95 MB) | 9,494,822 (9.05 MB) |
+| Code, `.js` / `.mjs` / `.css` | 921,600 (900.0 KB) | 872,480 (852.0 KB) | 49,120 (48.0 KB) |
 | Single image | 1,572,864 (1.50 MB) | 810,366 (`level-4-props.webp`) | 762,498 |
 | Single audio | 6,291,456 (6.00 MB) | 2,008,819 (`level-1.ogg`) | 4,282,637 |
 
-#40, which is this commit, added 6,058 code bytes over the previous tip (840.4 KB to 846.3 KB). That matches the +5.9 KB forecast quoted on #53. Served moved from 10.93 MB to 10.94 MB on the same delta. Source maps are 4,289,414 bytes and are excluded, same as `checkBudget`.
+#54 raised `totalServed` to `20 * 1024 * 1024` and left the other three caps. #41, now on v2, added 5,825 code bytes over the 846.3 KB tip this plan first measured (866,655 to 872,480). Served moved from 11,470,826 to 11,476,698 on that code plus 47 bytes of level JSON. Source maps are excluded, same as `checkBudget`.
 
 What the tools count: `tools/validate/budget.ts` walks `dist/` and calls `checkBudget`. Served is every file except `*.map`. Code is `.js`, `.mjs`, and `.css` inside that set. A single image over 1.5 MB or a single audio file over 6 MB fails on its own. The walk is the whole tree. It is not the first download, and it is not "the format this GPU chose."
 
-## Where the 10.94 MB sits
+## Where the 10.95 MB sits
 
 | Category | Bytes |
 |---|---:|
-| Code (js, css) | 866,655 |
+| Code (js, css) | 872,480 |
 | KTX2 textures | 1,314,828 |
 | WebP atlases | 4,841,994 |
 | WebP backdrops | 1,200,282 |
 | Basis transcoder wasm | 527,333 |
 | Audio | 2,643,516 |
-| Level JSON | 30,976 |
+| Level JSON | 31,023 |
 | HTML | 745 |
 | Other (atlas JSON, backdrop meta, editor is in code) | 44,497 |
-| Served total | 11,470,826 |
+| Served total | 11,476,698 |
 
 Top 15 served files:
 
@@ -79,25 +85,25 @@ Atlases are the largest group, and they are lossless WebP today (`tools/pack/atl
 
 | Level | Desktop GPU (KTX2) | Software GL (WebP) |
 |---|---:|---:|
-| level-1 | 6,083,163 | 5,490,600 |
-| level-3 (no `art` block, so no backdrops or props) | 3,658,600 | 3,053,438 |
-| level-4 | 4,992,731 | 4,103,946 |
-| level-6 | 6,464,929 | 6,039,192 |
+| level-1 | 6,088,988 | 5,496,425 |
+| level-3 (no `art` block; Sigbin reuses the patroller sheet) | 3,664,472 | 3,059,310 |
+| level-4 | 4,998,556 | 4,109,771 |
+| level-6 | 6,470,754 | 6,045,017 |
 
 Level 1 on a desktop GPU, which is the heavy cold load because it carries the 191-second track:
 
 | Part | Bytes |
 |---|---:|
-| Shell (html, css, index js, three js) | 759,644 |
+| Shell (html, css, index js, three js) | 765,469 |
 | Basis runtime (KTX2Loader js, transcoder js, wasm) | 605,162 |
 | Batoman atlas | 646,002 |
 | Drone, patroller, level-1 props | 1,803,278 |
 | Sky + town KTX2, with meta | 253,788 |
 | Level JSON | 6,470 |
 | `level-1.ogg` | 2,008,819 |
-| Total | 6,083,163 |
+| Total | 6,088,988 |
 
-A full playthrough of the four levels on a desktop GPU, counting each shared file once, is **9,488,851 bytes**. The other **1,981,975 bytes** in `dist/` are the WebP backdrop fallback for every level (1,200,282), the Level 3 KTX2 files and prop sheet the grey-box level does not fetch (751,766), and the editor chunk (29,927). The Level 3 WebP copies sit inside the 1,200,282.
+A full playthrough of the four levels on a desktop GPU, counting each shared file once, is **9,494,723 bytes**. The other **1,981,975 bytes** in `dist/` are the WebP backdrop fallback for every level (1,200,282), the Level 3 KTX2 files and prop sheet the grey-box level does not fetch (751,766), and the editor chunk (29,927). The Level 3 WebP copies sit inside the 1,200,282. The Sigbin fight reuses the patroller sheet until #45's atlas lands, so that boss does not add a download of its own yet.
 
 Both backdrop formats together are 2,515,110 bytes. A player pays for one of them. Gzip does not shrink WebP, KTX2, or Opus (a re-gzip of `level-1.ogg` was 2,008,628 bytes, and `tikbalang.webp` was 447,585). JS, CSS, and the wasm do shrink: the shell's JS/CSS/HTML gzip to about 200 KB (Vite's figures on this build), and the Basis runtime gzips to about 267 KB (wasm 245,406 of that). Level 1's wire size is about **5.2 MB**. At 10 Mbit/s that is about 4 seconds. At 1.6 Mbit/s it is about 26 seconds. At 40 Mbit/s it is about 1 second.
 
@@ -130,7 +136,7 @@ No Level 5 art, no Manananggal sheet, and no Bakunawa sheet exist. Each row cite
 
 ### 1. Compression
 
-**Atlas WebP quality 90 is the step that creates the room.** Every shipped atlas was decoded and re-encoded with sharp (`quality` 90 and 80, `alphaQuality` 100, `effort` 6). RMSE is the root mean square error of RGB on pixels whose alpha is at least 250.
+**Atlas WebP quality 90 is optional.** The cap no longer depends on it. It is the download and load-time win: 3,189,622 bytes off the eight shipped atlases, and smaller new sheets if `infra/atlas-q90` lands. Every shipped atlas was decoded and re-encoded with sharp (`quality` 90 and 80, `alphaQuality` 100, `effort` 6). RMSE is the root mean square error of RGB on pixels whose alpha is at least 250. A Level 1 desktop download that fetches batoman, drone, patroller, and the Level 1 props drops by 1,566,318 bytes of WebP at quality 90 (637,160→211,186, 430,466→224,482, 568,310→248,008, 787,854→173,796).
 
 | Atlas | Lossless | Quality 90 | RMSE 90 | Quality 80 | RMSE 80 |
 |---|---:|---:|---:|---:|---:|
@@ -195,7 +201,7 @@ Street's WebP is already lossy (170,094 bytes at quality 90). Re-encoding it at 
 
 Tikbalang-X adds no texture. The sheet is in the tree.
 
-The finale's rhyme with the docks, the chapel, the tower, and the garden can reuse those plates. Budgeting a full new Level 6 pair (800,896 bytes, both formats) is the case where the art is all new. Reusing the plates, and painting one arena pair only if the Pasig arena needs it, gives back that 800,896. That is more than the 502,952 bytes a Sigbin-sized Bakunawa needs after the 90-second cue and a full new finale are in (see the projection).
+The finale's rhyme with the docks, the chapel, the tower, and the garden can reuse those plates. Budgeting a full new Level 6 pair (800,896 bytes, both formats) is the case where the art is all new. Reusing the plates, and painting one arena pair only if the Pasig arena needs it, gives back that 800,896. Under the 20 MB cap that save is extra headroom, not a requirement.
 
 Level 3's backdrops and props are already packed. #45 should wire them, not pack a second set. The footprint decal lands on that sheet (the repack measured above).
 
@@ -213,35 +219,35 @@ Lazy loading does not shrink the cap. Levels are already fetched one at a time. 
 
 ## Projected totals
 
-Planning assumptions, stated above. Manananggal's sizes and the 10.01 MB subtotal are the art director's review numbers. Bakunawa is still Sigbin's quality-90 size until a sheet exists. The finale cue is 90 seconds. JSON for an unpainted boss sheet is counted as Sigbin's 3,846 bytes. Her 544 KB and 1,005 KB are decimal kilobytes (544,000 and 1,005,000), matching the way 634,697 bytes is "~635 KB".
+Planning assumptions, stated above. The baseline is this branch after #41 and #54: 11,476,698 bytes, 5,872 more than the first measurement on `e9d3a81` (5,825 of code, 47 of level JSON). Every later row includes that. Manananggal's sizes are the art director's. Bakunawa is still Sigbin's quality-90 size until a sheet exists. The finale cue is 90 seconds. JSON for an unpainted boss sheet is Sigbin's 3,846 bytes. Her 544 KB and 1,005 KB are decimal kilobytes (544,000 and 1,005,000), matching "~635 KB" for the 634,697-byte one-minute loop. The ceiling in both tables is 20,971,520.
 
-**Stay lossless.** Sigbin still fits. Manananggal's lossless sheet, at 1,005 KB, does not.
+**Lossless atlases, the path that already fits.**
 
-| Step | Served bytes | Against 12,582,912 |
-|---|---:|---|
-| This build | 11,470,826 | under by 1,112,086 |
-| + #45 (Sigbin 885,342 + JSON 3,846 + cue 7,882 − 102,928 props) | 12,264,968 | under by 317,944 |
-| + Manananggal lossless 1,005,000 + JSON 3,846 | 13,273,814 | over by 690,902 |
-| + Bakunawa, sigbin-sized | 14,163,002 | over by 1,580,090 |
-| + finale backdrops and props | 15,619,430 | over by 3,036,518 |
-| + 90 s finale cue (952,046) | 16,571,476 | over by 3,988,564 (15.80 MB) |
-| Same stack, 191 s cue instead | 17,628,249 | over by 5,045,337 (16.81 MB) |
+| Step | Served bytes | Headroom under 20 MB |
+|---|---:|---:|
+| This build | 11,476,698 | 9,494,822 |
+| + #45 (Sigbin 885,342 + JSON 3,846 + cue 7,882 − 102,928 props) | 12,270,840 | 8,700,680 |
+| + Manananggal lossless 1,005,000 + JSON 3,846 | 13,279,686 | 7,691,834 |
+| + Bakunawa, Sigbin lossless + JSON | 14,168,874 | 6,802,646 |
+| + finale backdrops and props | 15,625,302 | 5,346,218 |
+| + 90 s finale cue (952,046) | 16,577,348 | 4,394,172 (4.19 MB) |
+| Same stack, 191 s cue instead | 17,634,121 | 3,337,399 (3.18 MB) |
+| 90 s stack plus Tower Pulse (962,000) | 17,539,348 | 3,432,172 (3.27 MB) |
 
-**Quality 90, using her measured stack through Manananggal.** She put v2, #45, and Manananggal, all at quality 90, at 10.01 MB. Read as bytes: 2,090,000 under the 12,582,912 ceiling is a total of 10,492,912, which displays as 10.01 MB, and 2,090,000 is 2.09 MB in decimal. The rows under that are this plan's additions.
+**Quality 90, the optional smaller tree.** Her review put an earlier v2, plus #45, plus Manananggal, all at quality 90, at 10.01 MB (10,492,912 bytes, which was 2.09 MB under the old 12 MB cap). This branch is 5,872 bytes heavier, so that subtotal is 10,498,784. The rows under it are this plan's additions. Headroom is against 20 MB.
 
 | Piece | Bytes | Running total | Headroom |
 |---|---:|---:|---:|
-| v2 + #45 + Manananggal, all q90 (art director) | 10,492,912 | 10,492,912 | 2,090,000 |
-| Finale music, 90 s at ~84 kbps (952,046) | 952,046 | 11,444,958 | 1,137,954 |
-| Finale backdrops, Level 6 both formats | 800,896 | 12,245,854 | 337,058 |
-| Finale props at the level-6 q90 size, plus JSON | 210,244 | 12,456,098 | 126,814 |
-| Bakunawa at Sigbin q90 + JSON | 629,766 | 13,085,864 | over by 502,952 |
+| v2 + #45 + Manananggal, all q90, plus #41's 5,872 bytes | 10,498,784 | 10,498,784 | 10,472,736 |
+| Finale music, 90 s at ~84 kbps (952,046) | 952,046 | 11,450,830 | 9,520,690 |
+| Finale backdrops, Level 6 both formats | 800,896 | 12,251,726 | 8,719,794 |
+| Finale props at the level-6 q90 size, plus JSON | 210,244 | 12,461,970 | 8,509,550 |
+| Bakunawa at Sigbin q90 + JSON | 629,766 | 13,091,736 | 7,879,784 (7.51 MB) |
+| Tower Pulse, 962 KB at 100 kbps | 962,000 | 14,053,736 | 6,917,784 (6.60 MB) |
 
-After the 90-second cue and a full new finale, **126,814 bytes** remain. That is the headroom. Bakunawa at Sigbin's quality-90 size spends it and another 502,952. A Manananggal-sized Bakunawa (544,000) is still 417,186 over those 126,814. Reusing the finale plates instead of shipping a new 800,896-byte pair covers the Sigbin-sized Bakunawa and leaves 297,944 bytes (800,896 − 502,952).
+Both full stacks fit. Quality 90 leaves 7,879,784 bytes instead of 4,394,172, a 3,485,612 byte difference on the whole plan, of which 3,189,622 is the measured save on the eight atlases already shipping. `smartSubsample` on Manananggal only moves her sheet by about 16 KB.
 
-L4 Tower Pulse is not in the table. At 962 KB (962,000 bytes) and 100 kbps it is larger than the 126,814 bytes left, and larger than the 502,952-byte gap. It is the cue to shorten or encode closer to the finale's ~84 kbps if both Bakunawa and the tower sting have to land without a cap change. `smartSubsample` on Manananggal only moves her sheet by about 16 KB and does not change which row crosses the line.
-
-Code stays a separate column. 866,655 plus #41's forecast 5.4 KB plus about 18 KB for three later fights is still under 921,600, with roughly 30 KB left. A fight that imports a new runtime is the change that would spend it.
+Code stays a separate column. 872,480 bytes are in the tree. About 48 KB remains under 900 KB. A fight that imports a new runtime is the change that would spend it.
 
 ## Per-asset caps
 
@@ -251,17 +257,13 @@ They do not bind for this content. The served total does.
 |---|---:|---:|---:|
 | Single image | 1,572,864 | Manananggal lossless, her 1,005 KB (1,005,000). Sigbin lossless is 885,342. | Both clear 1.5 MB. A sheet at 2× Sigbin (1,770,684) would fail this cap on its own. |
 | Single audio | 6,291,456 | Level 1 at 80 kbps, 2,008,819. The 90 s finale cue is ~952 KB. Tower Pulse is 962 KB. | A new track has to run about three times Level 1, near 9.5 minutes, to hit 6 MB. |
-| Code | 921,600 | 866,655 today | 54,945, and the fights above fit in it. |
+| Code | 921,600 | 872,480 today | 49,120. A later fight that stays the size of #41 fits. |
 
-## When a later build would need a raise
+## Headroom, and a later raise
 
-Not this plan, and not up front. #54's 20 MB would cover the lossless stack (15.39 MB, or 16.70 MB with a long cue) with megabytes to spare. The decision is to compress first so that raise is unnecessary.
+The full planned stack fits under 20 MB. Lossless leaves 4,394,172 bytes. Quality 90 leaves 7,879,784. Tower Pulse on top of either still leaves more than 3 MB. No further raise is in this plan.
 
-Quality 90 through Manananggal stays under the cap by her 2.09 MB. The quality-90 stack that also carries a Level 6-sized finale, the 90-second cue, and a Sigbin-sized Bakunawa is **13,085,864 bytes (12.48 MB)**, over by 502,952. The PR that actually contains that build proposes **13 MB** if `npm run budget` matches this table, or **14 MB** if the measured line is higher. Reusing finale plates, or bringing Tower Pulse down from 100 kbps, is how that PR stays at 12 instead. If one PR lands the whole uncompressed finale with the 90-second cue, the table above is **15.80 MB**; propose **16 MB**. The 191-second cue on that same lossless stack is **16.81 MB**; propose **18 MB**. Use the `npm run budget` line from that commit if it disagrees with this table.
-
-## How to raise a cap
-
-Do it in the PR whose build is over, or in a dedicated PR that exists only to land that number. In `tools/config.ts`, change the one field, and in the comment name the new ceiling, the measured byte count, the full commit SHA `npm run budget` was run on, and the asset that pushed it over. Update the ceiling table in `docs/TDD.md` in the same PR. Leave the other three caps alone unless that same build broke one of them. A plan document is not the place the number changes.
+If a later build does exceed 20 MB, raise `totalServed` in that PR, or in a dedicated PR that exists only to land the number. In `tools/config.ts`, change the one field, and in the comment name the new ceiling, the measured byte count, the full commit SHA `npm run budget` was run on, and the asset that pushed it over. Update the ceiling table in `docs/TDD.md` in the same PR. Leave the other three caps alone unless that same build broke one of them. #54 is the example: it moved the cap to 20 MB at `44c4288` and left code at 900 KB.
 
 ## How to remeasure
 
