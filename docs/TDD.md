@@ -403,8 +403,8 @@ The results card (`complete`) does not use that flat dim. `results.ts` is the pr
 unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
 lines for this level: kills (whatever remains), the 500 clear bonus, and 100 per heart. `tallyAt` counts
 one non-zero line every 400 ms and the running total lands on the HUD figure; a zero-point line finishes
-immediately. Whether the count plays is `effectiveReduceMotion()`: the save flag, then `?reduceMotion=`,
-then the OS preference while the save is still `null`. An explicit `false` still counts when the OS asks
+immediately. Whether the count plays is `effectiveReduceMotion()`: `?reduceMotion=` first, then the
+save flag, then the OS preference while the save is still `null`. An explicit `false` still counts when the OS asks
 for reduced motion. R, which writes that flag, snaps a count that is already running. Enter still advances
 during the count. The reducer is unchanged, and the tally does not gate it. The line figures update in
 place. A polite live region is created empty with the card, and its text is set one frame after the count

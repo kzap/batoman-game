@@ -305,7 +305,13 @@ test.describe('shell', () => {
     expect(await first.jsonValue()).toBe('running');
     await expect(page.locator('[data-line="kills"] .shell-tally-num')).not.toHaveText('001750');
     await page.keyboard.press('KeyR');
-    await expect(page.locator('#overlay')).toHaveAttribute('data-tally', 'done');
+    // One read, no retry. A count that is only animating is still `running` here and finishes about 1.2 s later.
+    const snapped = await page.evaluate(() => ({
+      tally: document.getElementById('overlay')?.dataset['tally'] ?? '',
+      kills: document.querySelector('[data-line="kills"] .shell-tally-num')?.textContent ?? '',
+    }));
+    expect(snapped.tally).toBe('done');
+    expect(snapped.kills).toBe('001750');
     await expectResultsCard(page, { kills: 1750, clear: 500, hearts: 300, total: 2550 });
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('batoman.v2.save') ?? '{}') as { options?: { reduceMotion?: boolean } });
     expect(saved.options?.reduceMotion).toBe(true);
