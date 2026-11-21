@@ -48,6 +48,11 @@ export interface ShellOptions {
    * (title-path tests) or when deep-linking already skips the intro.
    */
   readonly cutscenes?: boolean;
+  /**
+   * Auto-advance cutscene lines on holdMs. False when `?cutsceneHold=0` so e2e
+   * can drive Enter/Esc without racing the wall-clock timer.
+   */
+  readonly cutsceneHold?: boolean;
 }
 
 /** The current run: score so far and the points earned in the level being played. Reset by "Start game" and level select. */
@@ -78,6 +83,8 @@ export class Shell {
   private readonly unlockAll: boolean;
   /** When false, intro cards go straight to play (`?cutscene=0`). */
   private readonly cutscenesOn: boolean;
+  /** When false, cutscene lines do not auto-advance (`?cutsceneHold=0`). */
+  private readonly cutsceneHoldOn: boolean;
   /** Loaded scripts keyed by level id. Filled lazily as levels start. */
   private readonly scripts = new Map<string, CutsceneScript>();
   /** Beat counts for the reducer; 0 / missing means no cutscene. */
@@ -111,6 +118,7 @@ export class Shell {
     this.save = loadSave(storage, this.levelIds);
     this.unlockAll = options.unlockAll ?? UNLOCK_ALL_LEVELS;
     this.cutscenesOn = options.cutscenes !== false;
+    this.cutsceneHoldOn = options.cutsceneHold !== false;
     this.sessionOverride = options.reduceMotion ?? null;
     this.systemReduceMotion = systemPrefersReducedMotion();
     app.setBindings(this.save.bindings);
@@ -299,7 +307,7 @@ export class Shell {
     this.app.hooks.screen = screen.kind;
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
-    if (screen.kind === 'cutscene') {
+    if (screen.kind === 'cutscene' && this.cutsceneHoldOn) {
       const beat = this.scripts.get(screen.levelId)?.beats[screen.beat];
       this.arm('timeout', beatHoldMs(beat));
     }
