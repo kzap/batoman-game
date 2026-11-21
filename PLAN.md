@@ -1,20 +1,27 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-7b and 8.1-8.3 are on `v2`. Level 6 source art and dressing landed with #33. Still open on
-that level: the lying-path collider, Tikbalang-X, a second mid layer, and a dedicated music track. Level 3
-source art is on `v2` (#32) and the level is still grey-box (no `art` block). The playtest build deploys
-from `v2` to GitHub Pages (#24) and is live at https://mydev.org/batoman-game/. `main` still holds v1
-(Phaser 3, tagged `v1-archive`) and is still the default branch. The remake stays on `v2`, one phase per PR,
-and moves to `main` in Phase 9 once v0.2 is finished.
+Status: Phases 0-7b and 8.1-8.3 are on `v2` (`b951af8`). CI on that commit is green
+([run 44841192251](https://github.com/kzap/batoman-game/actions/runs/44841192251)). Level 6 is dressed (#33).
+Level 3 has source art (#32) and its level JSON is still grey-box. The playtest build deploys from `v2`
+(#24) and is live at https://mydev.org/batoman-game/. `main` still holds v1 (Phaser 3, tagged `v1-archive`)
+and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
 
-Playable set: Levels 1, 3, 4 and 6, in that order (`package.json` version `0.2.0`). Levels 1, 4 and 6 are
-dressed. Level 3 is grey-box. The tikbalang sheet exists; the spawn never becomes an actor. Powerups are
-absent from the schema, the sim and the HUD. Phase 9 has not started.
+The game is five levels, one themed boss each, as set out in `docs/VISION.md` on PR #25. The tree today
+ships four level files. The finale is the fifth, not built yet.
 
-Priority: finish v0.2 before any new district. Dress Level 3 from the source art now in
-`art-source/level-3/`, close the Level 6 leftovers (lying-path collider, tikbalang behaviour, its own music,
-and a second mid layer if the upper roofs need it), then the rest of Phase 8: the 60 fps mid-laptop
-sign-off, the results card, and the docs that still describe unbuilt systems. Levels 2, 5 and 7-10 wait.
+| Order | Id | Boss | Where it stands |
+|---|---|---|---|
+| 1 Tondo docks | `level-1` | ASWANG prototype | Shipped |
+| 2 Quiapo chapel | `level-3` | Sigbin Unit | Source art on `v2`. Dressing is #14. The boss is #41, open |
+| 3 NSA tower | `level-4` | Manananggal-7 | Dressed. No boss in the tree. Andre confirmed this boss on #25 |
+| 4 Rooftop garden | `level-6` | Tikbalang-X | Dressed. Scout AI is #26, open |
+| 5 Destroyed block | proposed `level-5` | Bakunawa-Prime | Not in the tree |
+
+Whether v0.2 grows to include the unbuilt bosses is still an open question for Andre.
+
+Priority until that call: dress Level 3 (#14), land tikbalang behaviour (#26) with the #11 coverage, and
+finish the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off). The lying-path collider,
+a second mid layer, and a Level 6 music track stay open beside that.
 
 ## Why a remake
 
@@ -38,11 +45,12 @@ v1's bugs trace to two root causes, neither in gameplay code:
 | Art | Auto-recut the existing AI sheets into pivot-annotated atlases with a human review step |
 | Codebase | Fresh `src/`; nothing ported blindly |
 | Tests | Vitest unit + headless replay + Playwright e2e + build-time asset validation and payload budget |
-| Levels for v0.2 | 1 (Tondo docks), 3 (Quiapo chapel), 6 (rooftop garden) + Level 1 boss. Level 4 joined in Phase 7b; its art already existed |
+| Levels for v0.2 | 1 (Tondo docks), 3 (Quiapo chapel), 6 (rooftop garden) + Level 1 boss. Level 4 joined in Phase 7b. Boss scope beyond the ASWANG is Andre's open question (PR #25) |
 | Props | Textured quads only; no glTF meshes in v0.2 |
 | Git history | Untouched. No rewrite. New heavy files must not enter `public/` |
-| Branching | All work on `v2`. Branches `phase/N-slug` or `content/<level>` off `v2`; PRs target `v2` |
-| Merge gate | `npm run ci` before the PR. Implementer opens it, code-review skill first. Only Andre merges |
+| Node | `^20.19 || >=22.12` |
+| Branching | All work on `v2`. Branch prefixes: `phase/`, `content/`, `infra/`, `cursor/`. PRs target `v2` |
+| Merge gate | `npm run ci` green. Another bot reviews. The author merges |
 
 ## Architecture
 
@@ -74,18 +82,25 @@ Level 1 uses two backdrop slots (far -60, mid -8) plus three decor layers (wall,
 
 ## Workflow per phase
 
-Branch policy: all work on `v2`. Branches are `phase/N-slug` or `content/<level>`, cut from `v2`. PRs target
-`v2`. Run `npm run ci` before the PR. Only Andre merges.
+Branch policy: all work on `v2`. Cut `phase/N-slug`, `content/<level>`, `infra/<slug>`, or `cursor/<slug>`
+from `v2`. PRs target `v2`. Run `npm run ci` before the PR. Another bot reviews. The author merges once
+that review is in and CI is green.
 
 ```
 git checkout v2 && git pull
-git checkout -b phase/N-<slug>          # or content/<level>
+git checkout -b phase/N-<slug>          # or content/, infra/, cursor/
 # implement; npm run ci green
 # code-review skill: standards + spec; address findings
 git push -u origin <branch>
 gh pr create --base v2 --head <branch>
-# stop; Andre reviews and merges
+# another bot reviews; author merges when CI is green
 ```
+
+`npm run ci` is lint, unit, replay, build, `check:prod-bundle`, `build:e2e` (lockstep), `check:e2e-bundle`,
+the e2e gate, and e2e perf. The perf job in `.github/workflows/ci.yml` is blocking: it has no
+`continue-on-error`, so a miss fails the workflow. `playwright.config.ts` lines 32-33 and `README.md` line 41
+still say perf is outside `npm run ci` and that CI runs it as a non-blocking job. That mismatch is for Ari.
+This plan does not edit those files.
 
 One PR per phase. If a phase grows too large to review, split into `phase/N.1`, `phase/N.2`, all targeting
 `v2`. No force-push. No history rewrite.
@@ -104,31 +119,23 @@ undamaged clears in `tests/replay/fixtures/`.
 | Level | Dressing | What is in the tree |
 |---|---|---|
 | 1 Tondo Sublevel Docks | Dressed | `art` block, `level-1-props`, `sky`/`town`, 58 decor quads. Full source set in `art-source/level-1/`. Patrollers, drones, and the `aswang` boss (patroller sheet, 1.6x, lilac). Fixture 5567 ticks. |
-| 3 Quiapo Underground Chapel | Grey-box | No `art` block, so it still renders as boxes. Source art landed in #32: `background.png`, `foreground.png`, `tileset.png`, `backdrops.json` (`nave` / `chapel`), a props recipe, plus the older concept painting. Stealth, drone, patroller. No Sigbin boss. Music track `level-2`. Fixture 2642 ticks. |
-| 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Source set complete (`background.png`, `foreground.png`, `tileset.png`, `backdrops.json`, 27-prop recipe). Patrollers, drones, one stealth. No boss; the PRD names none for Level 4. Music track `level-2`. Fixture 2802 ticks. |
-| 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 144 decor quads, lift uses `platform_pallet`. Geometry unchanged. Drone, patroller, and a `tikbalang` at x 4100 that the sim drops. No Tikbalang-X boss. The painted lying path is not a collider. Music track `level-1`. Fixture 3954 ticks. |
+| 3 Quiapo Underground Chapel | Grey-box JSON | Source art is on `v2` (#32): `background.png`, `foreground.png`, `tileset.png`, `backdrops.json` (`nave` / `chapel`), a props recipe, plus the older concept painting. No `art` block, so it still renders as boxes. Remaining: #14 dresses it, #41 adds the Sigbin Unit. Stealth, drone, patroller. Music `level-2`. Fixture 2642 ticks. E2E loads it as grey-box. |
+| 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth. No boss in the tree. PR #25 names Manananggal-7; that fight is not built. Music `level-2`. Fixture 2802 ticks. E2E asserts the atlas and both backdrops. |
+| 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 144 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a `tikbalang` at x 4100 that the sim drops. Music `level-1`. Fixture 3954 ticks. |
 
-Tikbalang. The sheet and recipe are real (`art-source/characters/tikbalang.recipe.json`: idle, run, stomp, hurt,
-death, projectile). `tools/pack` picks up every recipe, `ENEMY_LOOK` points at that atlas, and the score table
-already pays 500. Level 6 lists the spawn, so the atlas is fetched. `spawnEnemy` returns null and `World` skips
-a null, so there is no actor, no collision, no drawing and no kill. There is no behaviour class and no unit
-test. The TDD line "drawn if placed" is ahead of the code. Giving it behaviour will change the Level 6 route
-and fixture; re-record with `npm run replay:record`.
+Tikbalang. The sheet and recipe are real. Level 6 lists the spawn, so the atlas is fetched, and `spawnEnemy`
+returns null, so `World` never builds an actor. Behaviour is PR #26 (`phase/8-tikbalang-ai`). The coverage
+gate is issue #11: re-record `level-6-clear` so the bot kills the scout, pin that no enemies are left at the
+exit, and extend the Level 6 Playwright check so the tikbalang atlas is requested and a rooftop screenshot
+is taken where the scout stands. Today's clear still walks past the empty spawn in 3954 ticks. The TDD line
+"drawn if placed" is ahead of the code.
 
-Powerups. Absent. The PRD lists four permanent (HP up, plasma upgrade, dash upgrade, armor shard) and four
-temporary (speed, invincibility, nova overcharge, double jump), and ART.md specifies a bottom-left timer. The
-level schema has no pickup field, the sim has no collector, and `Hud` has no timer. No phase owns this yet, and
-it is outside the current v0.2 finish line.
+Powerups. Nothing in the sim yet: no pickup field, no collector, no HUD timer. The first one is HP Up.
+Issue #12 specifies it, and PR #29 (`phase/6.2-hp-up`) implements it. The other PRD pickups wait.
 
-Also specified, also unbuilt, also waiting: districts 2 (Divisoria), 5 (Skyway), 7 (Laboratoryo Zero),
-8 (Floodgates), 9 (Arcology) and 10 (Destroyed City Block). Crumbling platforms, destroyable blocks,
-forcefields and rising water. A sniper type (Level 4's PRD theme). Unique sheets for stealth and the aswang;
-both reuse the patroller until their own art exists. Music is two tracks, `level-1` (Tondo Sublevel) and
-`level-2` (Divisoria).
-
-Level 6 dressing is done. Level 3 dressing is the remaining content PR: the source files are in
-`art-source/level-3/`, and the level JSON still needs an `art` block along the Level 1 path. The editor
-still cannot add an `art` block or change `art.props` and backdrops (TDD section 11).
+Level 6 dressing is done. Level 3 dressing is #14: the source files are in `art-source/level-3/`, and the
+level JSON still needs an `art` block. The editor still cannot add an `art` block or change `art.props` and
+backdrops (TDD section 11). The Sigbin Unit is a separate PR, #41.
 
 ## Phases
 
@@ -246,11 +253,13 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
 - Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
 
 Still open, and each needs code rather than more painting: a fake-solid collider for the lying path, the
-Tikbalang-X boss (the spawn at 4100 is still a scout with no behaviour), a possible second mid layer for
-the upper roofs, and a music track of its own (the manifest still points Level 6 at `level-1`).
+Tikbalang-X boss (the spawn at 4100 is still a scout with no behaviour; AI is #26, coverage is #11), a
+possible second mid layer for the upper roofs, and a music track of its own (the manifest still points
+Level 6 at `level-1`).
 
 Exit: Level 6 loads dressed, the existing clear fixture completes, and e2e asserts the atlas and both
-backdrops and screenshots the start, the lift, and the last roof.
+backdrops and screenshots the start, the lift, and the last roof. That exit is met. #11 adds the scout
+atlas request, the rooftop screenshot, and no enemies left at the exit once #26 lands.
 
 ### Phase 8 - Polish and performance (`phase/8-polish-perf`)
 
@@ -279,36 +288,34 @@ mapping is out of scope. Rebinding does not change packed input, so the clear fi
 
 #### Phase 8.3 - Reduce-motion and colourblind-safe weak points (#39)
 
-Merged. `options.reduceMotion` is true, false, or null (follow `prefers-reduced-motion`). R toggles it
-and writes the save; `?reduceMotion=` overrides the session until then. It holds shake, grain, the
-weak-point pulse, and the invulnerability blink. The boss core is a magenta diamond with a white outline,
-drawn only while exposed. The outline is the second channel. There is no colour-blind post pass. Other
-enemies still have no weak-point marker.
+Merged, including `tests/e2e/a11y.spec.ts`. `options.reduceMotion` is true, false, or null (follow
+`prefers-reduced-motion`). R toggles it and writes the save; `?reduceMotion=` overrides the session until
+then. It holds shake, grain, the weak-point pulse, and the invulnerability blink. The boss core is a
+magenta diamond with a white outline, drawn only while exposed. The outline is the second channel. There
+is no colour-blind post pass. Issue #19 is still open only because #39 did not reference it. The work
+itself is on `v2`.
+
+E2E (#27). Gameplay tests step the sim in lockstep (`VITE_E2E_LOCKSTEP`, `tests/e2e/drive.ts`). The perf
+floors in `tests/e2e/level.spec.ts` are `MIN_FPS` 1 and `MIN_TPS` 4. `v2` CI is green. See the workflow
+section for the perf-job mismatch Ari should fix.
 
 Still open:
 
-- The exit. 60 fps on a mid laptop has not been signed off. The new number is the cloud-VM probe above.
-- E2E gameplay no longer depends on render speed (#27). Those tests step the sim in lockstep
-  (`VITE_E2E_LOCKSTEP`, `tests/e2e/drive.ts`). `npm run test:e2e:perf` is a separate job with a
-  hosted-runner floor (1 fps, 4 ticks/s), retuned after ubuntu-latest measured about 5 fps and 20 ticks/s
-  on 2026-11-20. The old 20 fps / 110 ticks/s gate is gone.
-- Shell. The results card still lists time, hearts left and score, and `complete` is still `dim: false`.
-  ART's dim, spotlight and score tally are unbuilt. Title, level select and game over are still text.
-  `art-source/level-select.png` is unused. The salakot title and the salakot game-over screen are unbuilt.
-- Docs. `docs/TDD.md` matches the code through 8.3, except the tikbalang line "drawn if placed" (the spawn
-  is dropped, so nothing is drawn). `docs/PRD.md` is still the v0.1 ten-district spec, plus the 8.2 remap
-  note. `docs/ART.md` still specifies the powerup timer and those unbuilt screens; 8.3 updated the
-  weak-point row.
+- The exit. 60 fps on a mid laptop has not been signed off. The cloud-VM probe above is the new number.
+- Results card, #40 (`phase/8.4-results-polish`). The card lists time, hearts left and score, and
+  `complete` is still `dim: false`. ART's dim, spotlight and score tally are that PR.
+- Docs. `docs/TDD.md` matches the code through 8.3, except the tikbalang line "drawn if placed".
+  `docs/PRD.md` is still the v0.1 ten-district spec, plus the 8.2 remap note. `docs/VISION.md` is on PR #25,
+  not on `v2`. `docs/ART.md` still specifies the powerup timer; 8.3 updated the weak-point row.
 
 Exit: 60 fps on a mid laptop; docs current.
 
 ### Phase 9 - `v2 -> main`
 
-Not started. Open it only after v0.2 is finished: Level 3 dressed, the Level 6 leftovers closed (including
-tikbalang behaviour), and Phase 8's exit met.
+Not started. Open it after v0.2's close-out, and after Andre answers the boss-scope question on #25.
 
 - One merge PR from `v2` into `main`. CI already runs on PRs to `main` and to `v2`. `npm run ci` first.
-  Andre merges. No force-push, no history rewrite.
+  The author merges after another bot has reviewed it and CI is green. No force-push, no history rewrite.
 - `main` today is the Phaser prototype, the same commit as tag `v1-archive`. After the merge, `main` is
   the Three.js game. The tag stays, and it is what preserves v1.
 - The remote default branch is already `main`, so the merge is what retires v1 on the default branch.
@@ -324,4 +331,4 @@ Exit: `main` is the remake, `v1-archive` still points at the Phaser game, CI on 
 | Segmenter misreads a sheet | Human review step; committed, diffable recipes |
 | 2.5D hurts jump readability | FOV 30; feel signed off in grey-box (Phase 3); orthographic fallback |
 | Phase PR too large | Split into sub-PRs targeting `v2` |
-| Level 3/6 art segments differently from Level 1 | Level 4 was the check, and its foreground needed a chroma key Level 1 did not. Expect a pipeline tweak when 3 and 6 are dressed |
+| Level 3 art segments differently from Level 1 | Level 4 needed a chroma key. Level 6 dressed on the same path. Level 3's source art is in and its `art` block is #14 |
