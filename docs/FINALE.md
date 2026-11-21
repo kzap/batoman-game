@@ -47,15 +47,15 @@ The grey-box matches this table. `level-1` is 6400×768 and `level-4` is 1600×1
 |---|---|---|---|
 | Level | 0–4096 | 0–896 | `width` 4096, `height` 896 |
 | Spawn | 96 | feet `(96, 640)` | High landing, above the tide mark |
-| Room 1, combat pocket | 0–896 | path feet `y=640` across `x` 0–896; low street feet `y=192` under the path at `x` 512–896 | **Gate:** the patroller is dead. One `patroller`, feet `(400, 640)`, on the path. The low street is the tide lesson under that path. It is not a required crossing. |
+| Room 1, combat pocket | 0–896 | path feet `y=640` across `x` 0–896; low street feet `y=576` under the path at `x` 512–896 | **Gate:** the patroller is dead. One `patroller`, feet `(400, 640)`, on the path. The low street is the tide lesson under that path. It is not a required crossing. |
 | Checkpoint 1 | 640 | feet `y=640` | `{ x: 640, y: 640, w: 32, h: 96 }`, on the high landing after the patroller |
 | Room 2, cloak | 896–1664 | feet `y=640` | **Gate:** the stealth is dead. One `stealth`, feet `(1200, 640)`. |
 | Checkpoint 2 | 1568 | feet `y=640` | `{ x: 1568, y: 640, w: 32, h: 96 }`, the lip, before the shaft |
-| Room 3, vertical drop | 1664–1920 | lip `y=640`; landings `y=512` and `y=416`; side exit feet `(1920, 384)` | **Gate:** stand on the side exit. Shaft height 608 px, from the lip at `y=640` down to the death-zone top at `y=32`. Alternating one-ways at `y=512` and `y=416`. **Proposed, Rio/Andre to confirm:** the shaft floor is the death zone `{ x: 1664, y: 0, w: 256, h: 32 }`. A missed kick overlaps it, `die('pit')`, and respawns at checkpoint 2. |
-| Room 4, lying gap | 1920–2816 | safe ledge feet `y=384` | **Gate:** reach the true landing at `x≥2432`. Decor span `x` 2304–2432 (128 px) over death zone `{ x: 2304, y: 0, w: 128, h: 64 }`. A plain jump covers a 96 px gap; 128 px needs a dash at the apex ([TDD.md](TDD.md) §8.1). |
-| Checkpoint 3 | 2592 | feet `y=384` | `{ x: 2592, y: 384, w: 32, h: 96 }`. Centre `x=2608`. Boss feet `(3408, 384)`, 800 px away, past `BOSS.engageRange` (560). |
-| Arena | 2816–4096 | platforms feet `y=384` and `y=512` | **Gate:** the boss is dead, then the body overlaps the exit. Grey-box has no boss spawn, so the exit is already open. |
-| Exit | 4032–4096 | `y=384`, `h=256` | `{ x: 4032, y: 384, w: 64, h: 256 }`, above the high-water mark |
+| Room 3, vertical drop | 1664–1920 | lip `y=640`; landings `y=624` and `y=612`; side exit feet `(1920, 624)` | **Gate:** stand on the side exit. Shaft height 608 px, from the lip at `y=640` down to the death-zone top at `y=32`. Alternating one-ways at `y=624` and `y=612`, both above the mark. **Proposed, Rio/Andre to confirm:** the shaft floor is the death zone `{ x: 1664, y: 0, w: 256, h: 32 }`. A missed kick overlaps it, `die('pit')`, and respawns at checkpoint 2. |
+| Room 4, lying gap | 1920–2816 | safe ledge feet `y=624` | **Gate:** reach the true landing at `x≥2432`. Decor span `x` 2304–2432 (128 px) over death zone `{ x: 2304, y: 0, w: 128, h: 64 }`. A plain jump covers a 96 px gap; 128 px needs a dash at the apex ([TDD.md](TDD.md) §8.1). |
+| Checkpoint 3 | 2592 | feet `y=624` | `{ x: 2592, y: 624, w: 32, h: 96 }`. Centre `x=2608`. Boss feet `(3408, 624)`, 800 px away, past `BOSS.engageRange` (560). |
+| Arena | 2816–4096 | platforms feet `y=624` and `y=640` | **Gate:** the boss is dead, then the body overlaps the exit. Grey-box has no boss spawn, so the exit is already open. |
+| Exit | 4032–4096 | `y=624`, `h=256` | `{ x: 4032, y: 624, w: 64, h: 256 }`, above the high-water mark |
 
 The level spawns one patroller and one stealth. It does not spawn a drone. Room 3 is geometry only.
 
@@ -75,21 +75,21 @@ Folded from the floodgates ([PRD.md](PRD.md) "Folded from the cut districts", [V
 
 Today a death zone is a static rect. `level-3.json` has one under the stepping stones (`x: 1024`, `y: 320`, `w: 576`, `h: 96`). `World.checkZones` in `src/game/world.ts` treats any overlap, and a body with `top < 0`, as `die('pit')`. There is no water volume and no swim flag.
 
-The finale adds one moving death volume: a rect whose top follows a period. The grey-box may block the low street with a static zone first so the climb is testable, and the moving top replaces that stand-in before `content/level-5` merges. A static pit labeled as a tide is not the lesson.
+The finale adds two rects, one world.tick clock: the room-1 low street, and the river from x=1920. The grey-box may block the low street with a static zone first so the climb is testable, and the moving top replaces that stand-in before `content/level-5` merges. A static pit labeled as a tide is not the lesson.
 
 The period is taught in room 1, on a tide mark, with a landing already above it ([VISION.md](VISION.md) challenge paragraph):
 
-- The mark is on the fallen wall, above the water he can see at the low point of the period.
-- Spawn and the combat landing are already above the mark, so the first rise is something he watches.
-- From that landing he sees one full rise to the mark and one fall. The way on stays the high path. The low street is the picture, not the route.
-- The same period runs in room 4 and in the arena. Rooms 2 and 3 keep their floors above the mark; the line is visible, and the path does not ask him to stand in it.
-- In the arena the platforms he fights from stay above the mark at the high point. A platform the coil gives him that then drops through the line is a hazard, the same way a mover can already carry him into a pit.
+- The mark is on the fallen wall at `y=600`, above the water he can see at the low point of the period (`y=560`).
+- Spawn feet are `y=640`. The settled camera centre is feet + `CAMERA.focusAboveFeet` (96), so `y=736`. `CAMERA.viewH` is 378, so the frame runs from about `y=547` up. Low top `y=560` and the mark `y=600` are both above `y=547`, in frame at spawn.
+- The path at `y=640` is above the mark, so the first rise is something he watches. He sees one full rise and one fall from that landing. The way on stays the high path. The low street at `y=576` is the picture, not the route: low tide (`y=560`) leaves it dry, high tide (`y=600`) covers it.
+- The same period runs in room 4 and in the arena. Rooms 2 and 3 keep their floors above the mark (`y=640`, and the shaft one-ways at `y=624` and `y=612`). The line is visible, and the path does not ask him to stand in it.
+- Arena platforms at `y=624` and `y=640` stay above the mark at the high point. A platform the coil gives him that then drops through the line is a hazard, the same way a mover can already carry him into a pit.
 
-The clock is `World`'s tick (`this.tick` in `src/game/world.ts`, incremented once per `step`, exposed as `currentTick` and `snapshot().tick`). **Proposed, Rio/Andre to confirm:** rise 240 ticks, hold 60, fall 240, then repeat. The top is a function of that tick. Low top `y=64`, high top `y=320` (the painted mark). The volume covers the room-1 low street (`x` 512–896) and the river (`x` 1920–4096). It does not cover the shaft (`x` 1664–1920) or the high street. It never reads wall-clock time, `performance.now`, or the render frame. One period is 540 ticks. From the high path over the pocket he sees a full rise and a full fall. The low street stays off the route.
+The clock is `World`'s tick (`this.tick` in `src/game/world.ts`, incremented once per `step`, exposed as `currentTick` and `snapshot().tick`). **Proposed, Rio/Andre to confirm:** rise 240 ticks, hold 60, fall 240, then repeat. The top is a function of that tick. Low top `y=560`, high top `y=600` (the painted mark). The two rects share that clock: the room-1 low street (`x` 512–896) and the river (`x` 1920–4096). The shaft (`x` 1664–1920) and the high path are not in either rect. The clock never reads wall-clock time, `performance.now`, or the render frame. One period is 540 ticks.
 
 ### Checkpoints
 
-`World.checkZones` sets the respawn to `{ x: checkpoint.x + w/2, y: checkpoint.y }`. Each checkpoint rect sits on a solid that stays above the high-water mark (`y=320`), so a water death does not put him back in the line. No checkpoint on a floor the line covers. On `level-1`, checkpoint 2 at `x: 5024` is 1126 px from the aswang at `x: 6150`; checkpoint 3 here is 800 px from the boss, past the 560 px engage range.
+`World.checkZones` sets the respawn to `{ x: checkpoint.x + w/2, y: checkpoint.y }`. Each checkpoint rect sits on a solid that stays above the high-water mark (`y=600`), so a water death does not put him back in the line. No checkpoint on a floor the line covers. On `level-1`, checkpoint 2 at `x: 5024` is 1126 px from the aswang at `x: 6150`; checkpoint 3 here is 800 px from the boss, past the 560 px engage range.
 
 Respawn contract, from `src/game/world.ts` `updateRespawn` and the pickup comment above `this.pickups`:
 
@@ -102,7 +102,7 @@ Respawn contract, from `src/game/world.ts` `updateRespawn` and the pickup commen
 |---|---|---|
 | 1 | `{ x: 640, y: 640, w: 32, h: 96 }` | After the patroller. The tide lesson sticks. |
 | 2 | `{ x: 1568, y: 640, w: 32, h: 96 }` | The lip. A missed kick in the shaft returns here. |
-| 3 | `{ x: 2592, y: 384, w: 32, h: 96 }` | The antechamber, outside engage range. The fight returns here. |
+| 3 | `{ x: 2592, y: 624, w: 32, h: 96 }` | The antechamber, outside engage range. The fight returns here. |
 
 ### Flow
 
@@ -130,9 +130,9 @@ Canon final boss ([STORY.md](STORY.md) unit table, [ART.md](ART.md) "Bakunawa-Pr
 
 Reduce-motion is presentation-only (`src/app/app.ts`: the flag never enters the sim). Under `?reduceMotion=1` the glyph fill holds steady, and the phase-3 ripple and afterimage are static shapes. The tide still moves, because its top is `world.tick`.
 
-Every Bakunawa tick count in this section is **proposed, Rio/Andre to confirm**, including where it copies a shipped constant. Attack clocks are counts of `world.tick`. A side, a platform, or an afterimage offset comes from `World.rng` (`new Rng(seed)` in `src/game/world.ts`, mulberry32 in `src/core/sim/rng.ts`). The phase-3 order below is fixed, not rolled. Nothing in the fight reads `Math.random`, wall-clock time, or the render frame. ESLint already bans `Math.random` in `core/` and `game/`.
+Every Bakunawa tick count in this section is **proposed, Rio/Andre to confirm**, including where it copies a shipped constant. Rio and Andre lock every proposed tick count, and Andre locks the phase-3 pool, in this doc before either fixture is recorded. Attack clocks are counts of `world.tick`. A side, a platform, or an afterimage offset comes from `World.rng` (`new Rng(seed)` in `src/game/world.ts`, mulberry32 in `src/core/sim/rng.ts`). The phase-3 order below is fixed, not rolled. Nothing in the fight reads `Math.random`, wall-clock time, or the render frame. ESLint already bans `Math.random` in `core/` and `game/`.
 
-Phases 1 and 2 use the prototype curve: `BOSS.hp` 24, `BOSS.phaseHp` `[16, 8]` in `src/game/tuning.ts`. Phase 3 is not the last 8 HP of that bar. One glyph nova is `NOVA.damage` 3 times `BOSS.weakPointMultiplier` 2, which is 6. Six damage against an 8 HP remainder finishes the phase on the next plasma tap (`PROJECTILE.damage` 1, doubled on the glyph), so the later tells never have to play. **OPEN: Andre to decide** a separate phase-3 HP pool. The proposal on the table is 24, four glyph novas of 6, one per tell. The boss PR does not ship the 8 HP remainder as phase 3 while that question is open.
+Phases 1 and 2 use the prototype curve: `BOSS.hp` 24, `BOSS.phaseHp` `[16, 8]` in `src/game/tuning.ts`. Phase 3 is not the last 8 HP of that bar. One glyph nova is `NOVA.damage` 3 times `BOSS.weakPointMultiplier` 2, which is 6. Six damage against an 8 HP remainder finishes the phase on the next plasma tap (`PROJECTILE.damage` 1, doubled on the glyph), so the later tells never have to play. **OPEN: Andre to decide** a separate phase-3 HP pool. The proposal on the table is 24. Three glyph novas of 6 leave 6 HP, and the fourth nova during the planted window spends that 6, so the boss dies before the flyer window opens. The clear trace requires the split pose. It requires the flyer window only when HP is left after the planted window. The boss PR does not ship the 8 HP remainder as phase 3 while that question is open.
 
 The hanging-metal opener is an open question in §5. The windows below work if Andre leaves the metal as dressing. If he makes the metal the key, the same window starts when the piece is shot, and a bell in the approach teaches it. The layout PR does not build that key.
 
@@ -153,7 +153,7 @@ Dormant and the phase shift are not hittable and deal no contact damage. `Boss.h
 | 1 | Rush | ASWANG prototype, shipped in `src/game/enemies/boss.ts` | Windup `BOSS.rushWindupTicks` (40). Dodge: jump. The collider drops to `BOSS.rushHeight` 56, and `rushMaxTicks` is 90. Glyph opens for `BOSS.stunTicks` (100) in `stunned`. Closed during the windup and the charge. |
 | 2 | Fake position | Tikbalang-X ([VISION.md](VISION.md); #49). The scout in `src/game/enemies/tikbalang.ts` is a different actor. | Windup 24 ticks, the scout's `windupTicks`, while the afterimage splits. The side is `World.rng`. Dodge: jump the solid body's stomp. The afterimage takes no damage. Glyph opens for 100 ticks on the solid body's stumble. Under `?reduceMotion=1` the afterimage is a static shape. |
 | 3 | Blindness | Sigbin Unit ([ART.md](ART.md) camo ripple, [VISION.md](VISION.md) rear lunge, core on the recovery; #41). The chapel scout in `stealth.ts` is the cloak he has already met. | Windup 40 ticks of ripple, the scout's `decloakTicks`, then a low lunge (height 56, the rush's dodge). Dodge: jump the lunge. Glyph stays closed through the ripple and the lunge, then opens for 100 ticks on the recovery. Under `?reduceMotion=1` the ripple is a static shape. |
-| 4 | Second body | Manananggal-7 ([VISION.md](VISION.md), Andre's tower boss; [ART.md](ART.md) lower-half conduit and upper-half chest panel; #50) | Windup 48 ticks as the body splits. Dodge: stay on the planted half's platform while the flyer crosses the air. The planted half's conduit is a bounded window of 100 ticks, then it closes until the next time this tell comes around. Hits on the flyer do not advance hp. After the planted half is dead, the flyer's chest panel uses its own bounded window of 100 ticks. |
+| 4 | Second body | Manananggal-7 ([VISION.md](VISION.md), Andre's tower boss; [ART.md](ART.md) lower-half conduit and upper-half chest panel; #50) | Windup 48 ticks as the body splits. Dodge: stay on the planted half's platform while the flyer crosses the air. The planted half's conduit is a bounded window of 100 ticks, then it closes until the next time this tell comes around. Hits on the flyer do not advance hp. The flyer's chest panel is its own bounded window of 100 ticks, and that window opens only when HP is left after the planted window. With the proposed pool of 24, the fourth nova of 6 kills the boss during the planted window, so the flyer window does not open on that clear. The clear trace still requires the split pose. |
 
 The planted half's window is that bounded 100 ticks. It is not open for as long as the half is alive.
 
@@ -262,9 +262,9 @@ Acceptance:
 - [ ] Rooms run in order: combat pocket, cloak, vertical drop, lying gap, then the arena footprint. Each room cites the recall in §2, including a 128 px-family lying gap and a downward wall-kick shaft.
 - [ ] Spawn and checkpoints 1–3 sit above the high-water mark. Checkpoint 3 is more than 560 px from where the boss will stand. No checkpoint on a floor the line covers.
 - [ ] Room 1 shows one full rise to the tide mark and one fall from the spawn landing. Overlap with the line calls `die('pit')`. There is no swim state.
-- [ ] The clear uses the shipped kit. `tests/replay/fixtures/level-5-clear.json` uses seed 1. Its `expect.ticks` lands in about 1500–4500 (grey-box, no boss). `expect` also pins `status`, `lives`, `hp`, and `x`. With no boss spawn, the exit opens, and the PR says so.
-- [ ] E2E opens `/?level=level-5&lockstep=1` and checks `status`, `simTicks`, and `player.x` against that fixture, the same way `tests/e2e/level.spec.ts` checks Level 1.
-- [ ] Any re-record updates `expect.ticks` and the e2e landmark table in the same PR.
+- [ ] The clear uses the shipped kit. `tests/replay/fixtures/level-5-clear.json` uses seed 1. Its `expect.ticks` lands in about 1500–4500 (grey-box, no boss). `expect` also pins `status`, `lives`, `hp`, and `x`. With no boss spawn, the exit opens, and the PR says so. Rio and Andre lock every proposed tick count, and Andre locks the phase-3 pool, in this doc before either fixture is recorded.
+- [ ] E2E opens `/?level=level-5&lockstep=1` and checks `status`, `simTicks`, and `player.x` against that fixture, the same way `tests/e2e/level.spec.ts` checks Level 1. Shaft and room shots use `stepUntil({ x })` on the bounds-table rows: `x=1920` (side exit), `x=2432` (true landing), `x=2592` (checkpoint 3). `stepUntil({ y })` passes immediately at the lip, because checkpoint 2 is already at that feet y.
+- [ ] Any re-record updates `expect.ticks` and the bounds-table rows those shots use (`x` 1920, 2432, 2592) in the same PR.
 - [ ] `npm run ci` is green. `npm run budget` still fits both caps, or this PR is the one that states a raise. A JSON file and one small actor are not expected to need one.
 
 ### `art/level-5` — Sining
@@ -299,9 +299,9 @@ Acceptance:
 - [ ] A new spawn type, not `aswang`. Phase 1 is the head and the glyph. Phase 2 constricts and uses the same `world.tick` period. Phase 3 uses only the four tells in the §3 table, in that order (rush, fake position, blindness, second body), and adds no tell of its own. Every attack timer reads `world.tick`. A side or a platform reads `World.rng`.
 - [ ] Windows match §3: glyph only, multiplier 2, a bounded window of at least 100 ticks on every tell, including the planted half. Dormant and the 72-tick shift are not hittable and deal no contact damage. Hull shots do not advance hp. The phase-3 HP pool stays on the open question in §5.
 - [ ] The exit stays shut while the boss is alive, dormant and shift included. Any death restores a full phase-1 dormant boss: HP returns to max, lives go down by one, enemies rebuild, pickups stay collected.
-- [ ] `tests/replay/fixtures/level-5-boss-clear.json` uses seed 1. Its `expect.ticks` lands in about 4000–9000. The replay trace shows phase 2, phase 3, and all four phase-3 poses (rush, fake position, blindness, second body). The fixture fails if the boss is left alive.
-- [ ] E2E on `/?level=level-5&lockstep=1` waits on `engaged`, `exposed`, and phase 3 (`stepUntil` in `tests/e2e/drive.ts`), and checks `status`, `simTicks`, and `player.x`. A second run uses `?reduceMotion=1`: the ripple and the afterimage are static shapes, and the tide still moves.
-- [ ] Any re-record updates `expect.ticks` and the e2e landmark table in the same PR.
+- [ ] `tests/replay/fixtures/level-5-boss-clear.json` uses seed 1. Its `expect.ticks` lands in about 4000–9000. The replay trace shows phase 2, phase 3, and the rush, fake-position, blindness, and split poses. The flyer window is in that trace only when HP remains after the planted window. The fixture fails if the boss is left alive. Rio and Andre lock every proposed tick count, and Andre locks the phase-3 pool, in this doc before either fixture is recorded.
+- [ ] E2E on `/?level=level-5&lockstep=1` waits on `engaged`, `exposed`, and phase 3 (`stepUntil` in `tests/e2e/drive.ts`), and checks `status`, `simTicks`, and `player.x`. Shaft and room shots use `stepUntil({ x })` on the bounds-table rows `x=1920`, `x=2432`, and `x=2592`, not `stepUntil({ y })`. A second run uses `?reduceMotion=1`. While the core is exposed, `weakPoint.pulsing === false` and `weakPoint.ring === 'white'`. The tide still moves.
+- [ ] Any re-record updates `expect.ticks` and the bounds-table rows those shots use (`x` 1920, 2432, 2592) in the same PR.
 - [ ] Unit coverage sits with `tests/unit/game/enemies.test.ts`. No portrait, no grow-light, no hanging-metal key, unless Andre has answered §5 in writing.
 - [ ] `npm run budget` is in the PR. A code raise is stated only if the code line exceeds 900 KB.
 - [ ] `npm run ci` is green.
@@ -313,8 +313,8 @@ No new issue. #52 already lists the finale PRs as later triggers. Quinn's notes 
 Acceptance, for each of the four PRs above that changes what a player does or sees:
 
 - [ ] Quinn plays the hosted build or the PR preview and posts what broke, what held, and whether the exit gate matches the PR (open in the grey-box, shut once the spawn exists).
-- [ ] `level-5-clear` and, once the boss exists, `level-5-boss-clear` are re-recorded when the route or the gate changes. The same PR updates `expect.ticks` and the e2e landmark table. Other levels' fixtures still pass.
-- [ ] E2E screenshots cover the tide mark, the four rooms, and the arena once those exist, and they assert the atlases and backdrops once `art/level-5` has them.
+- [ ] `level-5-clear` and, once the boss exists, `level-5-boss-clear` are re-recorded when the route or the gate changes. The same PR updates `expect.ticks` and the bounds-table rows those shots use (`x` 1920, 2432, 2592). Other levels' fixtures still pass.
+- [ ] E2E screenshots cover the tide mark, the four rooms, and the arena once those exist, keyed with `stepUntil({ x })` on those bounds-table rows, and they assert the atlases and backdrops once `art/level-5` has them.
 - [ ] `npm run ci` is green on the PR that carries the fixture refresh.
 
 ---
