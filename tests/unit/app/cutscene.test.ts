@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { advanceCutscene, currentBeat, cutscenesEnabledFromQuery, holdElapsed, skipCutscene, startCutscene } from '@app/shell/cutscene';
+import {
+  advanceBeat,
+  advanceCutscene,
+  currentBeat,
+  cutscenesEnabledFromQuery,
+  holdElapsed,
+  skipBeats,
+  skipCutscene,
+  startCutscene,
+} from '@app/shell/cutscene';
 import { DEFAULT_HOLD_MS, type CutsceneScript } from '@content/cutscene';
 
 const script: CutsceneScript = {
@@ -11,6 +20,17 @@ const script: CutsceneScript = {
     { speaker: 'Ando', text: 'three' },
   ],
 };
+
+describe('cutscene beat index helpers', () => {
+  it('advanceBeat and skipBeats match the stateful runner', () => {
+    expect(advanceBeat(0, 5)).toEqual({ index: 1, done: false });
+    expect(advanceBeat(4, 5)).toEqual({ index: 5, done: true });
+    expect(advanceBeat(5, 5)).toEqual({ index: 5, done: true });
+    expect(advanceBeat(0, 0)).toEqual({ index: 0, done: true });
+    expect(skipBeats(5)).toEqual({ index: 5, done: true });
+    expect(skipBeats(0)).toEqual({ index: 0, done: true });
+  });
+});
 
 describe('cutscene runner', () => {
   it('starts on the first beat and advances until done', () => {

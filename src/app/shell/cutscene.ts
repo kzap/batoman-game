@@ -1,7 +1,7 @@
 /**
- * Pure cutscene runner: which beat is showing, advance, skip-all, and the
- * soft holdMs auto-advance check. The shell owns timers, camera pans, and DOM;
- * this module only tracks index and completion.
+ * Pure cutscene runner: beat-index advance/skip, holdMs checks, and the
+ * stateful wrapper unit tests drive. The screen reducer uses the same
+ * {@link advanceBeat} / {@link skipBeats} helpers so dialog logic lives once.
  */
 
 import { beatHoldMs, type CutsceneBeat, type CutsceneScript } from '@content/cutscene';
@@ -10,6 +10,23 @@ import { beatHoldMs, type CutsceneBeat, type CutsceneScript } from '@content/cut
 export function cutscenesEnabledFromQuery(search: string): boolean {
   const v = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('cutscene');
   return v !== '0';
+}
+
+/**
+ * Advance one line by index. `done` is true after the last line (or when the
+ * script is empty / already past the end). Shared by the screen reducer and
+ * {@link advanceCutscene}.
+ */
+export function advanceBeat(index: number, length: number): { readonly index: number; readonly done: boolean } {
+  if (length <= 0 || index >= length) return { index: Math.max(index, length), done: true };
+  const next = index + 1;
+  if (next >= length) return { index: next, done: true };
+  return { index: next, done: false };
+}
+
+/** Jump past every line. Shared by the screen reducer and {@link skipCutscene}. */
+export function skipBeats(length: number): { readonly index: number; readonly done: true } {
+  return { index: Math.max(0, length), done: true };
 }
 
 export interface CutsceneState {
@@ -35,15 +52,16 @@ export function currentBeat(state: CutsceneState): CutsceneBeat | null {
 /** Advance one beat. Completes after the last line. */
 export function advanceCutscene(state: CutsceneState, nowMs: number): CutsceneState {
   if (state.done) return state;
-  const next = state.index + 1;
-  if (next >= state.script.beats.length) return { ...state, done: true, index: next };
-  return { script: state.script, index: next, done: false, beatStartedAt: nowMs };
+  const step = advanceBeat(state.index, state.script.beats.length);
+  if (step.done) return { ...state, done: true, index: step.index };
+  return { script: state.script, index: step.index, done: false, beatStartedAt: nowMs };
 }
 
 /** Jump past every remaining line. */
 export function skipCutscene(state: CutsceneState): CutsceneState {
   if (state.done) return state;
-  return { ...state, done: true, index: state.script.beats.length };
+  const step = skipBeats(state.script.beats.length);
+  return { ...state, done: true, index: step.index };
 }
 
 /**

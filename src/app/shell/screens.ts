@@ -6,6 +6,7 @@
  */
 
 import { CONTROL_ROWS, type ControlRow } from '../bindings';
+import { advanceBeat, skipBeats } from './cutscene';
 
 export type Screen =
   | { readonly kind: 'title'; readonly index: number }
@@ -137,17 +138,21 @@ function leaveIntro(levelId: string, ctx: ShellCtx): Transition {
 }
 
 function cutscene(screen: Screen & { kind: 'cutscene' }, event: ShellEvent, ctx: ShellCtx): Transition {
+  const total = ctx.cutsceneBeats[screen.levelId] ?? 0;
   // Esc is skip-all during a cutscene (mapped to `skip` or `back`); it does not return to the title.
   if (event === 'skip' || event === 'back') {
-    return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+    const end = skipBeats(total);
+    return {
+      screen: { kind: 'playing', levelId: screen.levelId },
+      effects: end.done ? [{ type: 'resume' }] : [],
+    };
   }
   if (event !== 'confirm' && event !== 'timeout') return stay(screen);
-  const total = ctx.cutsceneBeats[screen.levelId] ?? 0;
-  const next = screen.beat + 1;
-  if (next >= total) return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+  const step = advanceBeat(screen.beat, total);
+  if (step.done) return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
   return {
-    screen: { kind: 'cutscene', levelId: screen.levelId, beat: next },
-    effects: [{ type: 'cutsceneBeat', levelId: screen.levelId, beat: next }],
+    screen: { kind: 'cutscene', levelId: screen.levelId, beat: step.index },
+    effects: [{ type: 'cutsceneBeat', levelId: screen.levelId, beat: step.index }],
   };
 }
 

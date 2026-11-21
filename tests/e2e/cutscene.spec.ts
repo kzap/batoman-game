@@ -28,8 +28,10 @@ test.describe('level-intro cutscene', () => {
     await expect(page.locator('.shell-line')).toContainText('Golden hour on the piers');
     expect((await hooks(page)).simTicks).toBe(0);
     expect((await hooks(page)).mode).toBe('paused');
-    // First beat pans to the ASWANG at x≈6150; wait so the PR still shows the look.
-    await page.waitForFunction(() => (window.__batoman?.camera.x ?? 0) > 5000, undefined, { timeout: 5_000 });
+    // Pan is 1600 ms; holdMs is 3200. Cap the wait under holdMs so auto-advance cannot
+    // race past the Sari-sari line before we screenshot it.
+    await page.waitForFunction(() => (window.__batoman?.camera.x ?? 0) > 5000, undefined, { timeout: 2_800 });
+    await expect(page.locator('.shell-speaker')).toHaveText('Ando');
     await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-show.png') });
 
     await page.keyboard.press('Enter'); // skip-ahead to Sari-sari
@@ -89,5 +91,56 @@ test.describe('level-intro cutscene', () => {
     expect((await hooks(page)).simTicks).toBe(0);
     await advance(page, 12);
     expect((await hooks(page)).simTicks).toBeGreaterThan(5);
+  });
+
+  test('Esc on the last line starts play once; a second Enter does not stick or restart', async ({ page }) => {
+    await page.goto(withLockstep('/', true));
+    await ready(page);
+    await page.keyboard.press('Enter');
+    await screen(page, 'intro');
+    await page.keyboard.press('Enter');
+    await screen(page, 'cutscene');
+    // Five Level 1 beats: advance to the last line, then Esc skip-all.
+    for (let i = 0; i < 4; i++) await page.keyboard.press('Enter');
+    await expect(page.locator('.shell-speaker')).toHaveText('Ando');
+    await expect(page.locator('.shell-line')).toContainText('Salamat');
+    await page.keyboard.press('Escape');
+    await screen(page, 'playing');
+    expect((await hooks(page)).simTicks).toBe(0);
+    expect((await hooks(page)).mode).toBe('play');
+    await page.keyboard.press('Enter');
+    expect((await hooks(page)).screen).toBe('playing');
+    expect((await hooks(page)).mode).toBe('play');
+    expect((await hooks(page)).errors).toEqual([]);
+  });
+
+  test('Esc then Enter does not double-start; Enter on the last line then Enter stays playing', async ({ page }) => {
+    await page.goto(withLockstep('/', true));
+    await ready(page);
+    await page.keyboard.press('Enter');
+    await screen(page, 'intro');
+    await page.keyboard.press('Enter');
+    await screen(page, 'cutscene');
+    await page.keyboard.press('Escape');
+    await screen(page, 'playing');
+    expect((await hooks(page)).simTicks).toBe(0);
+    await page.keyboard.press('Enter');
+    expect((await hooks(page)).screen).toBe('playing');
+    expect((await hooks(page)).mode).toBe('play');
+
+    // Fresh load: walk every line with Enter, including the last, then Enter again.
+    await page.goto(withLockstep('/', true));
+    await ready(page);
+    await page.keyboard.press('Enter');
+    await screen(page, 'intro');
+    await page.keyboard.press('Enter');
+    await screen(page, 'cutscene');
+    for (let i = 0; i < 5; i++) await page.keyboard.press('Enter');
+    await screen(page, 'playing');
+    expect((await hooks(page)).simTicks).toBe(0);
+    await page.keyboard.press('Enter');
+    expect((await hooks(page)).screen).toBe('playing');
+    expect((await hooks(page)).mode).toBe('play');
+    expect((await hooks(page)).errors).toEqual([]);
   });
 });
