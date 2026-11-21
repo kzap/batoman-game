@@ -388,7 +388,7 @@ The HUD should feel like it's **Ando's own cobbled-together tech**, not NSA-clea
 ---
 
 ## Out of Scope (v0.1)
-- Animated cutscene art (story beats use static portrait + text)
-- Dr. Epal playable sprite (cutscene portrait only)
+- Animated cutscene art (level intros reuse packed atlases or typography-only nameplates; static portrait + text)
+- Dr. Epal playable sprite (cutscene portrait only; typography-only until a portrait ships)
 - Full controller UI iconography
 - Localization font variants

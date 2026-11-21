@@ -275,6 +275,53 @@ body.shell-hide-hud #hud {
   color: #9a9aaa;
 }
 
+/* Cutscene dialog: click/tap advances; the canvas behind stays undimmed. */
+#overlay.shell-cutscene {
+  pointer-events: auto;
+  align-items: flex-end;
+  padding-bottom: 48px;
+}
+
+.shell-card-cutscene {
+  min-width: min(720px, 92vw);
+  max-width: 840px;
+  text-align: left;
+}
+
+.shell-cutscene-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.shell-portrait {
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+.shell-cutscene-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.shell-speaker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.shell-line {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.55;
+  color: #e8e4d8;
+}
+
 .shell-card[data-screen='controls'] {
   min-width: 480px;
 }

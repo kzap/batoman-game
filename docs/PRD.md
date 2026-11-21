@@ -169,7 +169,7 @@ The finale is in neither option. Powerups, wind, the water line, and the nova-lo
 
 - A sixth story level. Cut districts are the VISION appendix, not a backlog for this arc
 - Multiplayer, leaderboards, procedural generation
-- Boss-weapon copies, dialogue, voice-over, animated cutscenes
+- Boss-weapon copies, mid-level dialogue, voice-over, animated cutscene art (level-intro static portrait + text + camera pan is in scope; see the shell cutscene system)
 - Swimming
 - Renaming content ids inside v0.2
 - The hangar stealth-fighter as the tower boss

@@ -410,14 +410,26 @@ staged level around a spotlight on Ando and tallies the HUD score (section 6.1).
 
 ### 6.1 Shell (`src/app/shell/`)
 
-The shell is the game around the level: title, level select, intro card, pause, results, game over and
-credits. `screens.ts` is a pure reducer: `reduce(screen, event, ctx)` takes a `Screen`
-(`title | levelSelect | intro | playing | paused | complete | gameover | credits`, menus carry their cursor
-`index`), a `ShellEvent` (`confirm | back | up | down | pause | levelComplete | gameOver | timeout`) and the
-level list with what is unlocked, and returns the next screen plus `Effect`s (`startLevel {levelId, newRun}`,
-`restartLevel`, `resume`, `freeze`, `quitToTitle`). Menus wrap; a locked level does not start; the last
-level's clear leads to the credits; game over offers retry or quit. `tests/unit/app/screens.test.ts`
-covers every transition.
+The shell is the game around the level: title, level select, intro card, optional level-intro cutscene,
+pause, results, game over and credits. `screens.ts` is a pure reducer: `reduce(screen, event, ctx)` takes a
+`Screen` (`title | levelSelect | intro | cutscene | playing | paused | complete | gameover | credits |
+controls`, menus carry their cursor `index`, cutscene carries `levelId` and `beat`), a `ShellEvent`
+(`confirm | back | up | down | pause | levelComplete | gameOver | timeout | stopListen | skip`) and the
+level list with what is unlocked plus `cutsceneBeats` (beat counts for levels that have a script), and
+returns the next screen plus `Effect`s (`startLevel {levelId, newRun}`, `restartLevel`, `resume`, `freeze`,
+`quitToTitle`, `resetBindings`, `cutsceneBeat {levelId, beat}`). Menus wrap; a locked level does not start;
+the last level's clear leads to the credits; game over offers retry or quit. After the LEVEL N intro card,
+confirm or the intro timeout opens `cutscene` when `cutsceneBeats[levelId] > 0`, otherwise it resumes play.
+On the cutscene screen each beat auto-advances after `holdMs` (default 3200 ms, shell wall-clock), Enter or a
+click/tap on `#overlay` skips ahead one line, and Esc (`skip`) finishes the script and resumes play — Esc does
+**not** return to the title during a cutscene. The sim stays `paused` (tick 0) for the whole dialog.
+`?level=` / `?edit=1` still skip the intro card; `?cutscene=0` skips scripts on the title path. Scripts live
+in `src/content/cutscenes/<id>.json` (static JSON via `?url&no-inline`), parsed by `src/content/cutscene.ts`.
+Portraits name a packed atlas (frame or animation) or a level backdrop stem with an absolute crop, plus an
+optional tint; the overlay fits the crop into a 120 px box so a backdrop stall does not dwarf Ando idle.
+Level 1 sari-sari uses the painted SARI-SARI STORE from the mid `town` backdrop (`crop` 80,400,280,280), not
+an enemy sheet. `tests/unit/app/screens.test.ts` and `tests/unit/app/cutscene.test.ts` cover the transitions
+and the runner.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
 Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx
@@ -436,17 +448,21 @@ reads. `options.reduceMotion` is `true`, `false`, or `null`. `null` (missing or 
 stops following the OS. `?reduceMotion=1` or `0` overrides the session without writing until R is pressed.
 The title and pause hints show `R motion on/off`, and `#overlay` carries `data-reduce-motion`.
 
-`startLevel` fetches the level and its assets and calls `replaceLevel` (or
-`restartLevel` when it is the current level); the intro card advances on Enter or after `SHELL_TIMING.intro`
-2.2 s (re-armed while the level is still loading). One timer slot holds the pending delayed event and every
-screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is watched
-for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per type), `complete` (clear bonus 500 + 100 per
-heart from the event's `hp`, result recorded, `levelComplete` after 0.9 s) and `gameover` (`gameOver` after
-1.2 s); a completion or game over that lands while paused still shows its card. The run keeps the total
-score and the current level's share: a restart or retry takes the level's points back, and the save records
-the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the current screen into `#overlay` as
-a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
-hides the HUD on screens without play; `CREDITS` holds the credits text.
+`startLevel` fetches the level and its assets (and the level's cutscene script when one exists) and calls
+`replaceLevel` (or `restartLevel` when it is the current level); the intro card advances on Enter or after
+`SHELL_TIMING.intro` 2.2 s (re-armed while the level is still loading). Cutscene beats auto-advance on
+`holdMs` (or `DEFAULT_HOLD_MS`) via the same shell timer slot; Enter and overlay click/tap skip ahead.
+Camera pans are presentation-only (`App.setCutsceneCamera`); they never call `World.step`. One timer slot
+holds the pending delayed event and every screen change clears it, so a quit or restart cannot be followed
+by a stale card. Each new World is watched for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per
+type), `complete` (clear bonus 500 + 100 per heart from the event's `hp`, result recorded, `levelComplete`
+after 0.9 s) and `gameover` (`gameOver` after 1.2 s); a completion or game over that lands while paused
+still shows its card. The run keeps the total score and the current level's share: a restart or retry takes
+the level's points back, and the save records the level's own score, not the run's. `Overlay` (`overlay.ts`)
+renders the current screen into `#overlay` as a card (`data-screen` names it), dims the canvas on the title,
+level select, credits and game over, and hides the HUD on screens without play; the cutscene card is a bottom
+dialog with an atlas portrait (optional tint/crop; typography-only only if the sheet failed to resolve);
+`CREDITS` holds the credits text.
 
 The results card (`complete`) does not use that flat dim. `results.ts` is the presentation, pure and
 unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
@@ -746,8 +762,10 @@ drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts
 select under `?unlockAll=1` (any level starts, the save stays unwritten) and `?unlockAll=0` (only the
 first level starts); credits, intro card, pause freezing the tick count and resuming, quit; music element playing
 after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
-in sequence, asserting the save gains only the next id after Level 1 and then every id, then a reload with
-`?unlockAll=0` showing those saved unlocks and best times), `a11y.spec.ts` (the OS
+in sequence with `?cutscene=0`, asserting the save gains only the next id after Level 1 and then every id, then a reload with
+`?unlockAll=0` showing those saved unlocks and best times), `cutscene.spec.ts` (title-path Level 1 dialog
+shows, Enter skip-ahead, Esc skip-all, click skip-ahead, auto-advance on holdMs; `simTicks` stays 0 until
+play; `?cutscene=0` skips the script), `a11y.spec.ts` (the OS
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
 `?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that
