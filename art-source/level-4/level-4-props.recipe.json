@@ -31,6 +31,11 @@
     "r2f16": "tires",
     "r2f17": "water_d",
     "r2f18": "neon_tube_cyan",
-    "r2f19": "neon_tube_pink"
-  }
+    "r2f19": "neon_tube_pink",
+    "r3f0": "wing_shadow",
+    "r3f1": "dropped_cable",
+    "r3f2": "perch_scrape",
+    "r3f3": "unit_light"
+  },
+  "notes": "Level 4 NSA Tower Exterior props. Packed at scale 0.5. r3f0\u2013r3f3 are the Manananggal-7 early-hint decals for issue #50: a wing shadow on the tower face, a dropped hydraulic cable, a scratched perch plate, and a status light that reads 07."
 }

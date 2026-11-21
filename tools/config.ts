@@ -14,7 +14,13 @@ export interface Budget {
  * Numbers are deliberate ceilings, not targets - raise them in a PR with a reason.
  */
 export const BUDGET: Budget = {
-  totalServed: 12 * 1024 * 1024,
+  // 16 MB: measured 12.87 MB on art/manananggal-7 after the Manananggal-7 atlas
+  // (981.9 KB) and Tower Pulse cue (939.5 KB) landed on top of v2's about
+  // 10.93 MB / 12 MB. The 12 MB figure was a team ceiling, not a platform
+  // limit; Andre approved raising it when a packed sheet would not fit.
+  // Single-image (1.5 MB) and single-audio (6 MB) stay unchanged. PR #54
+  // proposes 20 MB as the longer-term cap.
+  totalServed: 16 * 1024 * 1024,
   code: 900 * 1024,
   singleImage: 1.5 * 1024 * 1024,
   singleAudio: 6 * 1024 * 1024,
