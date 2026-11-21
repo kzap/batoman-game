@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cutsceneProblems, parseCutscene } from '@content/cutscene';
+import { beatHoldMs, cutsceneProblems, DEFAULT_HOLD_MS, parseCutscene } from '@content/cutscene';
 
 const valid = {
   version: 1 as const,
@@ -15,7 +15,13 @@ const valid = {
     {
       speaker: 'Sari-sari',
       text: "Anak, 'wag diyan.",
-      holdMs: 2000,
+      portrait: {
+        atlas: 'patroller',
+        animation: 'idle',
+        tint: 0xd8b4ff,
+        crop: { x: 20, y: 0, w: 78, h: 78 },
+      },
+      holdMs: 3600,
     },
   ],
 };
@@ -32,7 +38,7 @@ describe('cutscene script', () => {
     expect(cutsceneProblems({ version: 1, id: 'LEVEL 1', beats: valid.beats })[0]).toMatch(/id must match/);
   });
 
-  it('rejects a portrait without frame or animation, and a broken camera', () => {
+  it('rejects a portrait without frame or animation, and a broken camera or crop', () => {
     const noFrame = {
       ...valid,
       beats: [{ speaker: 'Ando', text: 'hi', portrait: { atlas: 'batoman' }, holdMs: 1 }],
@@ -46,6 +52,12 @@ describe('cutscene script', () => {
     const problems = cutsceneProblems(badCam);
     expect(problems.some((p) => p.includes('x and .y'))).toBe(true);
     expect(problems.some((p) => p.includes('ms'))).toBe(true);
+
+    const badCrop = {
+      ...valid,
+      beats: [{ speaker: 'Ando', text: 'hi', portrait: { atlas: 'patroller', frame: 'idle_00', crop: { x: 0, y: 0, w: 0, h: 10 } }, holdMs: 1 }],
+    };
+    expect(cutsceneProblems(badCrop).some((p) => p.includes('crop'))).toBe(true);
   });
 
   it('rejects a portrait with a non-identifier atlas name', () => {
@@ -54,5 +66,16 @@ describe('cutscene script', () => {
       beats: [{ speaker: 'Ando', text: 'hi', portrait: { atlas: 'Bato Man', animation: 'idle' }, holdMs: 1 }],
     };
     expect(cutsceneProblems(bad).some((p) => p.includes('atlas'))).toBe(true);
+  });
+
+  it('allows omitting holdMs and resolves the default', () => {
+    const noHold = {
+      version: 1 as const,
+      id: 'level-1',
+      beats: [{ speaker: 'Ando', text: 'hi' }],
+    };
+    expect(cutsceneProblems(noHold)).toEqual([]);
+    expect(beatHoldMs(noHold.beats[0])).toBe(DEFAULT_HOLD_MS);
+    expect(beatHoldMs({ speaker: 'Ando', text: 'hi', holdMs: 1200 })).toBe(1200);
   });
 });

@@ -4,7 +4,7 @@
  * this module only tracks index and completion.
  */
 
-import type { CutsceneBeat, CutsceneScript } from '@content/cutscene';
+import { beatHoldMs, type CutsceneBeat, type CutsceneScript } from '@content/cutscene';
 
 /** `?cutscene=0` skips intro dialogs on the title path. Missing or anything else keeps them on. */
 export function cutscenesEnabledFromQuery(search: string): boolean {
@@ -47,12 +47,12 @@ export function skipCutscene(state: CutsceneState): CutsceneState {
 }
 
 /**
- * True when the current beat's holdMs has elapsed. The shell may ignore this
- * (input-only advance); unit tests cover the rule.
+ * True when the current beat's hold duration has elapsed (explicit `holdMs` or
+ * the default). The shell arms a real-time timeout from the same value.
  */
 export function holdElapsed(state: CutsceneState, nowMs: number): boolean {
   if (state.done) return true;
   const beat = currentBeat(state);
   if (!beat) return true;
-  return nowMs - state.beatStartedAt >= beat.holdMs;
+  return nowMs - state.beatStartedAt >= beatHoldMs(beat);
 }

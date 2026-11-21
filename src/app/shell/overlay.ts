@@ -165,8 +165,9 @@ export class Overlay {
           sprite.style.backgroundPosition = `-${frame.x}px -${frame.y}px`;
           sprite.style.backgroundSize = 'auto';
           if (line.portrait.tint !== null) {
-            // Cheap colour wash for placeholder sheets; exact hue is not gameplay-critical.
-            sprite.style.filter = `sepia(1) saturate(2) hue-rotate(${((line.portrait.tint >> 8) & 0xff) - 80}deg)`;
+            // Multiply wash for stand-in sheets (e.g. patroller + ASWANG tint). Exact hue is presentation-only.
+            sprite.style.backgroundColor = `#${line.portrait.tint.toString(16).padStart(6, '0')}`;
+            sprite.style.backgroundBlendMode = 'multiply';
           }
           row.append(sprite);
         }
@@ -174,7 +175,7 @@ export class Overlay {
         copy.append(el('p', 'shell-speaker', line?.speaker ?? ''), el('p', 'shell-line', line?.text ?? ''));
         row.append(copy);
         card.classList.add('shell-card-cutscene');
-        card.append(row, hint('Enter advance  ·  Shift skip all  ·  Esc title'));
+        card.append(row, hint('Enter next  ·  Esc skip all'));
         break;
       }
       case 'paused':

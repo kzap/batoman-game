@@ -1,5 +1,5 @@
+import { beatHoldMs, type CutsceneScript } from '@content/cutscene';
 import { cutsceneIds, hasCutscene, loadCutsceneById } from '@content/cutscenes';
-import type { CutsceneScript } from '@content/cutscene';
 import { LEVELS, loadLevelById, MANIFEST, manifestEntry } from '@content/levels';
 import type { World } from '@game/world';
 import { HttpAssetSource, loadAssets } from '@render/assets';
@@ -22,8 +22,6 @@ const KEYS: Readonly<Record<string, ShellEvent>> = {
   ArrowDown: 'down',
   KeyW: 'up',
   KeyS: 'down',
-  ShiftLeft: 'skip',
-  ShiftRight: 'skip',
 };
 
 function systemPrefersReducedMotion(): boolean {
@@ -165,10 +163,14 @@ export class Shell {
     if (e.code === 'KeyM') return this.toggleOption('music');
     if (e.code === 'KeyN') return this.toggleOption('sfx');
     if (e.code === 'KeyR') return this.toggleReduceMotion();
+    // During a cutscene Esc skips all remaining lines and starts play (not back to title).
+    if (this.screen.kind === 'cutscene' && e.code === 'Escape') {
+      e.preventDefault();
+      this.dispatch('skip');
+      return;
+    }
     const event = KEYS[e.code];
     if (!event) return;
-    // Skip is cutscene-only; Shift is still a gameplay binding while playing.
-    if (event === 'skip' && this.screen.kind !== 'cutscene') return;
     // While playing, arrows move the player and Enter is nothing; only pause keys reach the shell.
     if (this.screen.kind === 'playing' && event !== 'pause' && event !== 'back') return;
     e.preventDefault();
@@ -297,6 +299,10 @@ export class Shell {
     this.app.hooks.screen = screen.kind;
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
+    if (screen.kind === 'cutscene') {
+      const beat = this.scripts.get(screen.levelId)?.beats[screen.beat];
+      this.arm('timeout', beatHoldMs(beat));
+    }
     if (screen.kind === 'credits') this.audio.music.play(MANIFEST.titleMusic);
     this.renderOverlay();
     if (screen.kind === 'complete' && !this.effectiveReduceMotion()) this.armTally();

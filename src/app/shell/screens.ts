@@ -137,8 +137,10 @@ function leaveIntro(levelId: string, ctx: ShellCtx): Transition {
 }
 
 function cutscene(screen: Screen & { kind: 'cutscene' }, event: ShellEvent, ctx: ShellCtx): Transition {
-  if (event === 'back') return { screen: TITLE, effects: [{ type: 'quitToTitle' }] };
-  if (event === 'skip') return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+  // Esc is skip-all during a cutscene (mapped to `skip` or `back`); it does not return to the title.
+  if (event === 'skip' || event === 'back') {
+    return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+  }
   if (event !== 'confirm' && event !== 'timeout') return stay(screen);
   const total = ctx.cutsceneBeats[screen.levelId] ?? 0;
   const next = screen.beat + 1;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advanceCutscene, currentBeat, cutscenesEnabledFromQuery, holdElapsed, skipCutscene, startCutscene } from '@app/shell/cutscene';
-import type { CutsceneScript } from '@content/cutscene';
+import { DEFAULT_HOLD_MS, type CutsceneScript } from '@content/cutscene';
 
 const script: CutsceneScript = {
   version: 1,
@@ -8,7 +8,7 @@ const script: CutsceneScript = {
   beats: [
     { speaker: 'Ando', text: 'one', holdMs: 1000 },
     { speaker: 'Sari-sari', text: 'two', holdMs: 500 },
-    { speaker: 'Ando', text: 'three', holdMs: 800 },
+    { speaker: 'Ando', text: 'three' },
   ],
 };
 
@@ -35,13 +35,18 @@ describe('cutscene runner', () => {
     expect(skipCutscene(skipped)).toEqual(skipped);
   });
 
-  it('holdElapsed follows holdMs on the current beat', () => {
+  it('holdElapsed follows holdMs, and the default when omitted', () => {
     const state = startCutscene(script, 100);
     expect(holdElapsed(state, 100)).toBe(false);
     expect(holdElapsed(state, 1099)).toBe(false);
     expect(holdElapsed(state, 1100)).toBe(true);
     expect(holdElapsed(advanceCutscene(state, 200), 699)).toBe(false);
     expect(holdElapsed(advanceCutscene(state, 200), 700)).toBe(true);
+
+    const third = advanceCutscene(advanceCutscene(startCutscene(script, 0), 0), 0);
+    expect(currentBeat(third)?.text).toBe('three');
+    expect(holdElapsed(third, DEFAULT_HOLD_MS - 1)).toBe(false);
+    expect(holdElapsed(third, DEFAULT_HOLD_MS)).toBe(true);
   });
 
   it('an empty script is already done', () => {

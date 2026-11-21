@@ -420,10 +420,13 @@ returns the next screen plus `Effect`s (`startLevel {levelId, newRun}`, `restart
 `quitToTitle`, `resetBindings`, `cutsceneBeat {levelId, beat}`). Menus wrap; a locked level does not start;
 the last level's clear leads to the credits; game over offers retry or quit. After the LEVEL N intro card,
 confirm or the intro timeout opens `cutscene` when `cutsceneBeats[levelId] > 0`, otherwise it resumes play.
-On the cutscene screen Enter (or a click/tap on `#overlay`) advances one beat, Shift (`skip`) finishes the
-script and resumes, and Esc returns to the title. The sim stays `paused` (tick 0) for the whole dialog.
+On the cutscene screen each beat auto-advances after `holdMs` (default 3200 ms, shell wall-clock), Enter or a
+click/tap on `#overlay` skips ahead one line, and Esc (`skip`) finishes the script and resumes play — Esc does
+**not** return to the title during a cutscene. The sim stays `paused` (tick 0) for the whole dialog.
 `?level=` / `?edit=1` still skip the intro card; `?cutscene=0` skips scripts on the title path. Scripts live
 in `src/content/cutscenes/<id>.json` (static JSON via `?url&no-inline`), parsed by `src/content/cutscene.ts`.
+Portraits name a packed atlas, frame or animation, and an optional tint or crop; speakers without their own
+sheet reuse an existing one (Level 1 sari-sari uses `patroller` idle with the ASWANG tint).
 `tests/unit/app/screens.test.ts` and `tests/unit/app/cutscene.test.ts` cover the transitions and the runner.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
@@ -445,18 +448,19 @@ The title and pause hints show `R motion on/off`, and `#overlay` carries `data-r
 
 `startLevel` fetches the level and its assets (and the level's cutscene script when one exists) and calls
 `replaceLevel` (or `restartLevel` when it is the current level); the intro card advances on Enter or after
-`SHELL_TIMING.intro` 2.2 s (re-armed while the level is still loading). Cutscene beats do not auto-advance
-on `holdMs` in v1 (input only); the field remains in the script for later. Camera pans are presentation-only
-(`App.setCutsceneCamera`); they never call `World.step`. One timer slot holds the pending delayed event and
-every screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is
-watched for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per type), `complete` (clear bonus 500 +
-100 per heart from the event's `hp`, result recorded, `levelComplete` after 0.9 s) and `gameover`
-(`gameOver` after 1.2 s); a completion or game over that lands while paused still shows its card. The run
-keeps the total score and the current level's share: a restart or retry takes the level's points back, and
-the save records the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the current screen
-into `#overlay` as a card (`data-screen` names it), dims the canvas on the title, level select, credits and
-game over, and hides the HUD on screens without play; the cutscene card is a bottom dialog with an optional
-atlas portrait (typography-only when art is missing); `CREDITS` holds the credits text.
+`SHELL_TIMING.intro` 2.2 s (re-armed while the level is still loading). Cutscene beats auto-advance on
+`holdMs` (or `DEFAULT_HOLD_MS`) via the same shell timer slot; Enter and overlay click/tap skip ahead.
+Camera pans are presentation-only (`App.setCutsceneCamera`); they never call `World.step`. One timer slot
+holds the pending delayed event and every screen change clears it, so a quit or restart cannot be followed
+by a stale card. Each new World is watched for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per
+type), `complete` (clear bonus 500 + 100 per heart from the event's `hp`, result recorded, `levelComplete`
+after 0.9 s) and `gameover` (`gameOver` after 1.2 s); a completion or game over that lands while paused
+still shows its card. The run keeps the total score and the current level's share: a restart or retry takes
+the level's points back, and the save records the level's own score, not the run's. `Overlay` (`overlay.ts`)
+renders the current screen into `#overlay` as a card (`data-screen` names it), dims the canvas on the title,
+level select, credits and game over, and hides the HUD on screens without play; the cutscene card is a bottom
+dialog with an atlas portrait (optional tint/crop; typography-only only if the sheet failed to resolve);
+`CREDITS` holds the credits text.
 
 The results card (`complete`) does not use that flat dim. `results.ts` is the presentation, pure and
 unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
@@ -758,8 +762,8 @@ first level starts); credits, intro card, pause freezing the tick count and resu
 after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
 in sequence with `?cutscene=0`, asserting the save gains only the next id after Level 1 and then every id, then a reload with
 `?unlockAll=0` showing those saved unlocks and best times), `cutscene.spec.ts` (title-path Level 1 dialog
-shows, advances, skips all, click advances, Esc to title; `simTicks` stays 0 until play; `?cutscene=0` skips
-the script), `a11y.spec.ts` (the OS
+shows, Enter skip-ahead, Esc skip-all, click skip-ahead, auto-advance on holdMs; `simTicks` stays 0 until
+play; `?cutscene=0` skips the script), `a11y.spec.ts` (the OS
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
 `?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that

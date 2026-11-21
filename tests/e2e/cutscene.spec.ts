@@ -11,7 +11,7 @@ const ready = (page: Page) => page.waitForFunction(() => window.__batoman?.ready
 const screen = (page: Page, kind: string, timeout = 15_000) => page.waitForFunction((k) => window.__batoman?.screen === k, kind, { timeout });
 
 test.describe('level-intro cutscene', () => {
-  test('title path: Level 1 dialog shows, advances, skips; simTicks stays 0 until play', async ({ page }) => {
+  test('title path: Level 1 dialog shows, Enter skip-ahead, Esc skip-all; simTicks stays 0 until play', async ({ page }) => {
     test.setTimeout(60_000);
     // Manual lockstep: the frame loop presents only, so simTicks stays 0 until play + advance.
     await page.goto(withLockstep('/', true));
@@ -32,13 +32,14 @@ test.describe('level-intro cutscene', () => {
     await page.waitForFunction(() => (window.__batoman?.camera.x ?? 0) > 5000, undefined, { timeout: 5_000 });
     await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-show.png') });
 
-    await page.keyboard.press('Enter'); // advance to Sari-sari
+    await page.keyboard.press('Enter'); // skip-ahead to Sari-sari
     await expect(page.locator('.shell-speaker')).toHaveText('Sari-sari');
     await expect(page.locator('.shell-line')).toContainText('Anak');
+    await expect(page.locator('.shell-portrait')).toBeVisible();
     expect((await hooks(page)).simTicks).toBe(0);
     await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-advance.png') });
 
-    await page.keyboard.press('Shift'); // skip the rest
+    await page.keyboard.press('Escape'); // skip all remaining lines → play
     await screen(page, 'playing');
     expect((await hooks(page)).simTicks).toBe(0);
     await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-skip.png') });
@@ -48,8 +49,8 @@ test.describe('level-intro cutscene', () => {
     expect((await hooks(page)).errors).toEqual([]);
   });
 
-  test('click on the overlay advances a line', async ({ page }) => {
-    await page.goto(withLockstep('/'));
+  test('click on the overlay skips ahead a line', async ({ page }) => {
+    await page.goto(withLockstep('/', true));
     await ready(page);
     await page.keyboard.press('Enter');
     await screen(page, 'intro');
@@ -59,6 +60,22 @@ test.describe('level-intro cutscene', () => {
     await page.locator('#overlay').click({ position: { x: 40, y: 40 } });
     await expect(page.locator('.shell-speaker')).toHaveText('Sari-sari');
     expect((await hooks(page)).simTicks).toBe(0);
+  });
+
+  test('lines auto-advance on the hold timer while the sim stays at tick 0', async ({ page }) => {
+    test.setTimeout(30_000);
+    await page.goto(withLockstep('/', true));
+    await ready(page);
+    await page.keyboard.press('Enter');
+    await screen(page, 'intro');
+    await page.keyboard.press('Enter');
+    await screen(page, 'cutscene');
+    await expect(page.locator('.shell-speaker')).toHaveText('Ando');
+    // First beat holdMs is 3200; wait for the shell timeout without pressing Enter.
+    await expect(page.locator('.shell-speaker')).toHaveText('Sari-sari', { timeout: 6_000 });
+    expect((await hooks(page)).simTicks).toBe(0);
+    expect((await hooks(page)).mode).toBe('paused');
+    expect((await hooks(page)).screen).toBe('cutscene');
   });
 
   test('?cutscene=0 skips dialog on the title path', async ({ page }) => {
@@ -72,18 +89,5 @@ test.describe('level-intro cutscene', () => {
     expect((await hooks(page)).simTicks).toBe(0);
     await advance(page, 12);
     expect((await hooks(page)).simTicks).toBeGreaterThan(5);
-  });
-
-  test('Esc from the cutscene returns to the title with the sim still paused', async ({ page }) => {
-    await page.goto(withLockstep('/'));
-    await ready(page);
-    await page.keyboard.press('Enter');
-    await screen(page, 'intro');
-    await page.keyboard.press('Enter');
-    await screen(page, 'cutscene');
-    await page.keyboard.press('Escape');
-    await screen(page, 'title');
-    expect((await hooks(page)).mode).toBe('paused');
-    expect((await hooks(page)).simTicks).toBe(0);
   });
 });

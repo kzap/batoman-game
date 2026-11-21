@@ -344,8 +344,15 @@ export class App {
   /**
    * Resolve a cutscene portrait against loaded atlases. Returns null when the
    * atlas or frame is missing so the overlay can fall back to typography-only.
+   * An optional `crop` is relative to the frame's top-left (atlas pixels).
    */
-  resolvePortrait(portrait: { atlas: string; frame?: string; animation?: string; tint?: number }): {
+  resolvePortrait(portrait: {
+    atlas: string;
+    frame?: string;
+    animation?: string;
+    tint?: number;
+    crop?: { x: number; y: number; w: number; h: number };
+  }): {
     imageUrl: string;
     frame: { x: number; y: number; w: number; h: number };
     tint: number | null;
@@ -360,8 +367,13 @@ export class App {
     if (!frameName) return null;
     const frame = sheet.json.frames[frameName];
     if (!frame) return null;
+    const crop = portrait.crop;
+    const rect = crop
+      ? { x: frame.x + crop.x, y: frame.y + crop.y, w: crop.w, h: crop.h }
+      : { x: frame.x, y: frame.y, w: frame.w, h: frame.h };
+    if (rect.w <= 0 || rect.h <= 0) return null;
     const imageUrl = `${import.meta.env.BASE_URL}assets/atlases/${sheet.json.image}`;
-    return { imageUrl, frame: { x: frame.x, y: frame.y, w: frame.w, h: frame.h }, tint: portrait.tint ?? null };
+    return { imageUrl, frame: rect, tint: portrait.tint ?? null };
   }
 
   /**

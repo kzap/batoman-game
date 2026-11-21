@@ -7,11 +7,24 @@
 
 import { isInt, isRecord, NAME_RE } from './json';
 
+/** Default line duration when a beat omits `holdMs`. Shell wall-clock, not sim ticks. */
+export const DEFAULT_HOLD_MS = 3200;
+
+export interface CutsceneCrop {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
 export interface CutscenePortrait {
   readonly atlas: string;
   readonly frame?: string;
   readonly animation?: string;
+  /** Optional multiply tint (0..0xffffff), e.g. ENEMY_LOOK.aswang. */
   readonly tint?: number;
+  /** Optional crop in frame pixels (origin at the frame's top-left). */
+  readonly crop?: CutsceneCrop;
 }
 
 /** Presentation pan only. Must not call World.step. */
@@ -26,8 +39,8 @@ export interface CutsceneBeat {
   readonly text: string;
   readonly portrait?: CutscenePortrait;
   readonly camera?: CutsceneCamera;
-  /** Soft auto-advance budget in ms. The shell may ignore it (input-only). */
-  readonly holdMs: number;
+  /** Auto-advance duration in ms. Omitted → {@link DEFAULT_HOLD_MS}. */
+  readonly holdMs?: number;
 }
 
 export interface CutsceneScript {
@@ -38,6 +51,21 @@ export interface CutsceneScript {
 }
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+/** Resolved hold for a beat: explicit value or the default. */
+export function beatHoldMs(beat: CutsceneBeat | null | undefined): number {
+  if (!beat || beat.holdMs === undefined) return DEFAULT_HOLD_MS;
+  return beat.holdMs;
+}
+
+function cropProblems(c: unknown, label: string): string[] {
+  if (!isRecord(c)) return [`${label}: must be an object`];
+  const out: string[] = [];
+  if (![c.x, c.y, c.w, c.h].every(isInt)) out.push(`${label}: x, y, w, h must be integers`);
+  else if ((c.w as number) <= 0 || (c.h as number) <= 0) out.push(`${label}: w and h must be positive`);
+  else if ((c.x as number) < 0 || (c.y as number) < 0) out.push(`${label}: x and y must be non-negative`);
+  return out;
+}
 
 function portraitProblems(p: unknown, label: string): string[] {
   if (!isRecord(p)) return [`${label}: must be an object`];
@@ -51,6 +79,7 @@ function portraitProblems(p: unknown, label: string): string[] {
   if (p.tint !== undefined && (!isInt(p.tint) || (p.tint as number) < 0 || (p.tint as number) > 0xffffff)) {
     out.push(`${label}.tint must be an integer 0..0xffffff`);
   }
+  if (p.crop !== undefined) out.push(...cropProblems(p.crop, `${label}.crop`));
   return out;
 }
 
@@ -67,7 +96,9 @@ function beatProblems(b: unknown, label: string): string[] {
   const out: string[] = [];
   if (typeof b.speaker !== 'string' || b.speaker.length === 0) out.push(`${label}.speaker is required`);
   if (typeof b.text !== 'string' || b.text.length === 0) out.push(`${label}.text is required`);
-  if (!isInt(b.holdMs) || (b.holdMs as number) < 0) out.push(`${label}.holdMs must be a non-negative integer`);
+  if (b.holdMs !== undefined && (!isInt(b.holdMs) || (b.holdMs as number) < 0)) {
+    out.push(`${label}.holdMs must be a non-negative integer`);
+  }
   if (b.portrait !== undefined) out.push(...portraitProblems(b.portrait, `${label}.portrait`));
   if (b.camera !== undefined) out.push(...cameraProblems(b.camera, `${label}.camera`));
   return out;

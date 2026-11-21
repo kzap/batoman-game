@@ -114,7 +114,7 @@ BatoMan is **hopeful but grounded**. It doesn't shy away from the real weight of
 
 The ending this plan asks for is the same tone at city scale. He wins the night. He does not redeem the century. The hat stays on his head. One light comes back on a roof.
 
-Story reaches the player as the level itself, plus the portraits and text ART already allows. **Level-intro dialogs** are in scope: a data-driven shell cutscene (static portrait or typography-only nameplate, text, camera pan) runs after the LEVEL N card while the sim stays paused. Animated cutscene art and mid-level dialogue stay out of scope.
+Story reaches the player as the level itself, plus the portraits and text ART already allows. **Level-intro dialogs** are in scope: a data-driven shell cutscene (static portrait or a crop from a packed atlas, text, camera pan, timed auto-advance) runs after the LEVEL N card while the sim stays paused. Animated cutscene art and mid-level dialogue stay out of scope.
 
 Think: *neon-soaked Neo-Manila at night, the smell of street food, bass-heavy OPM music, and a plasma cannon pointed at a robot shaped like your worst nightmare.*
 

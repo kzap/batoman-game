@@ -40,7 +40,7 @@ describe('shell screens', () => {
     }
   });
 
-  it('intro with a script opens the cutscene; confirm advances, skip and the last line resume', () => {
+  it('intro with a script opens the cutscene; confirm/timeout advance, Esc/skip resume play', () => {
     const intro: Screen = { kind: 'intro', levelId: 'level-1' };
     const opened = reduce(intro, 'confirm', withCutscene);
     expect(opened.screen).toEqual({ kind: 'cutscene', levelId: 'level-1', beat: 0 });
@@ -50,18 +50,22 @@ describe('shell screens', () => {
     expect(next.screen).toEqual({ kind: 'cutscene', levelId: 'level-1', beat: 1 });
     expect(next.effects).toEqual([{ type: 'cutsceneBeat', levelId: 'level-1', beat: 1 }]);
 
+    const timed = reduce(opened.screen, 'timeout', withCutscene);
+    expect(timed.screen).toEqual({ kind: 'cutscene', levelId: 'level-1', beat: 1 });
+
     const skipped = reduce(opened.screen, 'skip', withCutscene);
     expect(skipped.screen).toEqual({ kind: 'playing', levelId: 'level-1' });
     expect(skipped.effects).toEqual([{ type: 'resume' }]);
+
+    // Esc is mapped to skip in the shell; `back` on cutscene also resumes play (not title).
+    const esc = reduce(opened.screen, 'back', withCutscene);
+    expect(esc.screen).toEqual({ kind: 'playing', levelId: 'level-1' });
+    expect(esc.effects).toEqual([{ type: 'resume' }]);
 
     const last: Screen = { kind: 'cutscene', levelId: 'level-1', beat: 4 };
     const done = reduce(last, 'confirm', withCutscene);
     expect(done.screen).toEqual({ kind: 'playing', levelId: 'level-1' });
     expect(done.effects).toEqual([{ type: 'resume' }]);
-
-    const back = reduce(opened.screen, 'back', withCutscene);
-    expect(back.screen).toEqual(TITLE);
-    expect(back.effects).toEqual([{ type: 'quitToTitle' }]);
   });
 
   it('pause freezes, resumes, restarts and quits', () => {
