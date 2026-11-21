@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AtlasJson } from '../../../src/content/atlas';
-import { atlasFileProblems, expectedAtlasOutputs, expectedBackdropOutputs } from '../assets';
+import { atlasFileProblems, expectedAtlasOutputs, expectedBackdropOutputs, ktx2SchemeProblem } from '../assets';
 
 const atlas: AtlasJson = {
   version: 1,
@@ -44,5 +44,19 @@ describe('atlasFileProblems', () => {
     const broken = { ...atlas, animations: { hover: { fps: 8, loop: true, frames: ['nope'] } } };
     expect(atlasFileProblems('drone', broken, { width: 64, height: 32 })).toEqual([expect.stringMatching(/unknown frame "nope"/)]);
     expect(atlasFileProblems('drone', 'text', { width: 64, height: 32 })).toEqual(['drone.json is not an object']);
+  });
+});
+
+describe('ktx2SchemeProblem', () => {
+  const header = (scheme: number): Uint8Array => {
+    const bytes = new Uint8Array(48);
+    new DataView(bytes.buffer).setUint32(44, scheme, true);
+    return bytes;
+  };
+
+  it('accepts BasisLZ and rejects another scheme or a short file', () => {
+    expect(ktx2SchemeProblem('a.ktx2', header(1))).toBeNull();
+    expect(ktx2SchemeProblem('a.ktx2', header(2))).toMatch(/scheme 2/);
+    expect(ktx2SchemeProblem('a.ktx2', new Uint8Array(10))).toMatch(/shorter than 48/);
   });
 });

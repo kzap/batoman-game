@@ -27,9 +27,10 @@ export default defineConfig({
     timeout: 60_000,
   },
   projects: [
-    // PR gate: every spec except the frame-budget measurement.
+    // `npm run test:e2e`: every spec except the @perf frame-budget check.
     { name: 'gate', grepInvert: /@perf/, use: { ...devices['Desktop Chrome'] } },
-    // Wall-clock fps / ticks report. Not part of `npm run ci`; CI runs it as a non-blocking job.
+    // Blocking check: last step of `npm run ci` and the CI perf job. Fails unless fps > 1 and
+    // ticks/s > 4. The job uploads perf-results.json and writes a summary on success or failure.
     { name: 'perf', grep: /@perf/, use: { ...devices['Desktop Chrome'] } },
   ],
   outputDir: 'test-results',

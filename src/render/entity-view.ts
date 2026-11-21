@@ -16,13 +16,13 @@ import {
   type Object3D,
 } from 'three';
 import type { AtlasJson } from '@content/atlas';
-import type { EnemyType, Rect } from '@content/level';
+import type { EnemyType, PickupKind, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
-import { PROJECTILE, SIGBIN } from '@game/tuning';
-import type { BossSnapshot, EnemySnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
+import { ENEMY, PROJECTILE, SIGBIN } from '@game/tuning';
+import type { BossSnapshot, EnemySnapshot, PickupSnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
-import { chargeGlowScale, enemyHurtTint, invulnOpacity, PRESENTATION, weakPointDiamond, weakPointLook, type WeakPointCue } from './motion';
+import { chargeGlowScale, enemyHurtTint, invulnOpacity, pickupBob, PRESENTATION, weakPointDiamond, weakPointLook, type WeakPointCue } from './motion';
 import { atlasMaterial, SpriteQuad } from './sprite';
 import { PALETTE } from './stage';
 import { toUnits } from './units';
@@ -47,6 +47,20 @@ const ORB_ANIMATION = 'orb';
 const ENEMY_SHOT_ANIMATION = 'projectile';
 /** The nova is drawn white-hot; plasma keeps the sheet's cyan. */
 const NOVA_TINT = 0xfffde0;
+/** Pickup quads sit in front of the player. The bob is visual only; the hitbox does not move. */
+const PICKUP_Z = 0.45;
+
+/** Colour per kind. A new kind (invincibility) adds a case here and nothing else in the loop. */
+function pickupColor(kind: PickupKind): number {
+  switch (kind) {
+    case 'hp-up':
+      return PALETTE.neonMagenta;
+    default: {
+      const unreachable: never = kind;
+      return unreachable;
+    }
+  }
+}
 
 /** Fill is a shape; the ring is a line loop of the same diamond, slightly larger. Both come from `weakPointDiamond`. */
 function diamondGeometry(which: 'fill' | 'ring'): BufferGeometry {
@@ -79,6 +93,11 @@ interface EnemyView {
 interface ShotView {
   readonly kind: ProjectileKind;
   readonly quad: SpriteQuad;
+}
+
+interface PickupView {
+  readonly mesh: Mesh;
+  readonly material: MeshBasicMaterial;
 }
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
@@ -123,6 +142,7 @@ export class EntityView {
   /** Placeholder prints for the Sigbin's backward trail. One material each so they can fade independently. */
   private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
   private readonly movers = new Map<number, MoverView>();
+  private readonly pickups = new Map<number, PickupView>();
   private readonly unitBox = new BoxGeometry(1, 1, 1);
   private readonly moverMaterial = new MeshStandardMaterial({ color: PALETTE.rustOrange, roughness: 0.7 });
   private readonly outlineGeometry = new EdgesGeometry(new BoxGeometry(1, 1, 1));
@@ -216,6 +236,7 @@ export class EntityView {
     this.presentPrints(cur.boss);
     this.syncProjectiles(prev.projectiles, cur.projectiles, cur.tick, alpha);
     this.syncMovers(prev.movingSolids, cur.movingSolids, alpha);
+    this.syncPickups(cur.pickups, cur.tick);
   }
 
   private presentPlayer(a: PlayerSnapshot, b: PlayerSnapshot, tick: number, alpha: number): void {
@@ -249,7 +270,7 @@ export class EntityView {
       let v = this.enemies.get(c.id);
       if (!v) {
         const fresh = this.takeEnemyView(c.type);
-        if (!fresh) continue; // no sheet loaded for this type (tikbalang spawn data)
+        if (!fresh) continue; // this level did not load a sheet for the type
         v = fresh;
         this.enemies.set(c.id, v);
       }
@@ -260,7 +281,12 @@ export class EntityView {
       v.quad.setFrame(v.animator.frameAt(c.pose, tick));
       const pivotY = look.pivot === 'centre' ? y + c.h / 2 : y;
       const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
-      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
+      // The tikbalang's lunge drops the body to `lungeHeight`. Fit the quad to that
+      // live height (feet stay on the pivot) so a jump that clears the hurtbox
+      // also clears the sprite. Every other pose keeps the sheet's own scale.
+      const h = lerp(p.h, c.h, alpha);
+      const lunging = c.type === 'tikbalang' && h < ENEMY.tikbalang.height;
+      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, lunging ? { flip, size: { h } } : { flip, scale: look.scale });
       // The placeholder Sigbin sheet is near-black. The lunge and its telegraph use the same hurt tint as a hit, so reduce-motion stays a steady white instead of a strobe.
       const sigbinStrike = c.type === 'sigbin' && (c.pose === 'windup' || c.pose === 'rush');
       v.material.color.setHex(enemyHurtTint(c.flash > 0 || sigbinStrike, tick, this.reduceMotion, look.tint, PALETTE.neonMagenta));
@@ -443,8 +469,33 @@ export class EntityView {
     return { obj: mesh, outline, quad: null };
   }
 
+  /** Unlit placeholder quads. Collected pickups leave the snapshot, so the mesh goes with them. */
+  private syncPickups(cur: readonly PickupSnapshot[], tick: number): void {
+    const seen = new Set<number>();
+    const bob = pickupBob(tick, this.reduceMotion);
+    for (const p of cur) {
+      seen.add(p.id);
+      let v = this.pickups.get(p.id);
+      if (!v) {
+        const material = new MeshBasicMaterial({ color: pickupColor(p.kind) });
+        const mesh = new Mesh(this.unitBox, material);
+        this.group.add(mesh);
+        v = { mesh, material };
+        this.pickups.set(p.id, v);
+      }
+      v.mesh.position.set(toUnits(p.x + p.w / 2), toUnits(p.y + p.h / 2 + bob), PICKUP_Z);
+      v.mesh.scale.set(toUnits(p.w), toUnits(p.h), toUnits(8));
+    }
+    for (const [id, v] of this.pickups) {
+      if (seen.has(id)) continue;
+      v.mesh.removeFromParent();
+      v.material.dispose();
+      this.pickups.delete(id);
+    }
+  }
+
   get entityCount(): number {
-    return 1 + this.projectiles.size + this.enemies.size + this.movers.size;
+    return 1 + this.projectiles.size + this.enemies.size + this.movers.size + this.pickups.size;
   }
 
   dispose(): void {
@@ -455,6 +506,7 @@ export class EntityView {
     for (const v of this.enemies.values()) this.disposeEnemyView(v);
     for (const list of this.enemyPool.values()) for (const v of list) this.disposeEnemyView(v);
     for (const m of this.movers.values()) m.quad?.dispose();
+    for (const p of this.pickups.values()) p.material.dispose();
     this.unitBox.dispose();
     this.outlineGeometry.dispose();
     this.outlineMaterial.dispose();

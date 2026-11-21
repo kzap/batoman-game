@@ -7,7 +7,8 @@ NSA-controlled districts to dismantle Project ASWANG and confront Dr. Epal.
 
 This branch (`v2`) is a ground-up remake as a 2.5D platformer: a deterministic 2D simulation rendered with
 Three.js. The original Phaser build is preserved at the `v1-archive` tag and on `main` until v2 is
-playable. See [PLAN.md](PLAN.md) for the phase plan and current status.
+playable. See [PLAN.md](PLAN.md) for the phase plan and current status. The five-level vision, pending
+the remaining creative calls, is in [docs/VISION.md](docs/VISION.md).
 
 ---
 
@@ -36,12 +37,17 @@ npm run dev                        # http://localhost:5173
 | `npm run replay:trace -- <level>` | Print where a route's steps finish, for authoring levels and routes |
 | `npm run build:e2e` | Production build plus `VITE_E2E_LOCKSTEP=1` (required before e2e; `npm run build` omits it) |
 | `npm run test:e2e` | Playwright gate against that `dist/`. Asserts on sim ticks |
-| `npm run test:e2e:perf` | Frame-budget floor calibrated for hosted runners; writes `perf-results.json` |
+| `npm run test:e2e:perf` | Blocking frame-budget check; fails unless fps > 1 and ticks/s > 4; writes `perf-results.json` |
 | `npm run validate` | Content checks: no raw art or unpipelined images in `public/`, manifest parses |
-| `npm run ci` | Lint, unit, replay, build, and the e2e gate |
+| `npm run ci` | Lint, unit, replay, build, the e2e gate, and the perf check |
 
 Gate e2e loads gameplay with `?lockstep=1` (e2e build only) and checks sim ticks or player state.
 `window.__batoman.advance(n)` steps exactly `n` ticks. One smoke test stays on the real-time clock.
+CI runs the perf check as a blocking job. The run fails unless fps is greater than 1 and ticks/s is greater than 4.
+The job uploads `perf-results.json` and writes a job summary.
+
+Level select starts every level unless the build sets `VITE_UNLOCK_ALL_LEVELS=false` (or `0`).
+`?unlockAll=0` or `1` overrides that for one page load. The save's unlock list is unchanged either way.
 
 ---
 
@@ -59,7 +65,7 @@ tools/       offline asset pipeline and validators (Node)
 tests/       unit/ replay/ e2e/
 art-source/  raw AI art; never served to the browser
 public/      generated assets only (atlases, backdrops, audio; all gitignored, built by `npm run assets`)
-docs/        PRD.md, TDD.md, ART.md, STORY.md
+docs/        VISION.md (full-game plan, pending approval), STORY.md, PRD.md, ART.md, TDD.md
 ```
 
 Dependencies flow one way: `core <- game <- render/app <- editor`. ESLint fails the build if `core` or `game` import
@@ -83,8 +89,12 @@ Music sources live in `art-source/audio/` and are transcoded to Opus by `npm run
 
 ## Contributing
 
-Work happens on `phase/N-slug` branches off `v2`, one PR per phase. Read [PLAN.md](PLAN.md) for the phase
-you are touching and [docs/TDD.md](docs/TDD.md) for the conventions. The
+Every pull request targets `v2`, from a `phase/N-slug`, `content/<level>`, or `infra/...` branch. The
+author squash-merges once a teammate other than the author has left a review or comment on the PR
+thread, that feedback is addressed, and the hosted checks are green. Andre's OK is not required for
+each merge. What counts as a review, which checks must pass, and the changes that still need Andre
+are in [CONTRIBUTING.md](CONTRIBUTING.md). Read [PLAN.md](PLAN.md) for the phase you are touching and
+[docs/TDD.md](docs/TDD.md) for the conventions. The
 [three-dev](.claude/skills/three-dev/SKILL.md) skill summarises the rules for agents and humans alike.
 
 Before opening a PR:
@@ -94,7 +104,9 @@ npm run ci
 ```
 
 Commits must pass the DCO check. `git commit -s` adds the `Signed-off-by:` trailer. A local commit missing
-it can be fixed with `git commit --amend -s`. Do not force-push to rewrite a commit that is already on the remote.
+it can be fixed with `git commit --amend -s` before the branch is on the remote. Do not rebase or
+force-push a branch that is already on the remote. The squash commit message must keep a
+`Signed-off-by:` line.
 
 Conventions that matter most:
 

@@ -280,3 +280,21 @@ describe('World rules', () => {
     expect(w.player.grounded).toBe(true);
   });
 });
+
+describe('level 1 HP Up replay', () => {
+  it('jumps at the opening and finishes with the extra heart', () => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-1-hp-up.json'), 'utf8')) as ReplayFixture;
+    const final = replay(fixture);
+    expect(fixture.expect.maxHp).toBe(4);
+    expect(final.status).toBe(fixture.expect.status);
+    expect(final.tick).toBe(fixture.expect.ticks);
+    expect(final.lives).toBe(fixture.expect.lives);
+    expect(final.player.hp).toBe(4);
+    expect(final.player.maxHp).toBe(4);
+    expect(final.pickups).toEqual([]);
+    expect(Math.round(final.player.x)).toBe(fixture.expect.x);
+
+    const again = replay(fixture);
+    expect(again).toEqual(final);
+  });
+});

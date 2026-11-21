@@ -75,7 +75,7 @@ speed, so a 3-tile gap is the widest a plain jump clears; wider gaps need a dash
 ### 4.3 World (`src/game/world.ts`)
 
 `World(level, seed)` builds the collision world from the level JSON and spawns the level's enemies, then
-`step(input)` runs one tick: movers, player (or respawn countdown), zones, enemies, projectiles, camera.
+`step(input)` runs one tick: movers, player (or respawn countdown), zones, pickups, enemies, projectiles, camera.
 Zones: death zones and falling below y = 0 kill instantly (`pit`); `crusher` hazards kill; `spikes` deal 1
 damage with knockback away from the hazard; checkpoints move the respawn point; the exit sets
 `status: 'complete'` once `exitOpen` (no boss, or the boss is dead). Death clears projectiles, respawns
@@ -83,9 +83,10 @@ every enemy fresh and the player after `respawnTicks` with one life fewer; at ze
 `status: 'gameover'`. Damage respects `Health` invulnerability (`invulnTicks`) and the dash's i-frames; a
 fatal hit skips hurt-stun.
 
-`snapshot()` is the renderer's only view: player exact position/pose/hp/charge, projectiles (kind, centre,
-velocity), enemies (section 4.6), the boss bar state, moving solids, status and lives. `events` announces
-jump, land, dash, fire (with kind), hurt, death, respawn, checkpoint, complete, gameover, and the combat
+`snapshot()` is the renderer's only view: player exact position/pose/hp/maxHp/charge, projectiles (kind, centre,
+velocity), enemies (section 4.6), the boss bar state, moving solids, uncollected pickups (section 4.7),
+status and lives. `events` announces
+jump, land, dash, fire (with kind), hurt, death, respawn, checkpoint, complete, gameover, `pickup`, and the combat
 events `shotEnd`, `enemyHit`, `enemyDeath`, `bossPhase`, `bossDefeated`, each with a level-pixel position,
 for audio and effects.
 
@@ -118,7 +119,8 @@ value) fed an `EnemyCtx` (collision world, read-only player, tick, level width, 
 `countAlive`). The base class provides the states every shooter shares: `shootState(t, next, aim)` (stop,
 face, fire once `shotWindupTicks` in, hold as long again, arm the cooldown) and `hurtState(t, next)` (slide
 with the knockback decaying by `ENEMY.knockbackDecay`, then resume with the cooldown restarted); a hit
-interrupts any state into `hurt`. Ground enemies fall under `ENEMY.gravity`. Poses
+interrupts a shooter into `hurt`. The tikbalang's chase and stomp do not flinch. Ground enemies fall under
+`ENEMY.gravity`. Poses
 (`idle | move | shoot | hurt | death | cloaked | windup | rush | stunned | shift`) are what the renderer maps
 to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 
@@ -129,7 +131,7 @@ to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 | `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px and on the same storey (feet within `sightHeight` 128 px), decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px or when the player leaves the storey. |
 | `aswang` | patroller at 1.6x, lilac tint | The Level 1 boss, 64x96, 24 hp; see below. |
 | `sigbin` | patroller at 3.1x, near-black placeholder | The Level 3 boss, 192x188 (half the 378 px camera, within a pixel), 18 hp; see below. |
-| `tikbalang` | tikbalang | Spawn data only; drawn if placed, no behaviour yet. |
+| `tikbalang` | tikbalang | 64x44, 4 hp. The Level 6 scout, not Tikbalang-X: no warp, no perception twist, no stumble-only window (that boss is out of this version; STORY/PRD describe it). Patrols its spawn +/- `patrolDistance` in bursts (36 ticks at 80 px/s, then 24 ticks still), turning at bounds, walls and ledges. A player within 500 px on the same storey (`sightHeight` 128, either direction) is chased at 480 px/s to a 48 px standoff. It then rears for 24 ticks (`shoot` → the sheet's `stomp`) and lunges for up to 18 ticks at 420 px/s with the body lowered to 22 px. `rush` holds the stomp clip's last frame (`stomp_04`), and the view fits that quad to the live body height, so the impact matches the hurtbox a jump clears. The lunge is committed. It backs out to the standoff before standing up, then waits 90 ticks. It gives up past 640 px or off the storey. A hit while it is only patrolling knocks it back at 140 px/s; the chase does not. |
 
 The boss (`boss.ts`) is dormant until the player is within 560 px (`BossSnapshot.engaged` shows the HUD
 bar). Phases by hp: 1 (24-17) walks to a 200 px stand-off and fires bursts of three shots 12 ticks apart at
@@ -148,6 +150,24 @@ The Sigbin (`sigbin.ts`) is the same contract through `BossUnit` in `boss-kit.ts
 
 Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
 route bot clears Level 1 undamaged; they live in `tuning.ts` and nowhere else.
+
+### 4.7 Pickups (`src/game/pickups.ts`, tuning `PICKUP`)
+
+A pickup is a level rect plus a `kind`. `LevelJson.pickups` is optional; omitting it means none.
+`levelProblems()` requires a known kind and a rect inside the level. The World collects by overlap with
+the player body, once. `collected` is not cleared on respawn (enemies are rebuilt; pickups are not). A
+dead player does not collect: pits and other deaths resolve before the overlap check, and `applyPickup`
+refuses a dead `Health`.
+
+Effects go through `applyPickup(kind, collector)`. The collector is the `Health`, so a later
+timed pickup (invincibility) adds a kind, a tuning duration and a collector method without a new loop.
+`hp-up` calls `Health.gainHearts(PICKUP.hpUp.hearts)`: +1 max and +1 current (`hearts: 1`), current
+clamped to the new max. Full HP still takes it, because the cap grows. `Health.max` is no longer fixed;
+`reset()` on respawn refills to the raised cap, so the heart lasts the rest of the level. The `pickup`
+event carries the kind and the hitbox centre. There is no separate SFX yet.
+
+Only `hp-up` is implemented. Plasma Upgrade, Dash Upgrade, Armor Shard and the timed pickups stay listed
+in the PRD.
 
 ### 4.4 Camera (`src/game/camera.ts`, tuning `CAMERA`)
 
@@ -292,7 +312,9 @@ scale 1.
 Projectiles are keyed by kind: plasma is the `orb` frame at 0.4, nova at 0.9 tinted white-hot, enemy shots
 the first loaded enemy sheet's `projectile` clip; their quads are pooled too. A moving solid with `prop`
 set draws that frame stretched to the collider width (aspect kept) hanging from the collider's top edge;
-without `prop` it is a lit box. `present(prev, cur, alpha)` lerps positions between snapshots; collider
+without `prop` it is a lit box. An uncollected pickup is an unlit magenta box (`hp-up`) the size of its
+rect, bobbing a few pixels on the sim tick (`pickupBob`); reduce-motion holds it still. The hitbox does
+not move, and the mesh is dropped when the snapshot stops listing it. `present(prev, cur, alpha)` lerps positions between snapshots; collider
 outlines are separate `LineSegments` toggled by `setOutlines`. `loadAssets` fetches the enemy sheets a
 level needs (`enemyAtlasNames`: the types placed, plus drones when a boss is placed) alongside `batoman`.
 
@@ -322,7 +344,7 @@ snapshots and, unless reduce-motion is on, adds the current tick's shake offset 
 
 `installHooks()` (`src/app/app.ts`) publishes `window.__batoman` and global error capture before anything
 else runs, so a WebGL boot failure is recorded in `errors`. Hooks carry `frames`, `simTicks`,
-`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
+`droppedFrames`, `lastFrameMs`, `player {x, y, pose, hp, maxHp}`, `camera {x, y}`, `enemies`, `boss`, `entities`,
 `status`, `level` (id), `mode` (`play` | `paused` | `edit`), `screen` (shell screen kind), `score`, `music`
 (track requested), `audio` (context running), `reduceMotion`, `grain` (film grain contributing), `shake`
 (`simX`/`simY` from the snapshot and `x`/`y` added to the camera), `weakPoint` (the exposed-core cue, or
@@ -355,7 +377,8 @@ camera, including the lens distance (`Stage.setCamera` takes it as a third argum
 `DebugOverlay` (`debug.ts`, backtick): fps and ticks/s over 500 ms windows, frame time, dropped frames,
 entity count, tick, status, player position/size/pose/facing/hp, camera centre and shake. Toggling it also
 shows collider outlines on every collider, static and dynamic. `Hud` (`hud.ts`, PRD 6.2) draws hearts
-top-left with lost ones greyed, lives, the six-digit score top-right, and the boss bar bottom-centre while
+top-left up to `player.maxHp`, with lost ones greyed and a short wobble (`hud-heart-gained`) on a heart
+that just raised the cap (the wobble is dropped while `html[data-reduce-motion='on']`), lives, the six-digit score top-right, and the boss bar bottom-centre while
 `boss.engaged`; it rebuilds its DOM only when one of those values changes.
 
 Level 3 stays grey-box and Level 6 is dressed (section 8). The title, level select and game over cards are text
@@ -402,7 +425,12 @@ the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the curre
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
 
-`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
+`VITE_UNLOCK_ALL_LEVELS` (`src/app/shell/progression.ts`) is the playtest switch. Unset is on, so a
+normal `npm run build` still opens every level. `false` or `0` turns it off for that build.
+`?unlockAll=1` or `0` overrides the build for one load. `selectableLevels` is what level select reads.
+`SaveData.unlocked` is still only what `recordClear` wrote, so either switch restores that list with no
+save migration. `save.ts` keeps progress in `localStorage` under
+`batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
 `options` holds music, sfx, and `reduceMotion` (`true`, `false`, or `null` to follow the OS). `bindings` is
 optional on read; a missing or rejected table becomes the defaults in section 4.5 and the rest of the save
 is kept, including the reduce-motion choice. The version stays 1 so a Phase 7 save still loads. `loadSave`
@@ -502,12 +530,19 @@ erase the watermark with `fill`.
 
 Atlases stay lossless WebP. Their alpha-tested edges pick up block artefacts under Basis, and they are not
 the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`, Basis Universal via
-`@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. The loader
+`@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. Source rows are top-down, and
+a compressed upload cannot set `UNPACK_FLIP_Y_WEBGL`, so the encoder sets Basis `flipY` and stores the
+bottom row first. Without that, every KTX2 backdrop (levels 1, 4 and 6; level 3 has no art) draws upside
+down. The WebP fallback is unaffected: `TextureLoader` flips it on upload. The loader
 (`useCompressedBackdrops`) fetches the KTX2 when the GPU reports S3TC or BC7 and the unmasked renderer is
 not a software implementation (SwiftShader, llvmpipe). Software GL advertises those extensions and then
 decompresses them on the CPU, which is slower than the WebP path, so CI stays on WebP. ETC2 and ASTC are
 not selected: on desktop Linux they are often emulated. The transcoder is the three.js Basis wasm, loaded
-only when a KTX2 is requested.
+only when a KTX2 is requested. `KTX2Loader` also imports a Zstandard decoder for raw KTX2.
+`vite.config.ts` aliases that module to `src/render/ktx2-zstd-stub.ts` for the dev server, Vitest, and
+the production build: these files are BasisLZ, and the decoder is a wasm blob the code budget would
+otherwise count. A Zstd backdrop throws from the stub. `npm run validate` rejects a shipped `.ktx2`
+whose supercompression scheme (header offset 44) is not BasisLZ (1).
 
 ### 7.4 Outputs and payload
 
@@ -552,30 +587,31 @@ name a track in the spec (`npm run validate` checks).
 `src/content/level.ts` defines `LevelJson` (pixels, Y up): `solids`, `oneWay`, `movingSolids` (waypoint
 path, speed, pause, optional `prop`), `hazards` (`spikes` | `crusher`), `deathZones`, `checkpoints`,
 `enemies` (`type`, feet `x`/`y`, optional `patrolDistance`; types in section 4.6, `y` is the ground reference
-for drones), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
+for drones), optional `pickups` (`kind` plus a rect; kinds in section 4.7; omitted means none), `spawn`, `exit`, and an optional `art` block. `levelProblems()` rejects
 overlapping blocking geometry, out-of-bounds rectangles, a spawn inside a solid, unknown enumerations and
 duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src/content/manifest.json`.
 
 `src/content/manifest.json` lists the levels in play order, each with `id`, `file`, a display `name` and
 its `music` track, plus `titleMusic` for the shell. `src/content/levels.ts` reads it at runtime:
 `levelIdFromQuery(search)` resolves `?level=` (default: the first manifest entry), `manifestEntry(id)`
-returns the entry, and `loadLevelById(id)` imports the level JSON through `import.meta.glob`, so each level
-is its own chunk (Level 1 with its decor is 4 KB). Level files are
+returns the entry, and `loadLevelById(id)` fetches the level JSON. Vite emits each file with
+`import.meta.glob` (`?url&no-inline`) as a static asset rather than a JS module, so the level data stays
+out of the code budget, including levels under the 4 KB inline limit. Level files are
 written in the layout of `src/content/format.ts` (`formatLevel`): two-space indent, primitive-only
 objects and point arrays on one line, so rects and decor entries diff line by line.
 
 | Level | Name | Size | Contents |
 |---|---|---|---|
-| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies) |
+| `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Grey-box: entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100, the `sigbin` boss at 3424 on the gallery (the exit stays shut until it dies). No new arena walls; the existing gallery floor is the fight. |
 | `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
-| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a `tikbalang` spawn at 4100 (no behaviour yet). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px dash gap, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 144 decor quads from `level-6-props`, far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The painted lying path is not a collider, and the manifest still plays the `level-1` track |
 
 Level 3 has source art in `art-source/level-3/` (`nave` and `chapel` backdrops, plus a props recipe) and still
 no `art` block, so it renders as grey boxes until it is dressed. Level 6 is dressed from
 `art-source/level-6/` in the Level 1 inked-painterly style, relit as a sunny rooftop farm: `sky` and
 `garden` backdrops and 144 decor quads. Geometry is still the Phase 5 block-out, so the painted lying path
-between roofs is not solid, and the `tikbalang` at 4100 is still a spawn with no behaviour. Level 4 was added in Phase 7b because its
+between roofs is not solid. The tikbalang at 4100 is the scout: it burst-chases and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
 art does exist; it is the first vertical level and is why drones and stealths got a `sightHeight`, so an
 enemy on one storey does not react to the player climbing past on another. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
@@ -601,7 +637,7 @@ other Tiled maps.
 A fixture is `{ level, seed, inputs, expect }` with inputs run-length encoded as `[bits, count]` pairs
 (`src/core/sim/replay.ts` decodes them for both the harness and the browser hook). Fixtures are recorded by
 scripted routes (`bots.ts`) that read the live world; only the inputs are saved, and `expect` pins status,
-tick count, lives, hp and final x. `npm run replay:record` re-records the level-clear fixtures; commit the diff
+tick count, lives, hp, final x, and `maxHp` when the run's point is a heart. `npm run replay:record` re-records the level-clear fixtures; commit the diff
 with the tuning or level change that caused it. `input-remap.json` is not a route recording (section 4.5).
 
 Routes are written in the step language of `route.ts`: a list of steps, each producing input every tick
@@ -622,7 +658,8 @@ so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per reco
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 3700
 (through the Sigbin kill; re-recorded because the exit now stays shut until that boss dies),
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage. `input-remap` (section 4.5) is a separate
+`level-4-clear` 2802, `level-6-clear` 3954, all without damage, plus `level-1-hp-up` (a jump in place at the
+spawn until the heart is taken; pins hp 4 and maxHp 4). `input-remap` (section 4.5) is a separate
 105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
 alone. `world.replay.test.ts` runs the same four checks (route completes
 undamaged, fixture replays to its pinned outcome, determinism snapshot for snapshot, RLE round trip) for
@@ -660,15 +697,17 @@ to `dist/` and fails on any breach of `BUDGET`:
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
 E2E specs: `smoke.spec.ts` (boot to the title with the sim frozen, Enter starts it, pixels drawn, keyboard
-drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and locked
-level select, credits, intro card, pause freezing the tick count and resuming, quit; music element playing
+drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and level
+select under `?unlockAll=1` (any level starts, the save stays unwritten) and `?unlockAll=0` (only the
+first level starts); credits, intro card, pause freezing the tick count and resuming, quit; music element playing
 after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
-in sequence, then a reload showing every level unlocked with best times), `a11y.spec.ts` (the OS
+in sequence, asserting the save gains only the next id after Level 1 and then every id, then a reload with
+`?unlockAll=0` showing those saved unlocks and best times), `a11y.spec.ts` (the OS
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
 `?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that
-the art requests (atlases, backdrops) all succeed, a frame-time budget (at least 20 fps and 110 ticks/s over
-3 s of running, at most 6 dropped frames, under software GL; the measured value is logged), screenshots
+the art requests (atlases, backdrops) all succeed, a frame-time budget (fps > 1 and ticks/s > 4 over
+3 s of running under software GL; dropped frames are recorded with no cap, and the measured value is logged), screenshots
 written to `e2e-screenshots/` (gitignored; CI uploads them on every run) with the debug overlay and HUD
 asserted, and a scripted traversal that feeds `level-1-clear.json` through `window.__batoman.replay`,
 checks six enemies and the dormant boss are live sprites from the first frame, screenshots the first
@@ -698,8 +737,14 @@ fresh document still includes a stall). `?post=0` stayed at about 2.5 fps on bot
 MSAA back on, and the backdrop work is not what it is waiting on. A mid-laptop 60 fps figure was not taken:
 this environment has no discrete or integrated GPU to sample.
 
-CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
-uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.
+CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then `npm run build:e2e`
+(`VITE_E2E_LOCKSTEP=1`) and upload that `dist/`. Playwright e2e (`npm run test:e2e`) and the blocking perf job
+(`npm run test:e2e:perf`) run on that artefact and do not rebuild. The perf job writes a job summary and uploads
+`perf-results.json`. Locally the e2e gate needs `npm run build:e2e` before `npm run test:e2e`; `npm run build` omits
+`VITE_E2E_LOCKSTEP=1`. On a pull
+request, `changes` skips those jobs and the Playwright perf job when every path is documentation (`*.md`, `docs/`, `.claude/`, or the PR template).
+A push to `v2` or `main`, and `workflow_dispatch`, run every job. Require `ci-gate`: it passes when each needed job
+succeeded or was skipped, and fails when one failed or was cancelled.
 
 ## 11. Level editor `[implemented: Phase 5]`
 

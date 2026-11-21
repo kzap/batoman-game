@@ -51,11 +51,12 @@ function snap(extra: Partial<WorldSnapshot> = {}): WorldSnapshot {
     tick: 0,
     status: 'playing',
     lives: 3,
-    player: { x: 0, y: 64, w: 24, h: 48, facing: 1, pose: 'idle', shooting: false, hp: 3, invulnerable: false, charge: 0 },
+    player: { x: 0, y: 64, w: 24, h: 48, facing: 1, pose: 'idle', shooting: false, hp: 3, maxHp: 3, invulnerable: false, charge: 0 },
     projectiles: [],
     enemies: [],
     boss: null,
     movingSolids: [],
+    pickups: [],
     camera: { x: 0, y: 0, shakeX: 0, shakeY: 0 },
     ...extra,
   };

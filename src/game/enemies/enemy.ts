@@ -5,7 +5,7 @@ import type { EnemyType } from '@content/level';
 import { Health } from '../health';
 import { ENEMY } from '../tuning';
 
-/** Poses the renderer maps to clips. `windup`, `rush`, `stunned` and `shift` are boss-only. */
+/** Poses the renderer maps to clips. `windup`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
 export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'rush' | 'stunned' | 'shift';
 
 export interface EnemySnapshot {
