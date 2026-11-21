@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CONTROL_ROWS } from '@app/bindings';
 import { GAMEOVER_ITEMS, nextLevel, PAUSE_ITEMS, reduce, TITLE, TITLE_ITEMS, type Screen, type ShellCtx, type ShellEvent } from '@app/shell/screens';
 
-const ctx: ShellCtx = { levels: ['level-1', 'level-3', 'level-6'], unlocked: ['level-1', 'level-3'] };
+const ctx: ShellCtx = {
+  levels: ['level-1', 'level-3', 'level-6'],
+  unlocked: ['level-1', 'level-3'],
+  cutsceneBeats: {},
+};
+/** Level 1 has a five-beat intro script; other levels stay on the intro-only path. */
+const withCutscene: ShellCtx = { ...ctx, cutsceneBeats: { 'level-1': 5 } };
 const step = (s: Screen, ...events: ShellEvent[]) => {
   let out = { screen: s, effects: [] as readonly unknown[] };
   for (const e of events) out = reduce(out.screen, e, ctx);
@@ -25,13 +31,37 @@ describe('shell screens', () => {
     expect(step(sel, 'back').screen).toEqual({ kind: 'title', index: 1 });
   });
 
-  it('intro proceeds to play on confirm or timeout with a resume', () => {
+  it('intro proceeds to play on confirm or timeout with a resume when there is no script', () => {
     const intro: Screen = { kind: 'intro', levelId: 'level-1' };
     for (const e of ['confirm', 'timeout'] as const) {
       const t = reduce(intro, e, ctx);
       expect(t.screen).toEqual({ kind: 'playing', levelId: 'level-1' });
       expect(t.effects).toEqual([{ type: 'resume' }]);
     }
+  });
+
+  it('intro with a script opens the cutscene; confirm advances, skip and the last line resume', () => {
+    const intro: Screen = { kind: 'intro', levelId: 'level-1' };
+    const opened = reduce(intro, 'confirm', withCutscene);
+    expect(opened.screen).toEqual({ kind: 'cutscene', levelId: 'level-1', beat: 0 });
+    expect(opened.effects).toEqual([{ type: 'cutsceneBeat', levelId: 'level-1', beat: 0 }]);
+
+    const next = reduce(opened.screen, 'confirm', withCutscene);
+    expect(next.screen).toEqual({ kind: 'cutscene', levelId: 'level-1', beat: 1 });
+    expect(next.effects).toEqual([{ type: 'cutsceneBeat', levelId: 'level-1', beat: 1 }]);
+
+    const skipped = reduce(opened.screen, 'skip', withCutscene);
+    expect(skipped.screen).toEqual({ kind: 'playing', levelId: 'level-1' });
+    expect(skipped.effects).toEqual([{ type: 'resume' }]);
+
+    const last: Screen = { kind: 'cutscene', levelId: 'level-1', beat: 4 };
+    const done = reduce(last, 'confirm', withCutscene);
+    expect(done.screen).toEqual({ kind: 'playing', levelId: 'level-1' });
+    expect(done.effects).toEqual([{ type: 'resume' }]);
+
+    const back = reduce(opened.screen, 'back', withCutscene);
+    expect(back.screen).toEqual(TITLE);
+    expect(back.effects).toEqual([{ type: 'quitToTitle' }]);
   });
 
   it('pause freezes, resumes, restarts and quits', () => {

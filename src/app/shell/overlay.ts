@@ -15,6 +15,17 @@ export interface ResultsView {
   readonly camera: { readonly x: number; readonly y: number };
 }
 
+/** One cutscene line for the dialog card. Portrait is optional (typography-only when null). */
+export interface CutsceneView {
+  readonly speaker: string;
+  readonly text: string;
+  readonly portrait: {
+    readonly imageUrl: string;
+    readonly frame: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
+    readonly tint: number | null;
+  } | null;
+}
+
 /** What the overlay needs besides the screen: level names, progress, the run's numbers. */
 export interface OverlayModel {
   readonly levels: readonly ManifestEntry[];
@@ -28,6 +39,8 @@ export interface OverlayModel {
   readonly reduceMotion: boolean;
   /** Set on the results card; null on every other screen. */
   readonly results: ResultsView | null;
+  /** Set on the cutscene screen; null elsewhere. */
+  readonly cutscene: CutsceneView | null;
 }
 
 export const CREDITS: readonly { readonly heading: string; readonly lines: readonly string[] }[] = [
@@ -75,6 +88,7 @@ export const PRESENTATION: Readonly<Record<Screen['kind'], { readonly dim: boole
   title: { dim: true, spotlight: false, hideHud: true },
   levelSelect: { dim: true, spotlight: false, hideHud: true },
   intro: { dim: false, spotlight: false, hideHud: true },
+  cutscene: { dim: false, spotlight: false, hideHud: true },
   playing: { dim: false, spotlight: false, hideHud: false },
   paused: { dim: false, spotlight: false, hideHud: false },
   complete: { dim: false, spotlight: true, hideHud: false },
@@ -106,6 +120,7 @@ export class Overlay {
     root.classList.toggle('shell-visible', screen.kind !== 'playing');
     root.classList.toggle('shell-dim', look.dim);
     root.classList.toggle('shell-spotlight', look.spotlight);
+    root.classList.toggle('shell-cutscene', screen.kind === 'cutscene');
     root.dataset['reduceMotion'] = m.reduceMotion ? 'on' : 'off';
     document.body.classList.toggle('shell-hide-hud', look.hideHud);
     if (!look.spotlight) this.clearSpotlight();
@@ -136,6 +151,30 @@ export class Overlay {
       case 'intro': {
         const i = m.levels.findIndex((l) => l.id === screen.levelId);
         card.append(el('p', 'shell-subtitle', `LEVEL ${i + 1}`), el('h2', 'shell-heading', m.levels[i]?.name ?? screen.levelId), hint('Enter to start'));
+        break;
+      }
+      case 'cutscene': {
+        const line = m.cutscene;
+        const row = el('div', 'shell-cutscene-row');
+        if (line?.portrait) {
+          const frame = line.portrait.frame;
+          const sprite = el('div', 'shell-portrait');
+          sprite.style.width = `${frame.w}px`;
+          sprite.style.height = `${frame.h}px`;
+          sprite.style.backgroundImage = `url(${line.portrait.imageUrl})`;
+          sprite.style.backgroundPosition = `-${frame.x}px -${frame.y}px`;
+          sprite.style.backgroundSize = 'auto';
+          if (line.portrait.tint !== null) {
+            // Cheap colour wash for placeholder sheets; exact hue is not gameplay-critical.
+            sprite.style.filter = `sepia(1) saturate(2) hue-rotate(${((line.portrait.tint >> 8) & 0xff) - 80}deg)`;
+          }
+          row.append(sprite);
+        }
+        const copy = el('div', 'shell-cutscene-copy');
+        copy.append(el('p', 'shell-speaker', line?.speaker ?? ''), el('p', 'shell-line', line?.text ?? ''));
+        row.append(copy);
+        card.classList.add('shell-card-cutscene');
+        card.append(row, hint('Enter advance  ·  Shift skip all  ·  Esc title'));
         break;
       }
       case 'paused':

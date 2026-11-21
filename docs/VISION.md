@@ -74,7 +74,7 @@ Two music files exist. "Tondo Sublevel" plays on `level-1` and `level-6`. "Divis
 
 **No boss-weapon copies.** Plasma and nova stay the guns. The short unlock list further down is a proposal.
 
-**Story is the level, plus a portrait and text.** No animated cutscenes, no dialogue system.
+**Story is the level, plus a portrait and text.** Level intros may use a short scripted dialog (static portrait or typography, camera pan) before the sim starts. No animated cutscene art and no mid-level dialogue system.
 
 ---
 

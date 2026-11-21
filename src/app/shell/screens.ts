@@ -12,6 +12,11 @@ export type Screen =
   | { readonly kind: 'levelSelect'; readonly index: number }
   /** Level card before play; confirm or the card timer starts the level. */
   | { readonly kind: 'intro'; readonly levelId: string }
+  /**
+   * Scripted level-intro dialog after the title card. `beat` is the line index;
+   * the shell owns camera pans and portraits while the sim stays paused.
+   */
+  | { readonly kind: 'cutscene'; readonly levelId: string; readonly beat: number }
   | { readonly kind: 'playing'; readonly levelId: string }
   | { readonly kind: 'paused'; readonly levelId: string; readonly index: number }
   | { readonly kind: 'complete'; readonly levelId: string }
@@ -25,7 +30,18 @@ export type ControlsOrigin =
   | { readonly kind: 'title'; readonly index: number }
   | { readonly kind: 'paused'; readonly levelId: string; readonly index: number };
 
-export type ShellEvent = 'confirm' | 'back' | 'up' | 'down' | 'pause' | 'levelComplete' | 'gameOver' | 'timeout' | 'stopListen';
+export type ShellEvent =
+  | 'confirm'
+  | 'back'
+  | 'up'
+  | 'down'
+  | 'pause'
+  | 'levelComplete'
+  | 'gameOver'
+  | 'timeout'
+  | 'stopListen'
+  /** Cutscene: skip every remaining line and start play. */
+  | 'skip';
 
 export type Effect =
   | { readonly type: 'startLevel'; readonly levelId: string; readonly newRun: boolean }
@@ -33,12 +49,16 @@ export type Effect =
   | { readonly type: 'resume' }
   | { readonly type: 'freeze' }
   | { readonly type: 'quitToTitle' }
-  | { readonly type: 'resetBindings' };
+  | { readonly type: 'resetBindings' }
+  /** Apply the camera / portrait for the cutscene beat now on screen. */
+  | { readonly type: 'cutsceneBeat'; readonly levelId: string; readonly beat: number };
 
 export interface ShellCtx {
   /** Manifest order. */
   readonly levels: readonly string[];
   readonly unlocked: readonly string[];
+  /** Beat counts for levels that have an intro script. Missing id → no cutscene. */
+  readonly cutsceneBeats: Readonly<Record<string, number>>;
 }
 
 export const TITLE_ITEMS = ['Start game', 'Level select', 'Credits', 'Controls'] as const;
@@ -73,9 +93,11 @@ export function reduce(screen: Screen, event: ShellEvent, ctx: ShellCtx): Transi
     case 'levelSelect':
       return levelSelect(screen, event, ctx);
     case 'intro':
-      if (event === 'confirm' || event === 'timeout') return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+      if (event === 'confirm' || event === 'timeout') return leaveIntro(screen.levelId, ctx);
       if (event === 'back') return { screen: TITLE, effects: [{ type: 'quitToTitle' }] };
       return stay(screen);
+    case 'cutscene':
+      return cutscene(screen, event, ctx);
     case 'playing':
       if (event === 'pause' || event === 'back') return { screen: { kind: 'paused', levelId: screen.levelId, index: 0 }, effects: [{ type: 'freeze' }] };
       if (event === 'levelComplete') return stay({ kind: 'complete', levelId: screen.levelId });
@@ -100,6 +122,31 @@ export function reduce(screen: Screen, event: ShellEvent, ctx: ShellCtx): Transi
     case 'controls':
       return controls(screen, event);
   }
+}
+
+/** After the LEVEL N card: play the script when one exists, otherwise start the sim. */
+function leaveIntro(levelId: string, ctx: ShellCtx): Transition {
+  const beats = ctx.cutsceneBeats[levelId] ?? 0;
+  if (beats > 0) {
+    return {
+      screen: { kind: 'cutscene', levelId, beat: 0 },
+      effects: [{ type: 'cutsceneBeat', levelId, beat: 0 }],
+    };
+  }
+  return { screen: { kind: 'playing', levelId }, effects: [{ type: 'resume' }] };
+}
+
+function cutscene(screen: Screen & { kind: 'cutscene' }, event: ShellEvent, ctx: ShellCtx): Transition {
+  if (event === 'back') return { screen: TITLE, effects: [{ type: 'quitToTitle' }] };
+  if (event === 'skip') return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+  if (event !== 'confirm' && event !== 'timeout') return stay(screen);
+  const total = ctx.cutsceneBeats[screen.levelId] ?? 0;
+  const next = screen.beat + 1;
+  if (next >= total) return { screen: { kind: 'playing', levelId: screen.levelId }, effects: [{ type: 'resume' }] };
+  return {
+    screen: { kind: 'cutscene', levelId: screen.levelId, beat: next },
+    effects: [{ type: 'cutsceneBeat', levelId: screen.levelId, beat: next }],
+  };
 }
 
 function title(screen: Screen & { kind: 'title' }, event: ShellEvent, ctx: ShellCtx): Transition {
