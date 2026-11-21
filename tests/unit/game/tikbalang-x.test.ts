@@ -23,7 +23,7 @@ function arena(): LevelJson {
     oneWay: [],
     movingSolids: [],
     hazards: [],
-    deathZones: [],
+    deathZones: [{ x: 3456, y: 0, w: 192, h: 32 }],
     checkpoints: [],
     enemies: [{ type: 'tikbalang-x', x: 4300, y: FLOOR }],
   };
@@ -135,30 +135,100 @@ describe('Tikbalang-X', () => {
     expect(w.status).toBe('complete');
   });
 
-  it('a stationary player on either end of the roof is hit within two cycles', () => {
-    for (const x of [3660, 4456]) {
-      const { w } = wake();
-      w.health.invuln = 0;
-      w.player.body.place(x, FLOOR);
-      let hurt = false;
-      w.events.on('hurt', () => (hurt = true));
-      for (let i = 0; i < 4000 && !hurt; i++) w.step();
-      expect(hurt).toBe(true);
+  it('reaches both roof ends in every phase, over more than one cycle', () => {
+    const { w, b } = wake();
+    w.health.invuln = 100_000;
+    w.player.body.place(4000, FLOOR);
+    const visits = [0, 1, 2, 3].map(() => ({ left: 0, right: 0 }));
+    let atLeft = false;
+    let atRight = false;
+    for (let i = 0; i < 30_000 && (visits[3]!.left < 2 || visits[3]!.right < 2); i++) {
+      w.step();
+      expect(b.body.right).toBeLessThanOrEqual(T.doorX);
+      const phase = b.phase;
+      const nearLeft = Math.abs(b.body.centerX - T.leftFeet) <= 8;
+      const nearRight = Math.abs(b.body.centerX - T.rightFeet) <= 8;
+      if (nearLeft && !atLeft) visits[phase]!.left++;
+      if (nearRight && !atRight) visits[phase]!.right++;
+      atLeft = nearLeft;
+      atRight = nearRight;
+      if (b.state === 'stumble' && visits[phase]!.left >= 2 && visits[phase]!.right >= 2) {
+        const next = phase === 1 ? T.phaseHp[0]! : phase === 2 ? T.phaseHp[1]! : 0;
+        if (next > 0) while (b.health.hp > next) b.hit(1, 1, true);
+      }
+    }
+    for (const phase of [1, 2, 3]) {
+      expect(visits[phase]!.left).toBeGreaterThanOrEqual(2);
+      expect(visits[phase]!.right).toBeGreaterThanOrEqual(2);
     }
   });
 
-  it('the exit door stops a knockback at the right lip', () => {
-    for (const x of [4420, 4448, 4456]) {
+  it('a stationary player at the left camp takes damage in phase 2 and phase 3', () => {
+    for (const x of [3660, 3740]) {
+      for (const phase of [2, 3] as const) {
+        const { w, b } = wake();
+        w.health.invuln = 100_000;
+        w.player.body.place(4000, FLOOR);
+        w.step();
+        until(w, () => b.state === 'stumble');
+        while (b.health.hp > T.phaseHp[0]!) b.hit(1, 1, true);
+        w.step();
+        until(w, () => b.phase === 2);
+        if (phase === 3) {
+          until(w, () => b.state === 'stumble');
+          while (b.health.hp > T.phaseHp[1]!) b.hit(1, 1, true);
+          w.step();
+          until(w, () => b.phase === 3);
+        }
+        expect(b.phase).toBe(phase);
+        w.health.invuln = 0;
+        w.health.hp = PLAYER.maxHp;
+        w.player.body.place(x, FLOOR);
+        let hurt = false;
+        w.events.on('hurt', () => (hurt = true));
+        for (let i = 0; i < 4000 && !hurt; i++) w.step();
+        expect(hurt).toBe(true);
+        expect(b.phase).toBe(phase);
+      }
+    }
+  });
+
+  it('run contact on the left lip cannot knock the player into the pit', () => {
+    for (const x of [3648, 3660, 3680]) {
       const { w } = wake();
       w.health.invuln = 0;
       w.player.body.place(x, FLOOR);
       const deaths: string[] = [];
       w.events.on('death', (e) => deaths.push(e.cause));
-      for (let i = 0; i < 2500 && w.health.hp === PLAYER.maxHp && deaths.length === 0; i++) w.step();
-      expect(deaths).toEqual([]);
-      expect(w.player.body.right).toBeLessThanOrEqual(4480);
-      expect(w.player.body.y).toBeGreaterThanOrEqual(FLOOR);
+      let hurt = false;
+      w.events.on('hurt', () => (hurt = true));
+      for (let i = 0; i < 4000 && !hurt; i++) w.step();
+      expect(hurt).toBe(true);
+      for (let i = 0; i < 180; i++) {
+        w.step();
+        expect(w.player.body.x).toBeGreaterThanOrEqual(3648);
+        expect(w.player.body.y).toBeGreaterThanOrEqual(FLOOR);
+        expect(deaths).not.toContain('pit');
+      }
     }
+  });
+
+  it('the exit door stops a player short of the exit while the boss is alive', () => {
+    const { w, b } = wake();
+    w.health.invuln = 100_000;
+    w.health.hp = 99;
+    w.player.body.place(4200, FLOOR);
+    const right: InputFrame = { ...NO_INPUT, right: true };
+    let maxX = w.player.body.x;
+    for (let i = 0; i < 800; i++) {
+      w.step(right);
+      maxX = Math.max(maxX, w.player.body.x);
+      expect(w.status).toBe('playing');
+      expect(w.player.body.x).toBeLessThanOrEqual(4392);
+    }
+    expect(b.alive).toBe(true);
+    expect(w.exitOpen).toBe(false);
+    expect(maxX).toBeGreaterThan(4300);
   });
 
   it('a jump started on the first phase-3 run tell clears the body', () => {

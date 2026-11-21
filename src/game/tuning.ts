@@ -381,11 +381,18 @@ export const TIKBALANG_X = {
   phaseHp: [12, 6] as readonly number[],
   phaseShiftTicks: 72,
   /**
-   * Feet x of the two landings. The 96 px body then covers the roof from
-   * x 3648 to 4480, so a run crosses the left camp and the right lip.
+   * Feet x of the left landing. The 96 px body then starts at the roof edge, x 3648.
    */
   leftFeet: 3696,
-  rightFeet: 4432,
+  /**
+   * The exit rect is a solid door at this x while the boss is alive. The right
+   * landing is derived from it so the whole body sits left of the door.
+   */
+  doorX: 4416,
+  /** Gap between the body's right edge and the door. A run that lands inside the door is blocked and never crosses back. */
+  doorMargin: 16,
+  /** doorX − doorMargin − width/2. Body covers x 4304–4400, 16 px clear of the door. */
+  rightFeet: 4416 - 16 - 96 / 2,
   /** A timed jump clears the 96 px body: the sweep crosses a standing player inside the jump's airborne window. */
   runSpeed: [800, 880, 960] as readonly number[],
   /**

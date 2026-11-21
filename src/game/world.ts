@@ -149,6 +149,10 @@ export class World {
   private checkpointId = -1;
   /** The exit rect, solid while Tikbalang-X is alive so a knockback cannot shove the player off the roof. */
   private exitDoor: Solid | null = null;
+  /** Left edge of the roof under Tikbalang-X. Hurt knockback may not cross it into the pit. */
+  private roofLip: number | null = null;
+  /** Set on a hit while the lip applies, until the slide has stopped back on the roof. */
+  private lipLock = false;
 
   constructor(
     readonly level: LevelJson,
@@ -199,11 +203,33 @@ export class World {
    */
   private syncExitDoor(): void {
     const seal = this.level.enemies.some((e) => e.type === 'tikbalang-x') && !this.exitOpen;
-    if (seal && !this.exitDoor) this.exitDoor = this.collision.addSolid(this.level.exit);
-    else if (!seal && this.exitDoor) {
+    if (seal && !this.exitDoor) {
+      this.exitDoor = this.collision.addSolid(this.level.exit);
+      const spawn = this.level.enemies.find((e) => e.type === 'tikbalang-x');
+      const floor = spawn && this.level.solids.find((s) => s.y + s.h === spawn.y && spawn.x >= s.x && spawn.x < s.x + s.w);
+      this.roofLip = floor ? floor.x : null;
+    } else if (!seal && this.exitDoor) {
       this.collision.removeSolid(this.exitDoor);
       this.exitDoor = null;
+      this.roofLip = null;
+      this.lipLock = false;
     }
+  }
+
+  /**
+   * A hit on the left lip pops the player up and left. The slide keeps going
+   * for a tick after the stun ends, which is enough to drop into the
+   * inter-roof pit with hp still left. Hold them on the roof until that
+   * slide stops. Other bosses do not set `roofLip`.
+   */
+  private keepOnRoof(): void {
+    const lip = this.roofLip;
+    if (!this.lipLock || lip === null) return;
+    if (this.player.body.x < lip) {
+      this.player.body.place(lip, this.player.body.y);
+      if (this.player.vx < 0) this.player.vx = 0;
+    }
+    if (this.player.hurtStun <= 0 && this.player.vx >= 0 && this.player.body.x >= lip) this.lipLock = false;
   }
 
   private cameraTarget(): CameraTarget {
@@ -245,6 +271,7 @@ export class World {
     if (a.dashed) this.events.emit('dash', {});
     if (a.fired) this.fire('plasma');
     if (a.novaFired) this.fire('nova');
+    this.keepOnRoof();
   }
 
   private fire(kind: 'plasma' | 'nova'): void {
@@ -417,6 +444,7 @@ export class World {
     if (!this.health.hit(amount)) return false;
     if (this.health.alive) {
       this.player.knockback(dir, this.collision);
+      if (this.roofLip !== null) this.lipLock = true;
       this.camera.shake(CAMERA.hurtShake.amplitude, CAMERA.hurtShake.ticks);
       this.events.emit('hurt', { hp: this.health.hp });
     } else {
