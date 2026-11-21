@@ -5,7 +5,7 @@ import { atlasProblems, type AtlasJson } from '../../src/content/atlas';
 import { PATHS } from '../config';
 import { parseBackdrops } from '../pack/backdrops';
 import { parseRecipe } from '../recut/recipe';
-import { Report, findFiles } from './lib';
+import { Report, findFiles, walk } from './lib';
 
 /**
  * Check that every recipe and backdrop spec under art-source/ has up-to-date
@@ -66,6 +66,18 @@ async function imageDims(path: string): Promise<ImageDims | null> {
 
 const REBUILD_HINT = 'run `npm run assets`';
 
+/** BasisLZ. KTX2 stores the supercompression scheme as a little-endian u32 at byte 44. */
+const BASISLZ_SCHEME = 1;
+const KTX2_SCHEME_OFFSET = 44;
+
+/** Null when `bytes` is a BasisLZ KTX2. A reason otherwise, including a short header. */
+export function ktx2SchemeProblem(rel: string, bytes: Uint8Array): string | null {
+  if (bytes.byteLength < KTX2_SCHEME_OFFSET + 4) return `${rel}: KTX2 header is shorter than 48 bytes`;
+  const scheme = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(KTX2_SCHEME_OFFSET, true);
+  if (scheme !== BASISLZ_SCHEME) return `${rel}: supercompression scheme ${scheme}; BasisLZ (1) is required`;
+  return null;
+}
+
 export async function validateAssets(root = '.'): Promise<Report> {
   const report = new Report();
   const expected: ExpectedOutput[] = [];
@@ -124,6 +136,13 @@ export async function validateAssets(root = '.'): Promise<Report> {
   for (const f of findFiles(join(root, PATHS.atlases), () => true)) {
     const rel = `${PATHS.atlases}/${basename(f)}`;
     if (!produced.has(rel)) report.error(`${rel} has no recipe; ${REBUILD_HINT}`);
+  }
+
+  for (const f of walk(join(root, PATHS.backdrops))) {
+    if (!f.rel.endsWith('.ktx2')) continue;
+    const rel = `${PATHS.backdrops}/${f.rel}`;
+    const problem = ktx2SchemeProblem(rel, readFileSync(join(root, rel)));
+    if (problem) report.error(problem);
   }
 
   report.note(`pipeline outputs: ${expected.length - missing.length}/${expected.length} present`);
