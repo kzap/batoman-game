@@ -39,9 +39,8 @@ Address that feedback, then record the reviewer on the PR checklist as `Reviewed
 The author squash-merges into `v2` once the feedback is addressed and the hosted checks are green.
 The squash commit message must keep a `Signed-off-by:` line.
 
-Green means every hosted check is passing. Today that is lint/unit/replay/build, e2e, perf
-(blocking), and DCO. Once [#34](https://github.com/kzap/batoman-game/pull/34) lands, green is
-`ci-gate` plus DCO.
+Green means the `ci-gate` check plus DCO pass. Skipped heavy jobs (lint/unit/build, e2e, perf) on
+docs-only PRs are expected.
 
 Do not merge while any hosted check is red, even when the failure is not yours. Flag it to Ari.
 
