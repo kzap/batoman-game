@@ -14,8 +14,8 @@ npm run test          # unit tests over src/core and src/game (headless, no brow
 npm run test:replay   # recorded-input replays against the headless sim
 npm run build:e2e     # required before e2e: dist/ with VITE_E2E_LOCKSTEP=1 (npm run build omits it)
 npm run test:e2e      # Playwright gate project against that dist/
-npm run test:e2e:perf # frame-budget floor (hosted-runner calibration) plus perf-results.json
-npm run ci            # lint, unit, replay, build, e2e gate
+npm run test:e2e:perf # blocking frame-budget check (fails unless fps > 1 and ticks/s > 4); writes perf-results.json
+npm run ci            # lint, unit, replay, build, e2e gate, and the perf check
 ```
 
 E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`, `shell.spec.ts`, `editor.spec.ts`). They run against `vite preview`
@@ -34,8 +34,9 @@ which runs exactly `n` sim ticks and presents once (`tests/e2e/drive.ts` wraps b
 
 One smoke test (`boots, renders frames, and runs the sim`) stays on the production clock, with no lockstep flag,
 so `FixedClock` is still exercised. It waits for `simTicks` to pass a count, not for a tick rate. The frame-budget
-test is tagged `@perf`. It fails below a floor set from hosted-runner measurements (see the comment in
-`level.spec.ts`) and writes `perf-results.json`. `npm run test:e2e:perf` runs it. Shell card delays (intro, results, game over) stay on wall-clock `setTimeout`s;
+test is tagged `@perf`. It is a blocking check (`npm run test:e2e:perf`, also the last step of `npm run ci` and
+the CI perf job) and fails unless fps is greater than 1 and ticks/s is greater than 4 (floors in `level.spec.ts`).
+It writes `perf-results.json`. CI uploads that file and writes a job summary. Shell card delays (intro, results, game over) stay on wall-clock `setTimeout`s;
 tests wait for the screen, not for a distance travelled in N ms.
 
 Replay fixtures are recorded from routes in `tests/replay/bots.ts` (step language in `route.ts`). After

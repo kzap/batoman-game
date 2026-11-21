@@ -36,12 +36,14 @@ npm run dev                        # http://localhost:5173
 | `npm run replay:trace -- <level>` | Print where a route's steps finish, for authoring levels and routes |
 | `npm run build:e2e` | Production build plus `VITE_E2E_LOCKSTEP=1` (required before e2e; `npm run build` omits it) |
 | `npm run test:e2e` | Playwright gate against that `dist/`. Asserts on sim ticks |
-| `npm run test:e2e:perf` | Frame-budget floor calibrated for hosted runners; writes `perf-results.json` |
+| `npm run test:e2e:perf` | Blocking frame-budget check; fails unless fps > 1 and ticks/s > 4; writes `perf-results.json` |
 | `npm run validate` | Content checks: no raw art or unpipelined images in `public/`, manifest parses |
-| `npm run ci` | Lint, unit, replay, build, and the e2e gate |
+| `npm run ci` | Lint, unit, replay, build, the e2e gate, and the perf check |
 
 Gate e2e loads gameplay with `?lockstep=1` (e2e build only) and checks sim ticks or player state.
 `window.__batoman.advance(n)` steps exactly `n` ticks. One smoke test stays on the real-time clock.
+CI runs the perf check as a blocking job. The run fails unless fps is greater than 1 and ticks/s is greater than 4.
+The job uploads `perf-results.json` and writes a job summary.
 
 ---
 

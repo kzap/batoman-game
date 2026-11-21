@@ -135,13 +135,14 @@ with no screen, it is game.
 - Gate e2e asserts on sim ticks or player state, never on `waitForTimeout`. Load gameplay with `?lockstep=1`
   and call `advance(n)` when the test must step a known number of ticks. Replay checks stay exact
   (`simTicks === fixture.expect.ticks`). One smoke test stays on the real-time clock. The frame budget is
-  `@perf` (`npm run test:e2e:perf`), a report, not a PR gate.
+  `@perf` (`npm run test:e2e:perf`). It is part of `npm run ci` and a blocking CI job: the run fails unless
+  fps is greater than 1 and ticks/s is greater than 4. CI uploads `perf-results.json` and writes a job summary.
 
 ## Commands
 
 ```bash
 npm run dev            # Vite dev server, http://localhost:5173
-npm run ci             # lint, typecheck, unit, replay, validate, build (with budget), e2e
+npm run ci             # lint, typecheck, unit, replay, validate, build (with budget), e2e, perf
 npm run test -- -w     # watch unit tests
 npm run assets         # regenerate atlases + backdrops from art-source/ recipes
 npm run recut <recipe> # segment one sheet and write its preview
