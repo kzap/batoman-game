@@ -14,7 +14,9 @@ test.describe('level-intro cutscene', () => {
   test('title path: Level 1 dialog shows, Enter skip-ahead, Esc skip-all; simTicks stays 0 until play', async ({ page }) => {
     test.setTimeout(60_000);
     // Manual lockstep: the frame loop presents only, so simTicks stays 0 until play + advance.
-    await page.goto(withLockstep('/', true));
+    // reduceMotion snaps the beat camera (no 1600 ms ease), so the ASWANG look is ready
+    // before holdMs can auto-advance on a slow hosted runner.
+    await page.goto(withLockstep('/?reduceMotion=1', true));
     await ready(page);
     await page.keyboard.press('Enter'); // Start game
     await screen(page, 'intro');
@@ -28,9 +30,7 @@ test.describe('level-intro cutscene', () => {
     await expect(page.locator('.shell-line')).toContainText('Golden hour on the piers');
     expect((await hooks(page)).simTicks).toBe(0);
     expect((await hooks(page)).mode).toBe('paused');
-    // Pan is 1600 ms; holdMs is 3200. Cap the wait under holdMs so auto-advance cannot
-    // race past the Sari-sari line before we screenshot it.
-    await page.waitForFunction(() => (window.__batoman?.camera.x ?? 0) > 5000, undefined, { timeout: 2_800 });
+    await expect.poll(async () => (await hooks(page)).camera.x).toBeGreaterThan(5000);
     await expect(page.locator('.shell-speaker')).toHaveText('Ando');
     await page.screenshot({ path: resolve(SHOTS, 'cutscene-level-1-show.png') });
 
