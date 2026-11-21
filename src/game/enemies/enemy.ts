@@ -103,9 +103,17 @@ export abstract class Enemy {
     return this.deathTicks >= this.stats.deathTicks;
   }
 
-  /** Can be shot and hurts on contact. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
+  /** Can be shot. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
   get hittable(): boolean {
     return this.alive;
+  }
+
+  /**
+   * Touching this body hurts the player. Defaults to `hittable`. The Sigbin stays
+   * shot-hittable through the punish window, but the lunge is its only contact attack.
+   */
+  get harmsOnContact(): boolean {
+    return this.hittable;
   }
 
   get alpha(): number {

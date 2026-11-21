@@ -51,6 +51,8 @@ export const ENEMY_LOOK: Readonly<Record<EnemyType, EnemyLook>> = {
   patroller: PATROLLER_LOOK,
   stealth: PATROLLER_LOOK,
   aswang: { ...PATROLLER_LOOK, scale: 1.6, tint: 0xd8b4ff },
+  /** Placeholder until a Sigbin sheet exists: the patroller cut, scaled up and near-black. The sim body is 192×188. */
+  sigbin: { ...PATROLLER_LOOK, scale: 3.1, tint: 0x1a1224 },
   drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', faces: 'left', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },
   tikbalang: { atlas: 'tikbalang', scale: 1, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'run', shoot: 'stomp' } },
 };
