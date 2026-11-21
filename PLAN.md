@@ -131,8 +131,8 @@ Powerups. Nothing in the sim yet: no pickup field, no collector, no HUD timer. T
 Issue #12 specifies it, and PR #29 (`phase/6.2-hp-up`) implements it. The other PRD pickups wait.
 
 Level 6 dressing is done. Level 3 dressing is done: the source files are in `art-source/level-3/`, and the
-level JSON still needs an `art` block. The editor still cannot add an `art` block or change `art.props` and
-backdrops (TDD section 11). The Sigbin Unit is a separate PR, #41.
+level JSON has an `art` block (`midFloorY` 448, 77 decor quads). The editor still cannot add an `art`
+block or change `art.props` and backdrops (TDD section 11). The Sigbin Unit is a separate PR, #41.
 
 ## Phases
 
