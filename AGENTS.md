@@ -1,6 +1,6 @@
 # Agent notes
 
-BatoMan v2. Before changing game code, read [.claude/skills/three-dev/SKILL.md](.claude/skills/three-dev/SKILL.md). Before testing it in a browser, read [.claude/skills/game-testing/SKILL.md](.claude/skills/game-testing/SKILL.md). Pull request text follows the rules on this page. The GitHub template is [.github/pull_request_template.md](.github/pull_request_template.md).
+BatoMan v2. Before changing game code, read [.claude/skills/three-dev/SKILL.md](.claude/skills/three-dev/SKILL.md). Before testing it in a browser, read [.claude/skills/game-testing/SKILL.md](.claude/skills/game-testing/SKILL.md). Pull request text follows the rules on this page. The GitHub template is [.github/pull_request_template.md](.github/pull_request_template.md). The merge policy is in [CONTRIBUTING.md](CONTRIBUTING.md): what counts as a review, squash merge into `v2`, and when the hosted checks are green.
 
 ## PR description
 
