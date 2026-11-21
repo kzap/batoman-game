@@ -157,7 +157,7 @@ wind-up 48, then a low sweep at 420 px/s with the body cut to 44 px so a jump 0.
 it. Standing in the path does not. The chest core (in the standing plasma line) takes 2× during the
 140-tick exposed window; body hits still count. Damage stops on the phase threshold, so one hit cannot
 skip the split. The shift is 72 invulnerable ticks. Phase 2 plants the lower half on the balcony already
-passed (960, 832). Shots on the flyer deal 0 and, after the opening hover, send it back to the shaft
+passed (1000, 832). Shots on the flyer deal 0 and, after the opening hover, send it back to the shaft
 anchor (720, 1000). The opening hover is 640 ticks so the climb back down finishes before the first dive.
 The planted half then telegraphs one horizontal shot; only a conduit hit during the following 170-tick
 window deals damage, at 2×. Phase 3 removes the half. The flyer dives, then the chest core is the only
