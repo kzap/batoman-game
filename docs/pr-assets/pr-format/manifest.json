@@ -1,0 +1,54 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "webgl": "swiftshader",
+  "stills": [
+    "title.png",
+    "level-1-start.png",
+    "level-1-mid.png",
+    "editor.png"
+  ],
+  "clip": "level-1-walk.webm",
+  "head": {
+    "start": {
+      "mode": "replay",
+      "targetTicks": 8,
+      "simTicks": 8,
+      "playerX": 88,
+      "cameraX": 336,
+      "pose": "idle",
+      "hp": 3
+    },
+    "mid": {
+      "mode": "replay",
+      "targetTicks": 160,
+      "simTicks": 160,
+      "playerX": 344.38,
+      "cameraX": 384.09,
+      "pose": "run",
+      "hp": 3
+    }
+  },
+  "baseline": {
+    "start": {
+      "mode": "replay",
+      "targetTicks": 8,
+      "simTicks": 8,
+      "playerX": 88,
+      "cameraX": 336,
+      "pose": "idle",
+      "hp": 3
+    },
+    "mid": {
+      "mode": "replay",
+      "targetTicks": 160,
+      "simTicks": 162,
+      "playerX": 347.25,
+      "cameraX": 387.33,
+      "pose": "run",
+      "hp": 3
+    }
+  }
+}
