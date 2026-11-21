@@ -34,6 +34,13 @@ export interface LevelArtJson {
   readonly props: string;
   /** Slot to backdrop file name under assets/backdrops/<level id>/ (without .webp). */
   readonly backdrops: Readonly<Partial<Record<BackdropSlot, string>>>;
+  /**
+   * Y of the floor the mid backdrop stands on, in sim px (feet height).
+   * Defaults to the level's spawn floor. The renderer pins the painted pixels
+   * of that floor to this y at the live camera. Level 3 uses 448 so the chapel
+   * band sits on the nave instead of the entrance ledge (spawn y 704).
+   */
+  readonly midFloorY?: number;
   readonly decor: readonly DecorJson[];
 }
 
@@ -64,6 +71,10 @@ export function levelArtProblems(art: unknown, level: { width: number; height: n
       if (d.flip !== undefined && typeof d.flip !== 'boolean') problems.push(`${label}.flip must be a boolean`);
       if (d.layer !== undefined && !DECOR_LAYERS.includes(d.layer as DecorLayer)) problems.push(`${label}.layer must be one of ${DECOR_LAYERS.join(', ')}`);
     });
+  }
+  if (art.midFloorY !== undefined) {
+    if (!isInt(art.midFloorY)) problems.push('art.midFloorY must be an integer');
+    else if (art.midFloorY < -level.height || art.midFloorY > 2 * level.height) problems.push('art.midFloorY is far outside the level');
   }
   return problems;
 }

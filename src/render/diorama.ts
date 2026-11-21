@@ -2,7 +2,7 @@ import type { BackdropSlot } from '@content/level-art';
 import { cameraBounds } from '@game/camera';
 import { CAMERA } from '@game/tuning';
 import { LAYER_Z, LENS } from './stage';
-import { toUnits } from './units';
+import { PIXELS_PER_UNIT, toUnits } from './units';
 
 /**
  * Where a backdrop plane goes so that, at its depth, it fills the view for
@@ -25,7 +25,7 @@ export interface BackdropPlacement {
 interface LevelDims {
   readonly width: number;
   readonly height: number;
-  /** Y of the floor the mid layer appears to stand on (sim px); the level's spawn floor. */
+  /** Y of the floor the mid layer appears to stand on (sim px). Defaults to the spawn floor; a level may set art.midFloorY. */
   readonly floorY: number;
 }
 
@@ -35,8 +35,43 @@ export const SLOT_Z: Readonly<Record<BackdropSlot, number>> = {
   mid: LAYER_Z.nearStructures,
 };
 
-/** How far below the floor line the mid layer's bottom appears (stage units at Z=0). */
+/** How far below the floor line the painted mid floor appears (stage units at Z=0). */
 const MID_GROUND_SINK = 0.8;
+
+/** Opaque box of a backdrop image. `y` is image rows from the top, like the meta sidecar. */
+export interface BackdropContentBox {
+  readonly imageH: number;
+  readonly y: number;
+  readonly h: number;
+}
+
+/**
+ * Camera centre once the player has settled on `floorY` after a drop.
+ * The follow stops at the bottom of the deadzone, `focusAboveFeet + deadzoneY`
+ * above the feet, then the level clamps it. On a ground-floor level this is
+ * the minimum camera; on Level 3's nave (floor 448) it is 576.
+ */
+export function playCameraY(level: { width: number; height: number; floorY: number }): number {
+  const b = cameraBounds(level.width, level.height);
+  const settled = level.floorY + CAMERA.focusAboveFeet + CAMERA.deadzoneY;
+  return Math.min(b.maxY, Math.max(b.minY, settled));
+}
+
+/** Fraction of a backdrop plane that is transparent below the painted pixels. */
+function bottomUnused(content?: BackdropContentBox): number {
+  if (!content || content.imageH <= 0 || content.h <= 0) return 0;
+  return Math.max(0, (content.imageH - content.y - content.h) / content.imageH);
+}
+
+/**
+ * Where a point on a backdrop plane lands on the gameplay plane, in sim px,
+ * seen from a camera centre. `worldY` is the plane point in stage units.
+ */
+export function projectBackdropY(worldY: number, cameraY: number, z: number): number {
+  const grow = (LENS.distance - z) / LENS.distance;
+  const cam = toUnits(cameraY);
+  return (cam + (worldY - cam) / grow) * PIXELS_PER_UNIT;
+}
 /** Extra coverage past the exact requirement, for aspect changes and camera shake. */
 const MARGIN = 1.15;
 
@@ -46,7 +81,12 @@ export function cameraRange(level: LevelDims): { minX: number; maxX: number; min
   return { minX: toUnits(b.minX), maxX: toUnits(b.maxX), minY: toUnits(b.minY), maxY: toUnits(b.maxY) };
 }
 
-export function backdropPlacement(slot: BackdropSlot, level: LevelDims, imageAspect: number): BackdropPlacement {
+export function backdropPlacement(
+  slot: BackdropSlot,
+  level: LevelDims,
+  imageAspect: number,
+  opts?: { content?: BackdropContentBox; cameraY?: number },
+): BackdropPlacement {
   const z = SLOT_Z[slot];
   const depth = LENS.distance - z;
   // The view grows linearly with distance from the camera.
@@ -62,13 +102,16 @@ export function backdropPlacement(slot: BackdropSlot, level: LevelDims, imageAsp
     return { z, x, y: (range.minY + range.maxY) / 2, w, h, repeatX: w / (h * imageAspect), mirrored: true };
   }
 
-  // Mid: a band standing on the floor; the sky shows through its transparent
-  // upper part. Sized so it appears one view tall at Z=0, and aligned to the
-  // floor when the camera rests on its lower bound (the usual ground framing).
+  // Mid: a band one view tall. Its painted floor (the bottom of the opaque
+  // pixels, not the transparent margin under them) is pinned to `floorY` as
+  // seen from `cameraY`. The view re-places it every frame, so the line stays
+  // on the collider while the camera climbs instead of sliding up into a ledge.
   const h = toUnits(CAMERA.viewH) * grow;
+  const cam = toUnits(opts?.cameraY ?? playCameraY(level));
   const apparentBottom = toUnits(level.floorY) - MID_GROUND_SINK;
-  const bottom = range.minY + (apparentBottom - range.minY) * grow;
-  return { z, x, y: bottom + h / 2, w, h, repeatX: w / (h * imageAspect), mirrored: false };
+  const contentBottom = cam + (apparentBottom - cam) * grow;
+  const planeBottom = contentBottom - h * bottomUnused(opts?.content);
+  return { z, x, y: planeBottom + h / 2, w, h, repeatX: w / (h * imageAspect), mirrored: false };
 }
 
 /** How wide the view is at a backdrop plane, in stage units. One tile of a split backdrop. */

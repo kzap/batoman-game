@@ -29,6 +29,12 @@ describe('levelArtProblems', () => {
     expect(levelArtProblems({ ...art, decor: [{ x: 0, y: 0 }] }, dims)).toEqual([expect.stringMatching(/prop is required/)]);
   });
 
+  it('accepts an optional midFloorY on the nave (or any floor other than spawn)', () => {
+    expect(levelArtProblems({ ...art, midFloorY: 448 }, dims)).toEqual([]);
+    expect(levelArtProblems({ ...art, midFloorY: 1.5 }, dims)).toEqual([expect.stringMatching(/midFloorY/)]);
+    expect(levelArtProblems({ ...art, midFloorY: 10_000 }, dims)).toEqual([expect.stringMatching(/far outside/)]);
+  });
+
   it('allows decor a little outside the level (floor boards hang below y = 0) but not far away', () => {
     expect(levelArtProblems({ ...art, decor: [{ prop: 'can', x: -100, y: -50 }] }, dims)).toEqual([]);
     expect(levelArtProblems({ ...art, decor: [{ prop: 'can', x: 5000, y: 0 }] }, dims)).toEqual([expect.stringMatching(/far outside/)]);

@@ -28,7 +28,26 @@
     "r2f10": "water_b",
     "r2f11": "santo",
     "r2f12": "santo_bust",
-    "r3f0": "footprint_back"
+    "r3f0": "footprint_back",
+    "r4f0": "hint_prints",
+    "r4f4": "hint_eyes",
+    "r4f6": "spikes",
+    "r4f7": "damp_floor",
+    "r4f8": "hint_silhouette"
   },
-  "notes": "Level 3 Quiapo Underground Chapel props (issue #13). Generated on a #fd6cf7 key with every prop separated by clear key (no erase cuts needed), then soft-keyed to alpha with key unmixing so edges carry no magenta fringe; RGB under alpha 0 is still #fd6cf7. Native 1280x720 source packed at scale 1 (same on-screen density as the L1/L4 2816-wide sheets at 0.5). r3f0 footprint_back is the Sigbin backward paw-print decal (issue art/sigbin-boss)."
+  "notes": "Level 3 Quiapo Underground Chapel props (issue #13). Generated on a #fd6cf7 key with every prop separated by clear key (no erase cuts needed), then soft-keyed to alpha with key unmixing so edges carry no magenta fringe; RGB under alpha 0 is still #fd6cf7. Native 1280x720 source packed at scale 1 (same on-screen density as the L1/L4 2816-wide sheets at 0.5). r3f0 footprint_back is the Sigbin backward paw-print decal (issue art/sigbin-boss, #45) in the 720-800 band. Dressing extras for #14 sit in row 4 at y>=808 (hint_prints, hint_eyes, spikes, damp_floor, hint_silhouette) as r4f0-r4f8.",
+  "overrides": {
+    "merge": [
+      [
+        "r4f0",
+        "r4f1",
+        "r4f2",
+        "r4f3"
+      ],
+      [
+        "r4f4",
+        "r4f5"
+      ]
+    ]
+  }
 }

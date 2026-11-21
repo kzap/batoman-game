@@ -1,7 +1,7 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-7b and 8.1-8.3 are on `v2`. The tip is `f92ab08` (tikbalang scout, #26). Level 6 is dressed (#33).
-Level 3 has source art (#32) and its level JSON is still grey-box. The playtest build deploys from `v2`
+Status: Phases 0-7b and 8.1-8.3 are on `v2`. The tip is `3b51dfc` (Manananggal art #62, after Sigbin art #45). Level 6 is dressed (#33).
+Level 3 is dressed (#14) and its source art is on `v2` (#32); Sigbin sheet and `footprint_back` are on `v2` (#45). The playtest build deploys from `v2`
 (#24) and is live at https://mydev.org/batoman-game/. `main` still holds v1 (Phaser 3, tagged `v1-archive`)
 and is still the default branch. Node is `^20.19 || >=22.12` (`package.json` `engines`).
 
@@ -11,14 +11,14 @@ today ships four level files. The finale is the fifth, not built yet. The plan f
 | Order | Id | Boss | Where it stands |
 |---|---|---|---|
 | 1 Tondo docks | `level-1` | ASWANG prototype | Shipped |
-| 2 Quiapo chapel | `level-3` | Sigbin Unit | Source art on `v2`. Dressing is #14. The boss is #41, open |
+| 2 Quiapo chapel | `level-3` | Sigbin Unit | Dressed. The boss is in the tree at (3424, 768) |
 | 3 NSA tower | `level-4` | Manananggal-7 | Dressed. No boss in the tree. Andre confirmed this boss on #25 |
 | 4 Rooftop garden | `level-6` | Tikbalang-X | Dressed. Scout AI landed in #26. The boss is unbuilt |
 | 5 Destroyed block | proposed `level-5` | Bakunawa-Prime | Not in the tree |
 
 Andre's decision on [#51](https://github.com/kzap/batoman-game/issues/51): build Level 5 now, as part of finishing the levels. The caps are 900 KB code and 20 MB served ([#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819), #54 at `44c4288`). The plan is [docs/FINALE.md](docs/FINALE.md).
 
-Dress Level 3 (#14) and the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off) continue beside the finale. The scout AI is in (#26). The lying path is the rope bridge over the pit at x 1248: it reads as a floor and is not one. Tikbalang-X is the boss at 4300; the scout at 4100 stays. Still open beside that: a second mid layer and a Level 6 music track.
+Level 3's dressing is in this branch (#14). The Phase 8 remainder (the 60 fps mid-laptop sign-off; the results card landed in #40) continues beside the Level 5 plan. The scout AI is in (#26). The lying path is the rope bridge over the pit at x 1248: it reads as a floor and is not one. Tikbalang-X is the boss at 4300; the scout at 4100 stays. Still open beside that: a second mid layer and a Level 6 music track.
 
 ## Why a remake
 
@@ -115,7 +115,7 @@ undamaged clears in `tests/replay/fixtures/`.
 | Level | Dressing | What is in the tree |
 |---|---|---|
 | 1 Tondo Sublevel Docks | Dressed | `art` block, `level-1-props`, `sky`/`town`, 58 decor quads. Full source set in `art-source/level-1/`. Patrollers, drones, and the `aswang` boss (patroller sheet, 1.6x, lilac). Fixture 5567 ticks. |
-| 3 Quiapo Underground Chapel | Grey-box JSON | Source art is on `v2` (#32): `background.png`, `foreground.png`, `tileset.png`, `backdrops.json` (`nave` / `chapel`), a props recipe, plus the older concept painting. No `art` block, so it still renders as boxes. Remaining: #14 dresses it, #41 adds the Sigbin Unit. Stealth, drone, patroller. Music `level-2`. Fixture 2642 ticks. E2E loads it as grey-box. |
+| 3 Quiapo Underground Chapel | Dressed | Source art is on `v2` (#32); the `art` block is in (#14): `nave`/`chapel` backdrops, `midFloorY` 448, 77 decor quads, early Sigbin hints (prints, eyes, a silhouette in the flood). `footprint_back` (r3f0) and the Sigbin sheet are on `v2` (#45); dress hint frames are r4. The `sigbin` boss is at (3424, 768). Stealth, drone, patroller. Music `level-2`. Fixture 3889 ticks. E2E loads it dressed. |
 | 4 NSA Tower Exterior | Dressed | `art` block, `level-4-props`, `skyline`/`street`, 86 decor quads. Patrollers, drones, one stealth, Manananggal-7 on the roof (fight in, sheet still the patroller placeholder). Music `level-2`. Fixture 4961 ticks, undamaged, through the kill and the return climb. E2E asserts the atlas and both backdrops and screenshots the split and the descent. |
 | 6 Abandoned Rooftop Garden | Dressed | #33. `art` block, `level-6-props`, `sky`/`garden`, 145 decor quads, lift uses `platform_pallet`. E2E asserts the atlas and both backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. Drone, patroller, and a tikbalang scout at x 4100 (#26: burst chase and stomp). Music `level-1`. Fixture 4059 ticks, undamaged. |
 
@@ -128,9 +128,9 @@ where the scout stands, and no enemies are left at the exit. Tikbalang-X, the bo
 Powerups. Nothing in the sim yet: no pickup field, no collector, no HUD timer. The first one is HP Up.
 Issue #12 specifies it, and PR #29 (`phase/6.2-hp-up`) implements it. The other PRD pickups wait.
 
-Level 6 dressing is done. Level 3 dressing is #14: the source files are in `art-source/level-3/`, and the
-level JSON still needs an `art` block. The editor still cannot add an `art` block or change `art.props` and
-backdrops (TDD section 11). The Sigbin Unit is a separate PR, #41.
+Level 6 dressing is done. Level 3 dressing is done: the source files are in `art-source/level-3/`, and the
+level JSON has an `art` block (`midFloorY` 448, 77 decor quads). The editor still cannot add an `art`
+block or change `art.props` and backdrops (TDD section 11). The Sigbin Unit stands at (3424, 768) on the gallery.
 
 ## Phases
 
@@ -212,8 +212,7 @@ Exit: Level 1 playable start to boss kill under replay.
 
 Exit: full loop menu -> three levels -> credits.
 
-Outcome: the shell shipped. Level 6 is dressed (#33). Level 3 has source art (#32) and its level JSON
-is still grey-box, so it renders as boxes until #14 adds the `art` block.
+Outcome: the shell shipped. Level 6 is dressed (#33). Level 3 is dressed (#14) from the source art in #32.
 
 ### Phase 7b - Level 4, NSA Tower Exterior (`content/level-4`)
 
@@ -326,4 +325,4 @@ Exit: `main` is the remake, `v1-archive` still points at the Phaser game, CI on 
 | Segmenter misreads a sheet | Human review step; committed, diffable recipes |
 | 2.5D hurts jump readability | FOV 30; feel signed off in grey-box (Phase 3); orthographic fallback |
 | Phase PR too large | Split into sub-PRs targeting `v2` |
-| Level 3 art segments differently from Level 1 | Level 4 needed a chroma key. Level 6 dressed on the same path. Level 3's source art is in and its `art` block is #14 |
+| Level 3 art segments differently from Level 1 | Level 4 needed a chroma key. Level 6 dressed on the same path. Level 3's source art is in and its `art` block is dressed |

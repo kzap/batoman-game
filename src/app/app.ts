@@ -559,6 +559,7 @@ export class App {
     this.entities.present(this.previous, this.current, alpha);
     if (this.editorCamera) {
       this.stage.setCamera(toUnits(this.editorCamera.x), toUnits(this.editorCamera.y), this.editorCamera.distance);
+      this.levelView.placeMidFloor(this.editorCamera.y);
       const shake = this.current.camera;
       this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: 0, y: 0 };
     } else if (this.cutsceneCamera) {
@@ -571,6 +572,7 @@ export class App {
       const shake = this.current.camera;
       const at = presentedCamera(cam.x, cam.y, shake.shakeX, shake.shakeY, this.reduceMotion);
       this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: at.x - cam.x, y: at.y - cam.y };
+      this.levelView.placeMidFloor(at.y);
       this.stage.setCamera(toUnits(at.x), toUnits(at.y));
     }
     this.hooks.weakPoint = this.entities.weakPointCue;

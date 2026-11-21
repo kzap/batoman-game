@@ -24,7 +24,7 @@ import type { BackdropMeta } from './backdrop-meta';
 import { decorBatches } from './batches';
 import { BACKDROP_SLOTS, type BackdropSlot, type DecorJson, type DecorLayer } from '@content/level-art';
 import type { LevelArtAssets } from './assets';
-import { backdropContentBand, backdropPlacement, backdropTiles, layerViewWidth } from './diorama';
+import { backdropContentBand, backdropPlacement, backdropTiles, layerViewWidth, type BackdropContentBox } from './diorama';
 import { atlasMaterial } from './sprite';
 import { framePlacement, frameUv } from './sprite-layout';
 import { LAYER_Z, PALETTE } from './stage';
@@ -44,6 +44,16 @@ const OUTLINE_Z = 0.5;
 /** Placeholder body of a not-yet-implemented enemy spawn (the player's standing size). */
 const SPAWN_BODY = { w: 24, h: 48 };
 const spawnBox = (e: { x: number; y: number }): Rect => ({ x: e.x - SPAWN_BODY.w / 2, y: e.y, w: SPAWN_BODY.w, h: SPAWN_BODY.h });
+
+/** A water prop's pivot is its bottom centre. True when that quad overlaps a death zone. */
+function paintedWaterCovers(level: LevelJson, zone: Rect): boolean {
+  for (const d of level.art?.decor ?? []) {
+    if (!d.prop.startsWith('water_') || d.w === undefined || d.h === undefined) continue;
+    const x = d.x - d.w / 2;
+    if (x < zone.x + zone.w && zone.x < x + d.w && d.y < zone.y + zone.h && zone.y < d.y + d.h) return true;
+  }
+  return false;
+}
 
 /**
  * Static part of a level: the diorama (backdrop layers and catalogue props)
@@ -99,14 +109,25 @@ export class LevelView {
     };
     for (const c of level.checkpoints) beam(c, PALETTE.warmAmber);
     beam(level.exit, PALETTE.neonCyan);
-    for (const r of level.deathZones) this.plane(r, glow(PALETTE.bioTeal, 0.18), ZONE_Z.deathZone);
-    const spikes = this.material(new MeshBasicMaterial({ color: PALETTE.neonMagenta }));
-    const crusher = this.material(new MeshStandardMaterial({ color: 0xaa2222, roughness: 0.6 }));
+    for (const r of level.deathZones) {
+      // Painted water already covers these. The additive teal plane shows through
+      // the transparent parts of that water as a solid rectangle.
+      if (paintedWaterCovers(level, r)) continue;
+      this.plane(r, glow(PALETTE.bioTeal, 0.18), ZONE_Z.deathZone);
+    }
+    // Dressed levels paint crushers, spikes and flood themselves. The solid
+    // magenta spike bar and red crusher box sit at Z>=0 and would cover that
+    // art, so keep only a soft glow and park it behind the prop layer.
+    const dressed = Boolean(level.art);
+    const hazardGlowZ = dressed ? -0.55 : ZONE_Z.spikes;
+    const spikes = dressed ? null : this.material(new MeshBasicMaterial({ color: PALETTE.neonMagenta }));
+    const crusher = dressed ? null : this.material(new MeshStandardMaterial({ color: 0xaa2222, roughness: 0.6 }));
     for (const h of level.hazards) {
       if (h.kind === 'spikes') {
-        this.plane(h, glow(PALETTE.neonMagenta, 0.3), ZONE_Z.spikes);
-        this.box({ x: h.x, y: h.y + h.h - 3, w: h.w, h: 3 }, spikes, 0.4, ZONE_Z.spikes);
-      } else this.box(h, crusher, 1, 0);
+        this.plane(h, glow(PALETTE.neonMagenta, dressed ? 0.2 : 0.3), hazardGlowZ);
+        if (spikes) this.box({ x: h.x, y: h.y + h.h - 3, w: h.w, h: 3 }, spikes, 0.4, ZONE_Z.spikes);
+      } else if (crusher) this.box(h, crusher, 1, 0);
+      else this.plane(h, glow(0xaa2222, 0.2), hazardGlowZ);
     }
   }
 
@@ -183,8 +204,24 @@ export class LevelView {
     }
   }
 
+  /** Mid-band meshes. Their Y is rewritten each frame so the painted floor stays on the collider. */
+  private midMeshes: Mesh[] = [];
+  private midFloor: { width: number; height: number; floorY: number } | null = null;
+  private midAspect = 1;
+  private midContent: BackdropContentBox | null = null;
+
+  /** Pin the chapel (or town) floor to `cameraY` in sim px. No-op on a grey-box level. */
+  placeMidFloor(cameraY: number): void {
+    if (!this.midFloor || !this.midContent) return;
+    const p = backdropPlacement('mid', this.midFloor, this.midAspect, { content: this.midContent, cameraY });
+    const band = backdropContentBand(p, this.midContent.imageH, this.midContent.y, this.midContent.h);
+    for (const mesh of this.midMeshes) mesh.position.y = band.y;
+  }
+
   private backdrop(slot: BackdropSlot, tex: Texture, meta: BackdropMeta, level: LevelJson): void {
-    const p = backdropPlacement(slot, { width: level.width, height: level.height, floorY: level.spawn.y }, meta.width / meta.height);
+    const floor = { width: level.width, height: level.height, floorY: level.art?.midFloorY ?? level.spawn.y };
+    const content: BackdropContentBox = { imageH: meta.height, y: meta.content.y, h: meta.content.h };
+    const p = backdropPlacement(slot, floor, meta.width / meta.height, slot === 'mid' ? { content } : undefined);
     const band = backdropContentBand(p, meta.height, meta.content.y, meta.content.h);
     const tiles = backdropTiles(p, layerViewWidth(p.z), band);
     if (tiles.length === 0) return;
@@ -213,7 +250,13 @@ export class LevelView {
       attr.setXY(3, u1, v0);
       const mesh = new Mesh(geo, m);
       mesh.position.set(t.x, t.y, p.z);
+      if (slot === 'mid') this.midMeshes.push(mesh);
       this.group.add(mesh);
+    }
+    if (slot === 'mid') {
+      this.midFloor = floor;
+      this.midAspect = meta.width / meta.height;
+      this.midContent = content;
     }
   }
 

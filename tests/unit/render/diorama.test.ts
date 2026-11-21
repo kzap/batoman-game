@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CAMERA } from '@game/tuning';
-import { backdropPlacement, cameraRange, SLOT_Z } from '@render/diorama';
+import { backdropContentBand, backdropPlacement, cameraRange, playCameraY, projectBackdropY, SLOT_Z } from '@render/diorama';
 import { LENS } from '@render/stage';
 import { toUnits } from '@render/units';
 
@@ -64,5 +64,39 @@ describe('backdropPlacement', () => {
   it('only the far layer mirrors its repeats (the town has readable signs)', () => {
     expect(backdropPlacement('far', level1, aspect).mirrored).toBe(true);
     expect(backdropPlacement('mid', level1, aspect).mirrored).toBe(false);
+  });
+
+  it('honours a lower mid floor so a nave can sit below the spawn ledge', () => {
+    const high = backdropPlacement('mid', { width: 3584, height: 1024, floorY: 704 }, aspect);
+    const low = backdropPlacement('mid', { width: 3584, height: 1024, floorY: 448 }, aspect);
+    expect(low.y).toBeLessThan(high.y);
+    // Both floors sit the same distance under their settled cameras, so the
+    // planes differ by the floor delta itself.
+    expect(high.y - low.y).toBeCloseTo(toUnits(704 - 448), 5);
+  });
+
+  it('projects the painted mid floor onto the walkable floor at the settled play camera', () => {
+    // Level 3 nave. Chapel art has 95 transparent rows under the stone, so
+    // aligning the plane's edge (or aligning it at the camera's minimum) leaves
+    // the painted floor about 128 px above the collider.
+    const level = { width: 3584, height: 1024, floorY: 448 };
+    const chapel = { imageH: 720, y: 128, h: 497 };
+    const cam = playCameraY(level);
+    expect(cam).toBe(448 + 96 + 32);
+    const p = backdropPlacement('mid', level, 1280 / 720, { content: chapel, cameraY: cam });
+    const band = backdropContentBand(p, chapel.imageH, chapel.y, chapel.h);
+    const projected = projectBackdropY(band.y - band.h / 2, cam, p.z);
+    expect(projected).toBeCloseTo(level.floorY - 0.8 * 32, 1);
+  });
+
+  it('keeps the painted nave floor on that line when the camera climbs to the gallery', () => {
+    const level = { width: 3584, height: 1024, floorY: 448 };
+    const chapel = { imageH: 720, y: 128, h: 497 };
+    const gallery = playCameraY({ width: level.width, height: level.height, floorY: 768 });
+    expect(gallery).toBe(1024 - 378 / 2);
+    const p = backdropPlacement('mid', level, 1280 / 720, { content: chapel, cameraY: gallery });
+    const band = backdropContentBand(p, chapel.imageH, chapel.y, chapel.h);
+    const projected = projectBackdropY(band.y - band.h / 2, gallery, p.z);
+    expect(projected).toBeCloseTo(level.floorY - 0.8 * 32, 1);
   });
 });
