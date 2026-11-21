@@ -18,7 +18,7 @@ import {
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
-import { PROJECTILE } from '@game/tuning';
+import { ENEMY, PROJECTILE } from '@game/tuning';
 import type { BossSnapshot, EnemySnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
@@ -240,7 +240,7 @@ export class EntityView {
       let v = this.enemies.get(c.id);
       if (!v) {
         const fresh = this.takeEnemyView(c.type);
-        if (!fresh) continue; // no sheet loaded for this type (tikbalang spawn data)
+        if (!fresh) continue; // this level did not load a sheet for the type
         v = fresh;
         this.enemies.set(c.id, v);
       }
@@ -251,7 +251,12 @@ export class EntityView {
       v.quad.setFrame(v.animator.frameAt(c.pose, tick));
       const pivotY = look.pivot === 'centre' ? y + c.h / 2 : y;
       const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
-      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
+      // The tikbalang's lunge drops the body to `lungeHeight`. Fit the quad to that
+      // live height (feet stay on the pivot) so a jump that clears the hurtbox
+      // also clears the sprite. Every other pose keeps the sheet's own scale.
+      const h = lerp(p.h, c.h, alpha);
+      const lunging = c.type === 'tikbalang' && h < ENEMY.tikbalang.height;
+      v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, lunging ? { flip, size: { h } } : { flip, scale: look.scale });
       v.material.color.setHex(enemyHurtTint(c.flash > 0, tick, this.reduceMotion, look.tint, PALETTE.neonMagenta));
       v.material.opacity = c.alpha;
       this.placeOutline(v.outline, { x, y, w: c.w, h: c.h }, ENEMY_Z);

@@ -7,7 +7,8 @@ NSA-controlled districts to dismantle Project ASWANG and confront Dr. Epal.
 
 This branch (`v2`) is a ground-up remake as a 2.5D platformer: a deterministic 2D simulation rendered with
 Three.js. The original Phaser build is preserved at the `v1-archive` tag and on `main` until v2 is
-playable. See [PLAN.md](PLAN.md) for the phase plan and current status.
+playable. See [PLAN.md](PLAN.md) for the phase plan and current status. The five-level vision, pending
+the remaining creative calls, is in [docs/VISION.md](docs/VISION.md).
 
 ---
 
@@ -62,7 +63,7 @@ tools/       offline asset pipeline and validators (Node)
 tests/       unit/ replay/ e2e/
 art-source/  raw AI art; never served to the browser
 public/      generated assets only (atlases, backdrops, audio; all gitignored, built by `npm run assets`)
-docs/        PRD.md, TDD.md, ART.md, STORY.md
+docs/        VISION.md (full-game plan, pending approval), STORY.md, PRD.md, ART.md, TDD.md
 ```
 
 Dependencies flow one way: `core <- game <- render/app <- editor`. ESLint fails the build if `core` or `game` import
@@ -118,3 +119,9 @@ Conventions that matter most:
 | Language | TypeScript 5.9, strict |
 | Bundler | Vite 7 |
 | Tests | Vitest 5, Playwright 1.63 |
+
+---
+
+## PR screenshots
+
+`npm run shots` builds `dist/`, serves it, and writes the title, Level 1 start, Level 1 mid, and the editor to `pr-shots/head/`, plus a short walk clip. `npm run shots -- --baseline <ref>` captures the same frames from another commit so a before/after pair lines up. Commit the pictures a PR body shows under `docs/pr-assets/<slug>/`, then `npm run shots -- --links <slug>` prints markdown pinned to that commit's SHA. How to embed them so GitHub renders them is in [AGENTS.md](AGENTS.md).
