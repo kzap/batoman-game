@@ -155,10 +155,8 @@ export class World {
   private checkpointId = -1;
   /** The exit rect, solid while Tikbalang-X is alive so a knockback cannot shove the player off the roof. */
   private exitDoor: Solid | null = null;
-  /** Left edge of the roof under Tikbalang-X. Hurt knockback may not cross it into the pit. */
-  private roofLip: number | null = null;
-  /** Set on a hit while the lip applies, until the slide has stopped back on the roof. */
-  private lipLock = false;
+  /** The roof Tikbalang-X stands on. A knockback is clamped at `x` only for a player already standing on it. */
+  private fightRoof: { x: number; right: number; top: number } | null = null;
 
   constructor(
     readonly level: LevelJson,
@@ -213,29 +211,30 @@ export class World {
       this.exitDoor = this.collision.addSolid(this.level.exit);
       const spawn = this.level.enemies.find((e) => e.type === 'tikbalang-x');
       const floor = spawn && this.level.solids.find((s) => s.y + s.h === spawn.y && spawn.x >= s.x && spawn.x < s.x + s.w);
-      this.roofLip = floor ? floor.x : null;
+      this.fightRoof = floor ? { x: floor.x, right: floor.x + floor.w, top: floor.y + floor.h } : null;
     } else if (!seal && this.exitDoor) {
       this.collision.removeSolid(this.exitDoor);
       this.exitDoor = null;
-      this.roofLip = null;
-      this.lipLock = false;
+      this.fightRoof = null;
+      this.player.knockbackMinX = null;
     }
   }
 
   /**
-   * A hit on the left lip pops the player up and left. The slide keeps going
-   * for a tick after the stun ends, which is enough to drop into the
-   * inter-roof pit with hp still left. Hold them on the roof until that
-   * slide stops. Other bosses do not set `roofLip`.
+   * Left edge of the fight roof when the player is standing on it. A hit
+   * anywhere else must not arm the lip clamp.
    */
-  private keepOnRoof(): void {
-    const lip = this.roofLip;
-    if (!this.lipLock || lip === null) return;
-    if (this.player.body.x < lip) {
-      this.player.body.place(lip, this.player.body.y);
-      if (this.player.vx < 0) this.player.vx = 0;
-    }
-    if (this.player.hurtStun <= 0 && this.player.vx >= 0 && this.player.body.x >= lip) this.lipLock = false;
+  private fightLip(): number | null {
+    const roof = this.fightRoof;
+    if (!roof) return null;
+    const b = this.player.body;
+    if (!this.player.grounded || b.y !== roof.top || b.x < roof.x || b.x >= roof.right) return null;
+    return roof.x;
+  }
+
+  /** Drop the lip clamp once the knockback slide has stopped. */
+  private releaseKnockbackLimit(): void {
+    if (this.player.knockbackMinX !== null && this.player.hurtStun <= 0 && this.player.vx >= 0) this.player.knockbackMinX = null;
   }
 
   private cameraTarget(): CameraTarget {
@@ -277,7 +276,7 @@ export class World {
     if (a.dashed) this.events.emit('dash', {});
     if (a.fired) this.fire('plasma');
     if (a.novaFired) this.fire('nova');
-    this.keepOnRoof();
+    this.releaseKnockbackLimit();
   }
 
   private fire(kind: 'plasma' | 'nova'): void {
@@ -458,8 +457,9 @@ export class World {
     if (this.player.dead || this.player.invulnerable) return false;
     if (!this.health.hit(amount)) return false;
     if (this.health.alive) {
+      const lip = this.fightLip();
       this.player.knockback(dir, this.collision);
-      if (this.roofLip !== null) this.lipLock = true;
+      if (lip !== null) this.player.knockbackMinX = lip;
       this.camera.shake(CAMERA.hurtShake.amplitude, CAMERA.hurtShake.ticks);
       this.events.emit('hurt', { hp: this.health.hp });
     } else {

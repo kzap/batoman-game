@@ -193,6 +193,46 @@ describe('Tikbalang-X', () => {
     }
   });
 
+  it('an off-roof hit is a normal knockback and never leaves the player inside a solid', () => {
+    const base = arena();
+    const street: LevelJson = {
+      ...base,
+      solids: [
+        { x: 0, y: 0, w: 800, h: 64 },
+        { x: 2400, y: 0, w: 800, h: 192 },
+        ...base.solids,
+      ],
+    };
+    const plain: LevelJson = { ...street, enemies: [] };
+    for (const at of [
+      { x: 500, y: 64 },
+      { x: 2800, y: 192 },
+    ]) {
+      const knocked = (level: LevelJson): number[] => {
+        const w = new World(level, 1);
+        w.player.body.place(at.x, at.y);
+        w.health.invuln = 0;
+        w.step();
+        expect(w.player.grounded).toBe(true);
+        expect(w.player.body.y).toBe(at.y);
+        expect(w.damage(1, -1)).toBe(true);
+        const xs = [w.player.body.x];
+        for (let i = 0; i < 90; i++) {
+          w.step();
+          expect(w.collision.solidAt(w.player.body)).toBeNull();
+          xs.push(w.player.body.x);
+        }
+        return xs;
+      };
+      const withBoss = knocked(street);
+      const normal = knocked(plain);
+      expect(withBoss).toEqual(normal);
+      expect(withBoss[0]).toBe(at.x);
+      expect(Math.min(...withBoss)).toBeLessThan(at.x);
+      expect(Math.max(...withBoss)).toBeLessThan(3600);
+    }
+  });
+
   it('run contact on the left lip cannot knock the player into the pit', () => {
     for (const x of [3648, 3660, 3680]) {
       const { w } = wake();

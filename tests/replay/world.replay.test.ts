@@ -343,6 +343,17 @@ describe('level 6 tikbalang phases', () => {
   });
 });
 
+describe('level 6 fight keeps the player out of solids', () => {
+  it.each(['level-6-clear.json', 'level-6-tikbalang-phases.json'])('%s', (name) => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, name), 'utf8')) as ReplayFixture;
+    const world = new World(loadLevel(fixture.level), fixture.seed);
+    for (const frame of decodeInputs(fixture.inputs)) {
+      world.step(frame);
+      expect(world.collision.solidAt(world.player.body)).toBeNull();
+    }
+  });
+});
+
 describe('level 6 clear leaves the roof empty', () => {
   it('pins every enemy dead at the exit', () => {
     const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-6-clear.json'), 'utf8')) as ReplayFixture;
