@@ -7,7 +7,7 @@ import { Rng } from '@core/sim/rng';
 import type { AABB } from '@core/math/aabb';
 import type { EnemyType, LevelJson, MovingSolidJson, PickupKind, Rect } from '@content/level';
 import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
-import { BossUnit, spawnEnemy, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
+import { BossUnit, spawnEnemy, type BossTell, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
 import { Health } from './health';
 import { createPickups, type Pickup, type PickupSnapshot } from './pickups';
 import { Player, type PlayerPose } from './player';
@@ -68,18 +68,20 @@ export interface BossSnapshot {
   readonly hp: number;
   readonly maxHp: number;
   readonly phase: number;
-  /** Weak point rect in level px, for the renderer's core glow. */
+  /** Weak point rect in level px. The colour-blind-safe diamond (PR #39) draws on this while `exposed`. */
   readonly weakPoint: Rect;
-  /** Punish window open. The core glow draws on `weakPoint` while this is set. */
+  /** The punish window is open. ASWANG doubles core hits; the Sigbin takes damage only then. */
   readonly exposed: boolean;
-  /** HUD name ("ASWANG PROTOTYPE", "MANANANGGAL-7"). */
+  /** HUD name ("ASWANG PROTOTYPE", "SIGBIN UNIT", "MANANANGGAL-7"). */
   readonly label: string;
-  /** Planted half. Null while the boss is still one body. */
-  readonly planted: Rect | null;
-  /** Wing-shadow hint. Null once the fight has started, and for bosses that have none. */
-  readonly shadow: Rect | null;
-  /** Mark on a perch the player will have to return to. Null when the boss has none. */
-  readonly perch: Rect | null;
+  /** Footprints and other non-body tells. Empty for a boss that leaves none. */
+  readonly tells: readonly BossTell[];
+  /** Planted half. Absent or null while the boss is still one body. */
+  readonly planted?: Rect | null;
+  /** Wing-shadow hint. Absent or null once the fight has started, and for bosses that have none. */
+  readonly shadow?: Rect | null;
+  /** Mark on a perch the player will have to return to. Absent or null when the boss has none. */
+  readonly perch?: Rect | null;
 }
 
 export interface SolidSnapshot extends Rect {
@@ -274,7 +276,8 @@ export class World {
         this.bossPhaseSeen = e.phase;
         this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
       }
-      // Contact is per box: a planted half and a diving flyer are not the same body.
+      // Contact is the boxes `harmsOnContact` selects. One body for everyone except a
+      // split boss. The Sigbin is hittable while recovering and does not touch-damage then.
       if (!this.player.dead) {
         for (const box of e.contactBoxes()) {
           if (!overlaps(this.player.body, box)) continue;
@@ -454,6 +457,7 @@ export class World {
       label: boss.label,
       weakPoint: boss.weakPointRect(),
       exposed: boss.exposed,
+      tells: boss.tells(),
       planted: boss.plantedRect(),
       shadow: boss.shadowRect(),
       perch: boss.perchRect(),

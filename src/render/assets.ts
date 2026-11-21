@@ -51,6 +51,8 @@ export const ENEMY_LOOK: Readonly<Record<EnemyType, EnemyLook>> = {
   patroller: PATROLLER_LOOK,
   stealth: PATROLLER_LOOK,
   aswang: { ...PATROLLER_LOOK, scale: 1.6, tint: 0xd8b4ff },
+  /** Placeholder until a Sigbin sheet exists: the patroller cut, scaled up and near-black. The sim body is 192×188. */
+  sigbin: { ...PATROLLER_LOOK, scale: 3.1, tint: 0x1a1224 },
   // Placeholder until the Manananggal sheet exists (issue #53). Warm red, patroller clips.
   manananggal: { ...PATROLLER_LOOK, scale: 1.8, tint: 0xff5a3c },
   drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', faces: 'left', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },

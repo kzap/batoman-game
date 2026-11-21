@@ -1,8 +1,8 @@
 import { SIM_DT } from '@core/sim/clock';
 import { Fsm } from '@core/sim/fsm';
 import { BOSS } from '../tuning';
-import { BossUnit } from './boss-kit';
-import { type EnemyCtx, type EnemyPose, type Hurtbox } from './enemy';
+import { BossUnit, PhaseGate, coreRect, exposedMultiplier } from './boss-kit';
+import type { EnemyCtx, EnemyPose } from './enemy';
 
 type State = 'dormant' | 'walk' | 'shoot' | 'rushWindup' | 'rush' | 'stunned' | 'shift' | 'summon';
 
@@ -15,13 +15,12 @@ type State = 'dormant' | 'walk' | 'shoot' | 'rushWindup' | 'rush' | 'stunned' | 
  * shift. Its own shots never hurt it; contact does the usual damage.
  */
 export class Boss extends BossUnit {
-  private phaseIndex = 0;
+  private readonly phases = new PhaseGate(BOSS.phaseHp);
   private cooldown: number = BOSS.shotCooldownTicks[0]!;
   private burstLeft = 0;
   private rushTimer: number = BOSS.rushEveryTicks;
   private summonTimer: number = BOSS.summonEveryTicks;
   private rushDir: 1 | -1 = -1;
-  private pendingShift = false;
   private readonly fsm = new Fsm<State, EnemyCtx>(
     {
       dormant: {
@@ -35,8 +34,8 @@ export class Boss extends BossUnit {
           const interrupt = this.interrupt();
           if (interrupt) return interrupt;
           this.facePlayer(ctx);
-          if (this.phaseIndex >= 2 && this.summonTimer === 0 && ctx.countAlive('drone') < BOSS.summonMaxAlive) return 'summon';
-          if (this.phaseIndex >= 1 && this.rushTimer === 0) return 'rushWindup';
+          if (this.phases.index >= 2 && this.summonTimer === 0 && ctx.countAlive('drone') < BOSS.summonMaxAlive) return 'summon';
+          if (this.phases.index >= 1 && this.rushTimer === 0) return 'rushWindup';
           if (this.cooldown === 0) return 'shoot';
           const dist = Math.abs(this.toPlayer(ctx));
           if (dist > BOSS.standoff && this.grounded(ctx.cw)) this.walk(ctx.cw, this.facing, BOSS.walkSpeed);
@@ -60,7 +59,7 @@ export class Boss extends BossUnit {
             ctx.fire({ x: this.facing > 0 ? b.right : b.x, y: b.y + BOSS.muzzleY, vx: this.facing * BOSS.shotSpeed, vy: 0 });
           }
           if (this.burstLeft === 0 && t >= BOSS.burstSpacingTicks) {
-            this.cooldown = BOSS.shotCooldownTicks[this.phaseIndex]!;
+            this.cooldown = BOSS.shotCooldownTicks[this.phases.index]!;
             return 'walk';
           }
           return undefined;
@@ -86,7 +85,7 @@ export class Boss extends BossUnit {
           this.body.h = BOSS.height;
         },
         update: (ctx, ticks) => {
-          if (this.pendingShift) return 'shift';
+          if (this.phases.pending) return 'shift';
           // A rush stops at a ledge as well as a wall: the arena's pit edge is a wall to the boss.
           if (this.ledgeAhead(ctx.cw, this.rushDir, BOSS.rushSpeed * SIM_DT)) return 'stunned';
           const hitWall = this.walk(ctx.cw, this.rushDir, BOSS.rushSpeed);
@@ -102,19 +101,18 @@ export class Boss extends BossUnit {
           this.rushTimer = BOSS.rushEveryTicks;
         },
         update: (_ctx, ticks) => {
-          if (this.pendingShift) return 'shift';
+          if (this.phases.pending) return 'shift';
           return ticks >= BOSS.stunTicks ? 'walk' : undefined;
         },
       },
       shift: {
         enter: () => {
-          this.pendingShift = false;
+          this.phases.commit();
           this.vx = 0;
-          this.phaseIndex++;
-          this.cooldown = BOSS.shotCooldownTicks[this.phaseIndex]!;
+          this.cooldown = BOSS.shotCooldownTicks[this.phases.index]!;
           // The new phase opens with its new move: a rush right after the first shift, a summon after the second.
-          this.rushTimer = this.phaseIndex === 1 ? BOSS.rushWindupTicks : BOSS.rushEveryTicks;
-          this.summonTimer = this.phaseIndex === 2 ? BOSS.rushWindupTicks : BOSS.summonEveryTicks;
+          this.rushTimer = this.phases.index === 1 ? BOSS.rushWindupTicks : BOSS.rushEveryTicks;
+          this.summonTimer = this.phases.index === 2 ? BOSS.rushWindupTicks : BOSS.summonEveryTicks;
         },
         update: (_ctx, ticks) => (ticks >= BOSS.phaseShiftTicks ? 'walk' : undefined),
       },
@@ -140,22 +138,13 @@ export class Boss extends BossUnit {
     super(id, 'aswang', BOSS, x, y);
   }
 
+  get label(): string {
+    return BOSS.label;
+  }
+
   /** 1-based phase for the HUD and renderer. */
   override get phase(): number {
-    return this.phaseIndex + 1;
-  }
-
-  override get label(): string {
-    return 'ASWANG PROTOTYPE';
-  }
-
-  /** Double-damage window: stunned after a rush. */
-  override get exposed(): boolean {
-    return this.fsm.state === 'stunned';
-  }
-
-  override hurtboxes(): readonly Hurtbox[] {
-    return [{ id: 'body', box: this.body, core: this.weakPointRect() }];
+    return this.phases.phase;
   }
 
   override get hittable(): boolean {
@@ -167,15 +156,19 @@ export class Boss extends BossUnit {
     return this.fsm.state !== 'dormant';
   }
 
+  /** The core is open while it is stunned after a rush. Body hits still land; the core doubles them. */
+  get exposed(): boolean {
+    return this.fsm.state === 'stunned';
+  }
+
   /** Double damage to the core while stunned after a rush. */
   protected override damageFor(damage: number, weakPoint: boolean): number {
-    return weakPoint && this.fsm.state === 'stunned' ? damage * BOSS.weakPointMultiplier : damage;
+    return exposedMultiplier(damage, this.exposed, weakPoint, BOSS.weakPointMultiplier);
   }
 
   /** The rect (in level px) a shot must cross to count as a weak-point hit. */
   weakPointRect(): { x: number; y: number; w: number; h: number } {
-    const b = this.body;
-    return { x: b.x, y: b.y + BOSS.weakPoint.y, w: b.w, h: BOSS.weakPoint.h };
+    return coreRect(this.body, BOSS.weakPoint);
   }
 
   get pose(): EnemyPose {
@@ -214,18 +207,17 @@ export class Boss extends BossUnit {
 
   protected override onHurt(): void {
     // Heavy: no knockback. Crossing a phase threshold queues the shift; the FSM takes it at the next safe point.
-    const next = BOSS.phaseHp[this.phaseIndex];
-    if (next !== undefined && this.health.hp <= next) this.pendingShift = true;
+    this.phases.note(this.health.hp);
   }
 
   /** Interrupt walk/shoot/windup for a phase shift; the hurt flash never interrupts the boss. */
   private interrupt(): State | undefined {
-    return this.pendingShift ? 'shift' : undefined;
+    return this.phases.pending ? 'shift' : undefined;
   }
 
   private tickTimers(): void {
     if (this.cooldown > 0) this.cooldown--;
-    if (this.phaseIndex >= 1 && this.rushTimer > 0) this.rushTimer--;
-    if (this.phaseIndex >= 2 && this.summonTimer > 0) this.summonTimer--;
+    if (this.phases.index >= 1 && this.rushTimer > 0) this.rushTimer--;
+    if (this.phases.index >= 2 && this.summonTimer > 0) this.summonTimer--;
   }
 }

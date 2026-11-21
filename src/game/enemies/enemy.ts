@@ -120,9 +120,8 @@ export abstract class Enemy {
   }
 
   /**
-   * Touching this body hurts the player. Defaults to `hittable`, so a cloak
-   * that cannot be shot also does not bite. A boss can be shot during a
-   * punish window and still save contact for the strike itself.
+   * Touching this body hurts the player. Defaults to `hittable`. The Sigbin stays
+   * shot-hittable through the punish window, but the lunge is its only contact attack.
    */
   get harmsOnContact(): boolean {
     return this.hittable;
@@ -133,7 +132,7 @@ export abstract class Enemy {
     return [{ id: 'body', box: this.body, core: null }];
   }
 
-  /** Bodies that deal contact damage this tick. */
+  /** Bodies that deal contact damage this tick. One body when `harmsOnContact` is set. */
   contactBoxes(): readonly AABB[] {
     return this.harmsOnContact ? [this.body] : [];
   }

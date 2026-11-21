@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { World } from '@game/world';
 import { NO_INPUT } from '@core/sim/input';
-import { CAMERA, PLAYER } from '@game/tuning';
+import { decodeInputs } from '@core/sim/replay';
+import { CAMERA, PLAYER, SIGBIN } from '@game/tuning';
 import { clearRoute } from './bots';
 import { FIXTURE_DIR, loadLevel, record, replay, toFixture, type ReplayFixture } from './harness';
 
@@ -51,6 +52,75 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
     const fx = toFixture(id, 1, rec);
     expect(fx.inputs.reduce((n, [, c]) => n + c, 0)).toBe(rec.frames.length);
     expect(replay(fx).tick).toBe(rec.final.tick);
+  });
+});
+
+/**
+ * The Level 3 clear's inputs are the fixture. This pins the fight those inputs
+ * produce: three phases, each a telegraph, a lunge, then an exposed window, and
+ * not only the tick the exit opens.
+ */
+describe('Sigbin phase cycle', () => {
+  const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-3-clear.json'), 'utf8')) as ReplayFixture;
+
+  /** Pose/phase/exposed edges while the Sigbin is on screen. */
+  const marks = (): { tick: number; phase: number; pose: string; exposed: boolean }[] => {
+    const world = new World(loadLevel('level-3'), fixture.seed);
+    const out: { tick: number; phase: number; pose: string; exposed: boolean }[] = [];
+    let prev = '';
+    for (const frame of decodeInputs(fixture.inputs)) {
+      world.step(frame);
+      const snap = world.snapshot();
+      const body = snap.enemies.find((e) => e.type === 'sigbin');
+      const boss = snap.boss;
+      if (!boss || !body) continue;
+      const key = `${boss.phase}|${body.pose}|${boss.exposed ? 1 : 0}`;
+      if (key === prev) continue;
+      prev = key;
+      out.push({ tick: snap.tick, phase: boss.phase, pose: body.pose, exposed: boss.exposed });
+    }
+    return out;
+  };
+
+  const SIGBIN_CYCLE = [
+    { tick: 1, phase: 1, pose: 'cloaked', exposed: false },
+    { tick: 2340, phase: 1, pose: 'move', exposed: false },
+    { tick: 2529, phase: 1, pose: 'windup', exposed: false },
+    { tick: 2602, phase: 1, pose: 'rush', exposed: false },
+    { tick: 2631, phase: 1, pose: 'stunned', exposed: true },
+    { tick: 2754, phase: 2, pose: 'shift', exposed: false },
+    { tick: 2827, phase: 2, pose: 'cloaked', exposed: false },
+    { tick: 2828, phase: 2, pose: 'move', exposed: false },
+    { tick: 2988, phase: 2, pose: 'windup', exposed: false },
+    { tick: 3045, phase: 2, pose: 'rush', exposed: false },
+    { tick: 3074, phase: 2, pose: 'stunned', exposed: true },
+    { tick: 3197, phase: 3, pose: 'shift', exposed: false },
+    { tick: 3270, phase: 3, pose: 'cloaked', exposed: false },
+    { tick: 3271, phase: 3, pose: 'move', exposed: false },
+    { tick: 3401, phase: 3, pose: 'windup', exposed: false },
+    { tick: 3450, phase: 3, pose: 'rush', exposed: false },
+    { tick: 3479, phase: 3, pose: 'stunned', exposed: true },
+    { tick: 3601, phase: 3, pose: 'death', exposed: false },
+  ] as const;
+
+  it('replays the clear through cloak, telegraph, lunge, exposed window, and shift, once per phase', () => {
+    const seen = marks();
+    expect(seen).toEqual(SIGBIN_CYCLE);
+    // The exposed mark is the punish window, and it opens only out of the lunge.
+    const exposed = seen.filter((m) => m.exposed);
+    expect(exposed.map((m) => m.phase)).toEqual([1, 2, 3]);
+    for (const phase of [1, 2, 3] as const) {
+      const windup = seen.find((m) => m.phase === phase && m.pose === 'windup')!;
+      const rush = seen.find((m) => m.phase === phase && m.pose === 'rush')!;
+      const open = seen.find((m) => m.phase === phase && m.exposed)!;
+      expect(rush.tick - windup.tick).toBe(SIGBIN.telegraphTicks[phase - 1]! + 1);
+      expect(open.tick - rush.tick).toBe(SIGBIN.lungeTicks + 1);
+      expect(open.pose).toBe('stunned');
+    }
+    // Phase 2 and 3 tell faster than the phase before them.
+    const windups = seen.filter((m) => m.pose === 'windup');
+    expect(windups[1]!.tick - seen.find((m) => m.phase === 2 && m.pose === 'move')!.tick).toBeLessThan(windups[0]!.tick - seen.find((m) => m.phase === 1 && m.pose === 'move')!.tick);
+    expect(windups[2]!.tick - seen.find((m) => m.phase === 3 && m.pose === 'move')!.tick).toBeLessThan(windups[1]!.tick - seen.find((m) => m.phase === 2 && m.pose === 'move')!.tick);
   });
 });
 

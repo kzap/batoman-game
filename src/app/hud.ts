@@ -1,6 +1,9 @@
 import type { WorldSnapshot } from '@game/world';
 import { formatScore } from './shell/score';
 
+/** The bar stays up through the death clip. It drops when the boss leaves the snapshot, not when hp hits 0. */
+export const bossBarVisible = (boss: { engaged: boolean } | null): boolean => boss !== null && boss.engaged;
+
 /**
  * In-game HUD (PRD 6.2): hearts top-left up to the current max, lost ones
  * greyed, a short wobble on a heart that just raised the cap, lives beside
@@ -48,7 +51,7 @@ export class Hud {
     top.append(hearts, lives, scoreEl);
     this.el.append(top);
 
-    if (boss?.engaged && boss.hp > 0) {
+    if (bossBarVisible(boss ?? null) && boss) {
       const bar = document.createElement('div');
       bar.className = 'hud-boss';
       const label = document.createElement('div');
