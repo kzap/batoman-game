@@ -1,6 +1,6 @@
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
 import type { Player } from '@game/player';
-import { BOSS, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
+import { BOSS, ENEMY, NOVA, PLAYER, PROJECTILE } from '@game/tuning';
 import type { EnemySnapshot, WorldSnapshot } from '@game/world';
 import type { Policy } from './harness';
 
@@ -183,6 +183,8 @@ const TAP_EVERY = 12;
 const SHOT_ALARM_S = 0.16;
 /** A rushing boss this many seconds away is jumped: the body is above its lowered collider from 0.13 s to 0.47 s into the jump. */
 const RUSH_ALARM_S = 0.2;
+/** A tikbalang this close while rearing or lunging is jumped. The lunge body is only `lungeHeight` tall. */
+const STOMP_REACH = ENEMY.tikbalang.standoff + ENEMY.tikbalang.width;
 /** Room to keep from the boss while it winds up a rush, so the jump over it has time to rise. */
 const RUSH_ROOM_PX = 150;
 const SHOT_H = 10;
@@ -222,11 +224,26 @@ const shotIncoming = (c: Ctx): boolean =>
     return soon && p.y + SHOT_H > c.y && p.y - SHOT_H < c.y + PLAYER.height;
   });
 
+/** Edge gap to an enemy along x. Zero when the bodies overlap horizontally. */
+const gapTo = (c: Ctx, e: EnemySnapshot): number => {
+  if (e.x >= c.right) return e.x - c.right;
+  if (c.x >= e.x + e.w) return c.x - (e.x + e.w);
+  return 0;
+};
+
+/**
+ * The tikbalang's stomp is a committed melee: it rears (`shoot`) then lunges
+ * low (`rush`). Shooting it does not cancel the lunge, so a standing fight
+ * has to jump it. Other enemies never use this.
+ */
+const stompIncoming = (c: Ctx, foes: readonly EnemySnapshot[]): boolean =>
+  foes.some((e) => e.type === 'tikbalang' && (e.pose === 'shoot' || e.pose === 'rush') && gapTo(c, e) <= STOMP_REACH);
+
 /**
  * Stand and shoot everything between here and `untilX` (to the right, or to
  * the left with `dir` -1): tap fire whenever a live enemy is in the line of
- * fire, jump incoming shots, otherwise wait (drones dive, cloaked ambushers
- * decloak). Done when nothing is left ahead.
+ * fire, jump incoming shots and a tikbalang's stomp, otherwise wait (drones
+ * dive, cloaked ambushers decloak). Done when nothing is left ahead.
  */
 export function fight(untilX: number, dir: Dir = 1): Step {
   let sinceTap = TAP_EVERY;
@@ -237,7 +254,7 @@ export function fight(untilX: number, dir: Dir = 1): Step {
       sinceTap++;
       const foes = foesAhead(c, untilX, dir);
       const target = foes.find((e) => e.alpha >= 1 && inLine(c, e));
-      if (shotIncoming(c) && c.grounded) {
+      if ((shotIncoming(c) || stompIncoming(c, foes)) && c.grounded) {
         airborne = true;
         return { jump: true };
       }
