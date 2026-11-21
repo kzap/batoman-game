@@ -1,5 +1,45 @@
+import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import { buildBackdrops } from '../backdrops.js';
 import { blockSize, encodeBackdropKtx2, padToBlocks } from '../ktx2';
+
+/** RGBA32 from the same Basis transcoder Three's KTX2Loader uses. First row is what WebGL samples at V=0. */
+async function transcodeRgba(ktx2: Uint8Array): Promise<{ rgba: Uint8Array; width: number; height: number }> {
+  const require = createRequire(import.meta.url);
+  const jsPath = require.resolve('three/examples/jsm/libs/basis/basis_transcoder.js');
+  const source = readFileSync(jsPath, 'utf8');
+  const nodeRequire = createRequire(jsPath);
+  const factory = Function('require', 'module', 'exports', '__dirname', '__filename', `${source}\nreturn BASIS;`)(nodeRequire, {}, {}, dirname(jsPath), jsPath) as (opts: { wasmBinary: ArrayBuffer }) => Promise<Record<string, unknown>>;
+  const wasm = readFileSync(join(dirname(jsPath), 'basis_transcoder.wasm'));
+  const wasmBinary = wasm.buffer.slice(wasm.byteOffset, wasm.byteOffset + wasm.byteLength) as ArrayBuffer;
+  const basis = await factory({ wasmBinary });
+  (basis.initializeBasis as () => void)();
+  const file = new (basis.KTX2File as new (data: Uint8Array) => {
+    isValid(): boolean;
+    startTranscoding(): boolean;
+    getWidth(): number;
+    getHeight(): number;
+    getImageTranscodedSizeInBytes(level: number, layer: number, face: number, format: number): number;
+    transcodeImage(dst: Uint8Array, level: number, layer: number, face: number, format: number, decodeFlags: number, rowPitch: number, rows: number): boolean;
+    close(): void;
+    delete(): void;
+  })(ktx2);
+  if (!file.isValid() || !file.startTranscoding()) throw new Error('ktx2 transcoder rejected the file');
+  const width = file.getWidth();
+  const height = file.getHeight();
+  // three.js KTX2Loader.TranscoderFormat.RGBA32. Output row 0 is the bottom of the texture.
+  const format = 13;
+  const dst = new Uint8Array(file.getImageTranscodedSizeInBytes(0, 0, 0, format));
+  if (!file.transcodeImage(dst, 0, 0, 0, format, 0, -1, -1)) throw new Error('transcodeImage failed');
+  file.close();
+  file.delete();
+  return { rgba: dst, width, height };
+}
 
 describe('ktx2 backdrop encode', () => {
   it('rounds sizes up to the 4-pixel block and pads the buffer with transparent pixels', () => {
@@ -32,4 +72,65 @@ describe('ktx2 backdrop encode', () => {
     expect(view.getUint32(44, true)).toBe(1);
     await expect(encodeBackdropKtx2(data, 6, 8)).rejects.toThrow(/multiple of 4/);
   });
+
+  it('stores the bottom source row first so a KTX2 backdrop is right-side up', async () => {
+    const width = 8;
+    const height = 8;
+    const data = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const topHalf = y < height / 2;
+        data[i] = topHalf ? 255 : 0;
+        data[i + 1] = topHalf ? 0 : 255;
+        data[i + 2] = 0;
+        data[i + 3] = 255;
+      }
+    }
+    const encoded = await encodeBackdropKtx2(data, width, height);
+    const { rgba } = await transcodeRgba(encoded);
+    // Row 0 of the transcode is V=0, the bottom of the plane. That must be the
+    // green bottom half of the source, not the red top half. ETC1S is lossy,
+    // so compare channels instead of expecting 0 and 255.
+    const last = (height - 1) * width * 4;
+    expect(rgba[1], `bottom texel rgb ${rgba[0]},${rgba[1]},${rgba[2]}`).toBeGreaterThan(rgba[0]);
+    expect(rgba[last], `top texel rgb ${rgba[last]},${rgba[last + 1]},${rgba[last + 2]}`).toBeGreaterThan(rgba[last + 1]);
+  });
+
+  it('decodes level-1 sky.ktx2 with the source PNG top row at the top', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'batoman-sky-'));
+    try {
+      await buildBackdrops('art-source/level-1/backdrops.json', dir);
+      const encoded = readFileSync(join(dir, 'level-1', 'sky.ktx2'));
+      const { rgba, width, height } = await transcodeRgba(encoded);
+      const src = await sharp('art-source/level-1/background.png').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const mean = (data: Uint8Array, w: number, y: number): [number, number, number] => {
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let n = 0;
+        for (let x = 0; x < w; x += 8) {
+          const i = (y * w + x) * 4;
+          r += data[i] ?? 0;
+          g += data[i + 1] ?? 0;
+          b += data[i + 2] ?? 0;
+          n++;
+        }
+        return [r / n, g / n, b / n];
+      };
+      const apart = (a: readonly number[], b: readonly number[]): number => Math.hypot(a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!);
+      // Transcode row 0 is V=0, the bottom of the plane, so the displayed top is the last row.
+      const displayedTop = mean(rgba, width, height - 1);
+      const displayedBottom = mean(rgba, width, 0);
+      const sourceTop = mean(src.data, src.info.width, 0);
+      const sourceBottom = mean(src.data, src.info.width, src.info.height - 1);
+      // A missing Y flip swaps these. The measured gap is about 1 versus 18.
+      expect(apart(displayedTop, sourceTop)).toBeLessThan(12);
+      expect(apart(displayedBottom, sourceBottom)).toBeLessThan(12);
+      expect(apart(displayedTop, sourceTop)).toBeLessThan(apart(displayedTop, sourceBottom));
+      expect(apart(displayedBottom, sourceBottom)).toBeLessThan(apart(displayedBottom, sourceTop));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

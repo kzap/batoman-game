@@ -56,6 +56,12 @@ export async function encodeBackdropKtx2(rgba: Uint8Array, width: number, height
   const encoded = await encoder.encode(rgba, width, height, {
     usage: 'color',
     generateMipmaps: false,
+    // Source rows are top-down. A compressed upload cannot flip on the way to
+    // the GPU (WebGL rejects UNPACK_FLIP_Y, so CompressedTexture leaves flipY
+    // false) and the backdrop plane samples V=0 at its bottom edge, which is
+    // where TextureLoader's flip lands the bottom row of the WebP. Basis has
+    // to store that row first or every KTX2 backdrop draws upside down.
+    flipY: true,
     etc1sQualityLevel: ETC1S_QUALITY,
     etc1sCompressionLevel: ETC1S_EFFORT,
   });
