@@ -399,7 +399,10 @@ the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the curre
 a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
 hides the HUD on screens without play; `CREDITS` holds the credits text.
 
-`save.ts` keeps progress in `localStorage` under `batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
+`UNLOCK_ALL_LEVELS` (`src/app/shell/progression.ts`) is on for playtests. `selectableLevels` then hands level
+select every manifest id. `SaveData.unlocked` is still only what `recordClear` wrote, so turning the flag
+off restores that list with no save migration. `save.ts` keeps progress in `localStorage` under
+`batoman.v2.save`: `{ version: 1, unlocked, best, options, bindings }`.
 `options` holds music, sfx, and `reduceMotion` (`true`, `false`, or `null` to follow the OS). `bindings` is
 optional on read; a missing or rejected table becomes the defaults in section 4.5 and the rest of the save
 is kept, including the reduce-motion choice. The version stays 1 so a Phase 7 save still loads. `loadSave`
@@ -499,7 +502,10 @@ erase the watermark with `fill`.
 
 Atlases stay lossless WebP. Their alpha-tested edges pick up block artefacts under Basis, and they are not
 the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`, Basis Universal via
-`@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. The loader
+`@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. Source rows are top-down, and
+a compressed upload cannot set `UNPACK_FLIP_Y_WEBGL`, so the encoder sets Basis `flipY` and stores the
+bottom row first. Without that, every KTX2 backdrop (levels 1, 4 and 6; level 3 has no art) draws upside
+down. The WebP fallback is unaffected: `TextureLoader` flips it on upload. The loader
 (`useCompressedBackdrops`) fetches the KTX2 when the GPU reports S3TC or BC7 and the unmasked renderer is
 not a software implementation (SwiftShader, llvmpipe). Software GL advertises those extensions and then
 decompresses them on the CPU, which is slower than the WebP path, so CI stays on WebP. ETC2 and ASTC are
@@ -654,8 +660,9 @@ to `dist/` and fails on any breach of `BUDGET`:
 | E2E | Playwright | `tests/e2e/**` | `vite preview` of `dist/` with SwiftShader WebGL |
 
 E2E specs: `smoke.spec.ts` (boot to the title with the sim frozen, Enter starts it, pixels drawn, keyboard
-drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and locked
-level select, credits, intro card, pause freezing the tick count and resuming, quit; music element playing
+drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts` (title menu and level
+select, which can start any level while `UNLOCK_ALL_LEVELS` is on and does not write that into the save;
+credits, intro card, pause freezing the tick count and resuming, quit; music element playing
 after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
 in sequence, then a reload showing every level unlocked with best times), `a11y.spec.ts` (the OS
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
