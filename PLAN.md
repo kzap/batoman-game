@@ -246,7 +246,7 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
   `backdrops.json`, `tileset.png`, and a 29-prop recipe.
 - `src/content/levels/level-6.json`: `art` block, 144 decor quads, the lift mover uses `platform_pallet`.
   `level-6-clear` is 4059 ticks after the scout (#26).
-- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
+- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 20 MB.
 
 Still open, and each needs code rather than more painting: a fake-solid collider for the lying path, the
 Tikbalang-X boss (the spawn at 4100 is the scout from #26, not that boss; #11 is the remaining coverage
