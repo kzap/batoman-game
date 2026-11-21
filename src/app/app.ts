@@ -8,10 +8,12 @@ import { disposeAssets, type GameAssets } from '@render/assets';
 import { Effects } from '@render/effects';
 import { EntityView } from '@render/entity-view';
 import { LevelView } from '@render/level-view';
+import { presentedCamera, type WeakPointCue } from '@render/motion';
 import type { PostOptions } from '@render/post';
 import { Stage } from '@render/stage';
 import { toUnits } from '@render/units';
 import type { LevelJson } from '@content/level';
+import type { Bindings } from './bindings';
 import { DebugOverlay } from './debug';
 import { Hud } from './hud';
 import { Keyboard } from './keyboard';
@@ -36,6 +38,17 @@ export interface TestHooks {
   /** Live enemies by type and pose, and the boss bar state (null when the level has no boss). */
   enemies: { type: string; pose: string; x: number; hp: number }[];
   boss: { hp: number; phase: number; engaged: boolean } | null;
+  /**
+   * Colourblind-safe weak-point cue while the boss core is on screen.
+   * `ring: 'white'` is the non-colour channel (a diamond outline). Null otherwise.
+   */
+  weakPoint: WeakPointCue | null;
+  /** Sim shake this tick, and the offset actually added to the camera. Both are zeroed in the view when reduce-motion is on; `simX`/`simY` stay. */
+  shake: { simX: number; simY: number; x: number; y: number };
+  /** Film grain is contributing. False when reduce-motion is on or the post stack is off (`?post=0`). */
+  grain: boolean;
+  /** Effective reduce-motion preference (save, OS, or `?reduceMotion=`). Presentation only. */
+  reduceMotion: boolean;
   /** Sprites the entity view is currently showing (player, enemies, shots, movers). */
   entities: number;
   status: string;
@@ -91,6 +104,10 @@ export function installHooks(): TestHooks {
     camera: { x: 0, y: 0 },
     enemies: [],
     boss: null,
+    weakPoint: null,
+    shake: { simX: 0, simY: 0, x: 0, y: 0 },
+    grain: false,
+    reduceMotion: false,
     entities: 0,
     status: 'playing',
     level: '',
@@ -177,6 +194,7 @@ export class App {
   private frameSeconds = 0;
   private rafId = 0;
   private readonly lockstep: LockstepOptions | null;
+  private reduceMotion = false;
   private readonly onResize = (): void => this.stage.resize();
 
   constructor(
@@ -194,6 +212,7 @@ export class App {
       hooks.advance = (ticks: number): void => this.advance(ticks);
     }
     this.stage = new Stage({ canvas, post: opts.post ?? {} });
+    this.hooks.grain = this.stage.grainEnabled;
     this.levelView = new LevelView(level, assets.levelArt);
     this.entities = new EntityView(assets);
     this.stage.scene.add(this.levelView.group, this.entities.group, this.effects.particles.points);
@@ -262,6 +281,7 @@ export class App {
     this.level = level;
     this.hooks.level = level.id;
     this.entities = new EntityView(assets);
+    this.entities.setReduceMotion(this.reduceMotion);
     this.entities.setOutlines(this.debug.enabled);
     this.levelView = new LevelView(level, assets.levelArt);
     this.levelView.setOutlines(this.debug.enabled);
@@ -307,6 +327,23 @@ export class App {
 
   setEditorCamera(cam: EditorCamera): void {
     this.editorCamera = cam;
+  }
+
+  /**
+   * Presentation preference. Camera shake, film grain, and decorative pulses
+   * follow it. The sim, its RNG, and the snapshots replays compare do not.
+   */
+  setReduceMotion(on: boolean): void {
+    this.reduceMotion = on;
+    this.entities.setReduceMotion(on);
+    this.stage.setReduceMotion(on);
+    this.hooks.reduceMotion = on;
+    this.hooks.grain = this.stage.grainEnabled;
+  }
+
+  /** Gameplay key table from the save. Replays ignore it and feed packed frames. */
+  setBindings(bindings: Bindings): void {
+    this.keyboard.setBindings(bindings);
   }
 
   private newWorld(seed: number): World {
@@ -428,11 +465,16 @@ export class App {
     this.entities.present(this.previous, this.current, alpha);
     if (this.editorCamera) {
       this.stage.setCamera(toUnits(this.editorCamera.x), toUnits(this.editorCamera.y), this.editorCamera.distance);
+      const shake = this.current.camera;
+      this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: 0, y: 0 };
     } else {
       const cam = lerp(this.previous.camera, this.current.camera, alpha);
       const shake = this.current.camera;
-      this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
+      const at = presentedCamera(cam.x, cam.y, shake.shakeX, shake.shakeY, this.reduceMotion);
+      this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: at.x - cam.x, y: at.y - cam.y };
+      this.stage.setCamera(toUnits(at.x), toUnits(at.y));
     }
+    this.hooks.weakPoint = this.entities.weakPointCue;
     this.effects.update(this.frameSeconds, this.stage.renderer.getPixelRatio());
     this.stage.render(this.frameSeconds);
   }

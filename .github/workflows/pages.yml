@@ -1,0 +1,83 @@
+name: Pages
+
+# Hosted playtest build of v2. One-time repo settings (not done by this workflow):
+#   Settings → Pages → Source: GitHub Actions
+#   Settings → Environments → github-pages → Deployment branches: add v2
+# The user site's custom domain serves this project at /batoman-game/.
+
+on:
+  push:
+    branches: [v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Don't cancel a deploy that is already publishing; a second push waits.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy only v2
+        if: github.ref != 'refs/heads/v2'
+        run: |
+          echo "Pages deploys the v2 branch only (got ${{ github.ref }})."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          VITE_BASE_PATH: /batoman-game/
+        run: |
+          export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          npm run build
+          grep -q '/batoman-game/assets/' dist/index.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: Confirm project base path
+        run: |
+          echo "base_url=${{ steps.pages.outputs.base_url }}"
+          echo "base_path=${{ steps.pages.outputs.base_path }}"
+          case "${{ steps.pages.outputs.base_path }}" in
+            /batoman-game|/batoman-game/) ;;
+            *)
+              echo "Pages base_path is '${{ steps.pages.outputs.base_path }}', expected /batoman-game."
+              echo "The artifact was built for http://mydev.org/batoman-game/ and would 404 elsewhere."
+              exit 1
+              ;;
+          esac
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

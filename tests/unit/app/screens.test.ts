@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CONTROL_ROWS } from '@app/bindings';
 import { GAMEOVER_ITEMS, nextLevel, PAUSE_ITEMS, reduce, TITLE, TITLE_ITEMS, type Screen, type ShellCtx, type ShellEvent } from '@app/shell/screens';
 
 const ctx: ShellCtx = { levels: ['level-1', 'level-3', 'level-6'], unlocked: ['level-1', 'level-3'] };
@@ -86,5 +87,32 @@ describe('shell screens', () => {
 
   it('level select wraps upward from the first entry', () => {
     expect(step({ kind: 'levelSelect', index: 0 }, 'up').screen).toEqual({ kind: 'levelSelect', index: 2 });
+  });
+
+  it('controls opens from the title and the pause menu, captures a key, and returns to the same row', () => {
+    const opened = step(TITLE, 'up', 'confirm');
+    expect(opened.screen).toEqual({ kind: 'controls', index: 0, listening: false, from: { kind: 'title', index: TITLE_ITEMS.length - 1 } });
+    expect(opened.effects).toEqual([]);
+    const listening = step(opened.screen, 'down', 'confirm');
+    expect(listening.screen).toMatchObject({ kind: 'controls', index: 1, listening: true });
+    const captured = step(listening.screen, 'stopListen');
+    expect(captured.screen).toMatchObject({ kind: 'controls', index: 1, listening: false });
+    // Esc cancels a capture before it leaves the screen.
+    expect(step(listening.screen, 'back').screen).toMatchObject({ listening: false, kind: 'controls' });
+    expect(step(captured.screen, 'back').screen).toEqual({ kind: 'title', index: TITLE_ITEMS.length - 1 });
+
+    const paused = reduce({ kind: 'playing', levelId: 'level-3' }, 'pause', ctx).screen;
+    const fromPause = step(paused, 'down', 'down', 'confirm');
+    expect(PAUSE_ITEMS[2]).toBe('Controls');
+    expect(fromPause.screen).toEqual({ kind: 'controls', index: 0, listening: false, from: { kind: 'paused', levelId: 'level-3', index: 2 } });
+    expect(step(fromPause.screen, 'back').screen).toEqual({ kind: 'paused', levelId: 'level-3', index: 2 });
+  });
+
+  it('reset stays on the controls screen and asks the shell to restore defaults', () => {
+    const controls = step(TITLE, 'up', 'confirm').screen;
+    const reset = step(controls, 'up', 'confirm');
+    expect(CONTROL_ROWS.at(-1)).toBe('reset');
+    expect(reset.screen).toMatchObject({ kind: 'controls', index: CONTROL_ROWS.length - 1, listening: false });
+    expect(reset.effects).toEqual([{ type: 'resetBindings' }]);
   });
 });

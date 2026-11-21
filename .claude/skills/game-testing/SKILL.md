@@ -20,8 +20,10 @@ npm run ci            # lint, unit, replay, build, e2e gate
 
 E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`, `shell.spec.ts`, `editor.spec.ts`). They run against `vite preview`
 on port 4173 with software WebGL (`--use-angle=swiftshader`) so they behave the same on CI runners, one
-worker at a time. `level.spec.ts` writes screenshots to `e2e-screenshots/` (start, debug overlay, one-way,
-mover and dash sections, Level 3 and 6 start/complete, editor open/created); look at them after a render change.
+worker at a time (parallel SwiftShader pages halve each other's frame rate). `level.spec.ts` writes
+screenshots to `e2e-screenshots/` (start, debug overlay, one-way, mover and dash sections, Level 3
+start/complete, Level 4 balcony/lift/roof, Level 6 start/lift/checkpoint/boss-roof/complete, editor
+open/created); look at them after a render change.
 
 **Assert on ticks, never on milliseconds.** Hosted runners render at about 2-6 fps, so `waitForTimeout` plus a
 position check measures the machine. `?lockstep=1` only exists in the e2e build (`npm run build:e2e`); `npm run dev`,
@@ -72,6 +74,10 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `camera` | `{ x, y }` camera centre in sim pixels |
 | `enemies` | `[{ type, pose, x, hp }]` live enemies from the latest snapshot (dying ones show `pose: 'death'` until dropped) |
 | `boss` | null, or `{ hp, phase, engaged }`; `engaged` flips when the player reaches the arena and the HUD bar appears |
+| `weakPoint` | null, or `{ shape: 'diamond', ring: 'white', pulsing }` while the boss core is on screen. The white ring is the non-colour channel |
+| `shake` | `{ simX, simY, x, y }` sim shake and the offset added to the camera. `x` and `y` are 0 when reduce-motion is on |
+| `grain` | film grain is contributing. False when reduce-motion is on or `?post=0` |
+| `reduceMotion` | effective presentation preference (save, OS, or `?reduceMotion=`) |
 | `entities` | sprites the entity view is showing: player + enemies + shots + movers |
 | `status` | `playing`, `complete`, or `gameover` |
 | `level` | id of the loaded level |
@@ -115,14 +121,15 @@ Controls (`src/app/keyboard.ts`):
 | Dash | X / K / Shift |
 | Fire | Z / J tap for plasma; hold 0.8 s and release for a piercing nova |
 | Debug overlay | backtick: stats bottom-left plus collider outlines |
-| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx |
+| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx, R reduce-motion |
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
 Query flags: `?level=<id>` loads a manifest level (`level-1`, `level-3`, `level-4`, `level-6`; an unknown id is a boot
 error); `?edit=1` opens the level editor (keys listed in the panel tooltips and docs/TDD.md section 11; `P`
 playtests, `Ctrl+S` saves through the dev server); `?post=0` disables the post stack (bloom, vignette, grain)
-to isolate a rendering problem; `?dof=1` enables depth of field. Lockstep is on only for `?lockstep=1` in an e2e build
+to isolate a rendering problem; `?dof=1` enables depth of field; `?reduceMotion=1` or `0` overrides
+reduce-motion for the session without writing the save until R is pressed. Lockstep is on only for `?lockstep=1` in an e2e build
 (`npm run build:e2e`, `VITE_E2E_LOCKSTEP=1`); `npm run dev`, `npm run build`, and Pages ignore it. `?ticksPerFrame=N`
 and `?replayTicks=N` override the per-frame budgets only when `lockstep=1` is present (`ticksPerFrame=0` means only `advance`).
 Only some poses have their own art; see `PlayerAnimator`
