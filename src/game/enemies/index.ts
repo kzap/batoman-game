@@ -6,13 +6,16 @@ import type { Enemy } from './enemy';
 import { Patroller } from './patroller';
 import { Stealth } from './stealth';
 import { Tikbalang } from './tikbalang';
+import { TikbalangX } from './tikbalang-x';
 
 export type { Enemy, EnemyCtx, EnemyPose, EnemySnapshot, ShotRequest } from './enemy';
+export { BossUnit } from './boss-kit';
 export { Boss } from './boss';
 export { Drone } from './drone';
 export { Patroller } from './patroller';
 export { Stealth } from './stealth';
 export { Tikbalang } from './tikbalang';
+export { TikbalangX } from './tikbalang-x';
 
 /** Build an enemy from its level entry. */
 export function spawnEnemy(id: number, spec: EnemySpawnJson): Enemy | null {
@@ -28,5 +31,7 @@ export function spawnEnemy(id: number, spec: EnemySpawnJson): Enemy | null {
       return new Boss(id, spec.x, spec.y);
     case 'tikbalang':
       return new Tikbalang(id, spec.x, spec.y, patrol);
+    case 'tikbalang-x':
+      return new TikbalangX(id, spec.x, spec.y);
   }
 }

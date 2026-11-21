@@ -320,6 +320,44 @@ export function bossFight(): Step {
   };
 }
 
+/**
+ * Level 6 boss. Stand, jump its straight shot, and charge a nova while the
+ * core is open. Plasma outside the stumble does nothing, so taps there are
+ * only to keep facing it. Done once it is dead and its last shot has passed.
+ */
+export function tikbalangBossFight(): Step {
+  let sinceTap = TAP_EVERY;
+  let charging = 0;
+  let airborne = false;
+  return {
+    name: 'tikbalang-x',
+    input: (c) => {
+      sinceTap++;
+      const boss = c.snap.boss;
+      const body = c.snap.enemies.find((e) => e.type === 'tikbalang-x');
+      if (!boss || boss.hp <= 0 || !body) return {};
+      if (shotIncoming(c) && c.grounded) {
+        airborne = true;
+        charging = 0;
+        return { jump: true };
+      }
+      if (airborne && !c.grounded) return { jump: c.rising };
+      airborne = false;
+      if (boss.exposed && charging < NOVA.chargeTicks + 2) {
+        charging++;
+        return { ...faceToward(c, body.x + body.w / 2), fire: charging <= NOVA.chargeTicks + 1 };
+      }
+      if (charging > 0) charging = 0;
+      if (sinceTap >= TAP_EVERY) {
+        sinceTap = 0;
+        return { ...faceToward(c, body.x + body.w / 2), fire: true };
+      }
+      return {};
+    },
+    done: (c) => (c.snap.boss?.hp ?? 0) <= 0 && !c.snap.projectiles.some((p) => p.kind === 'enemy'),
+  };
+}
+
 /** Turn a step list into a policy. Once the list is exhausted the policy runs right, which reaches most exits. */
 export function route(steps: readonly Step[], onStep?: (step: Step, c: Ctx) => void): Policy {
   let i = 0;

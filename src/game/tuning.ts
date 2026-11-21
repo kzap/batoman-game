@@ -280,6 +280,49 @@ export const BOSS = {
   summonMaxAlive: 2,
   summonOffset: 104,
   deathTicks: 180,
+  /** HUD label. The bar and the Level 1 e2e check share this string. */
+  label: 'ASWANG PROTOTYPE',
+} as const;
+
+/**
+ * Level 6 boss, Tikbalang-X. Not the scout. It runs between two anchors, fires
+ * one straight shot, then warps: the afterimage stays and takes no damage, and
+ * the body can be hurt only during the stumble, on the core. Same pattern each
+ * phase, faster. Ticks at 120 Hz.
+ */
+export const TIKBALANG_X = {
+  width: 96,
+  height: 66,
+  hp: 18,
+  label: 'TIKBALANG-X',
+  /** Dormant until the player is this close, on the same storey. Wide enough to wake as they clear the spikes, short of the scout fight at x 3700. */
+  engageRange: 360,
+  sightHeight: 128,
+  /** Hp where phases 2 and 3 begin. One nova on the core (3 × 2) crosses each. */
+  phaseHp: [12, 6] as readonly number[],
+  phaseShiftTicks: 72,
+  /** Feet travel this far each side of the spawn. The spawn is the centre of the run. */
+  runSpan: 80,
+  runSpeed: [160, 200, 260] as readonly number[],
+  /** Face the next anchor before moving, so the run has a tell. */
+  runWindupTicks: [28, 22, 16] as readonly number[],
+  shotWindupTicks: [36, 28, 22] as readonly number[],
+  /** Hold the firing pose after the shot leaves, so the muzzle flash reads. */
+  shotHoldTicks: 16,
+  shotSpeed: 320,
+  muzzleY: 28,
+  /** The stomp before the warp. The body has not moved yet. */
+  warpWindupTicks: [48, 36, 28] as readonly number[],
+  /** Ticks the decoy stays up after the body has moved. */
+  warpTicks: 20,
+  /** Punish window. Longer than a nova charge (96) so a standing player can land one. */
+  exposedTicks: [150, 130, 110] as readonly number[],
+  /** Chest band a standing plasma (muzzle 30, 6 px tall) and a nova both cross. */
+  weakPoint: { y: 18, h: 24 },
+  weakPointMultiplier: 2,
+  afterimageAlpha: 0.45,
+  hurtTicks: 8,
+  deathTicks: 180,
 } as const;
 
 /**

@@ -7,7 +7,7 @@ import { Rng } from '@core/sim/rng';
 import type { AABB } from '@core/math/aabb';
 import type { EnemyType, LevelJson, MovingSolidJson, PickupKind, Rect } from '@content/level';
 import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
-import { Boss, spawnEnemy, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
+import { Boss, BossUnit, spawnEnemy, type Enemy, type EnemyCtx, type EnemySnapshot, type ShotRequest } from './enemies';
 import { Health } from './health';
 import { createPickups, type Pickup, type PickupSnapshot } from './pickups';
 import { Player, type PlayerPose } from './player';
@@ -70,8 +70,12 @@ export interface BossSnapshot {
   readonly phase: number;
   /** Weak point rect in level px, for the renderer's core glow. */
   readonly weakPoint: Rect;
-  /** Double-damage window open (stunned after a rush). */
+  /** Punish window. ASWANG doubles core hits; Tikbalang-X takes damage only then. */
   readonly exposed: boolean;
+  /** HUD name. */
+  readonly label: string;
+  /** Decoy left by a warp. Not a body, so it never takes a hit. */
+  readonly afterimage: (Rect & { readonly alpha: number }) | null;
 }
 
 export interface SolidSnapshot extends Rect {
@@ -173,8 +177,8 @@ export class World {
     }
   }
 
-  get boss(): Boss | null {
-    return this.enemies.find((e): e is Boss => e instanceof Boss) ?? null;
+  get boss(): Boss | BossUnit | null {
+    return this.enemies.find((e): e is Boss | BossUnit => e instanceof Boss || e instanceof BossUnit) ?? null;
   }
 
   /** The exit works only once any boss is dead. */
@@ -262,12 +266,12 @@ export class World {
     const ctx = this.enemyCtx();
     for (const e of this.enemies) {
       e.update(ctx);
-      if (e instanceof Boss && e.phase !== this.bossPhaseSeen) {
+      if ((e instanceof Boss || e instanceof BossUnit) && e.phase !== this.bossPhaseSeen) {
         this.bossPhaseSeen = e.phase;
         this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
       }
-      // Touching a live, visible enemy hurts; knockback away from its centre.
-      if (e.hittable && !this.player.dead && overlaps(this.player.body, e.body)) {
+      // Touching an enemy that attacks on contact hurts. `hittable` is "a shot can land".
+      if (e.harmsOnContact && !this.player.dead && overlaps(this.player.body, e.body)) {
         this.damage(ENEMY.contactDamage, this.player.body.centerX < e.body.centerX ? -1 : 1);
       }
     }
@@ -299,7 +303,7 @@ export class World {
   private hitEnemies(p: Projectile, box: AABB): void {
     for (const e of this.enemies) {
       if (!e.hittable || !overlaps(box, e.body) || p.hitIds.includes(e.id)) continue;
-      const weakPoint = e instanceof Boss && overlaps(box, e.weakPointRect());
+      const weakPoint = (e instanceof Boss || e instanceof BossUnit) && overlaps(box, e.weakPointRect());
       const dir: 1 | -1 = p.vx < 0 ? -1 : 1;
       const dealt = e.hit(p.damage, dir, weakPoint);
       if (dealt === 0) continue;
@@ -307,7 +311,7 @@ export class World {
       if (!e.alive) {
         const centre = { x: e.body.centerX, y: e.body.y + e.body.h / 2 };
         this.events.emit('enemyDeath', { id: e.id, type: e.type, ...centre });
-        if (e instanceof Boss) {
+        if (e instanceof Boss || e instanceof BossUnit) {
           this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
           this.events.emit('bossDefeated', centre);
         }
@@ -429,7 +433,17 @@ export class World {
   private bossSnapshot(): BossSnapshot | null {
     const boss = this.boss;
     if (!boss) return null;
-    return { engaged: boss.engaged, hp: boss.health.hp, maxHp: BOSS.hp, phase: boss.phase, weakPoint: boss.weakPointRect(), exposed: boss.state === 'stunned' };
+    const kit = boss instanceof BossUnit;
+    return {
+      engaged: boss.engaged,
+      hp: boss.health.hp,
+      maxHp: boss.health.max,
+      phase: boss.phase,
+      label: kit ? boss.label : BOSS.label,
+      weakPoint: boss.weakPointRect(),
+      exposed: kit ? boss.exposed : boss.state === 'stunned',
+      afterimage: kit ? boss.afterimage() : null,
+    };
   }
 
   snapshot(): WorldSnapshot {

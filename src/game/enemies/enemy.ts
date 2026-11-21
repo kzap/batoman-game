@@ -103,9 +103,14 @@ export abstract class Enemy {
     return this.deathTicks >= this.stats.deathTicks;
   }
 
-  /** Can be shot and hurts on contact. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
+  /** Can be shot. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
   get hittable(): boolean {
     return this.alive;
+  }
+
+  /** Touching this body hurts the player. Defaults to `hittable`. A punish window can be shot without also being a contact hit. */
+  get harmsOnContact(): boolean {
+    return this.hittable;
   }
 
   get alpha(): number {
