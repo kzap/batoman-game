@@ -1,7 +1,17 @@
 {
   "bitrateKbps": 80,
   "tracks": {
-    "level-1": { "source": "level-1.mp3", "title": "Tondo Sublevel" },
-    "level-2": { "source": "level-2.mp3", "title": "Divisoria" }
+    "level-1": {
+      "source": "level-1.mp3",
+      "title": "Tondo Sublevel"
+    },
+    "level-2": {
+      "source": "level-2.mp3",
+      "title": "Divisoria"
+    },
+    "sigbin-telegraph": {
+      "source": "sigbin-telegraph.wav",
+      "title": "Sigbin Telegraph"
+    }
   }
 }

@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "source": "art-source/characters/sigbin-sprites.png",
+  "name": "sigbin",
+  "kind": "sheet",
+  "scale": 0.5,
+  "animations": [
+    {
+      "name": "idle",
+      "row": 0,
+      "fps": 6,
+      "loop": true
+    },
+    {
+      "name": "move",
+      "row": 1,
+      "fps": 10,
+      "loop": true,
+      "stabilize": true
+    },
+    {
+      "name": "shoot",
+      "row": 2,
+      "fps": 10,
+      "loop": false,
+      "frames": [
+        "r2f0",
+        "r2f1",
+        "r2f2",
+        "r2f4",
+        "r2f6"
+      ]
+    },
+    {
+      "name": "hurt",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1"
+      ],
+      "fps": 10,
+      "loop": false
+    },
+    {
+      "name": "death",
+      "row": 3,
+      "frames": [
+        "r3f0",
+        "r3f1",
+        "r3f2",
+        "r3f3"
+      ],
+      "fps": 8,
+      "loop": false
+    }
+  ],
+  "notes": "Level 3 Sigbin Unit boss. Source cells are 640x400 (character planted at 376 px tall) packed at scale 0.5. Rendered at ENEMY_LOOK scale 2 so the sprite height matches the 192x188 sim body (SIM_PX_PER_ATLAS_PX is 0.5). The quadruped is wider than the 192 px collider; snout and tail overhang. Row 0 idle, row 1 backward walk, row 2 snarl (clip required by enemyClips, unused in the fight), row 3: f0 telegraph/windup, f1 recover with an open dorsal hatch (no painted weak-point diamond; the renderer draws the overlay), f2 mid-collapse, f3 wreck. Frames face right. components.bridge and minArea keep each painted figure as one frame.",
+  "components": {
+    "alphaThreshold": 20,
+    "bridge": 10
+  },
+  "filter": {
+    "minArea": 800,
+    "watermark": null
+  },
+  "satellites": {
+    "ratio": 0.4,
+    "maxGap": 0.6,
+    "overlapMerge": 0.5
+  },
+  "overrides": {
+    "drop": [
+      "r2f3",
+      "r2f5"
+    ]
+  }
+}

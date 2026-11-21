@@ -26,6 +26,7 @@ export type SfxName =
   | 'gameOver'
   | 'bossPhase'
   | 'bossDefeated'
+  | 'sigbinTelegraph'
   | 'menuMove'
   | 'menuConfirm'
   | 'menuBack'
@@ -147,6 +148,14 @@ const RECIPES: Record<SfxName, (v: Voice) => void> = {
     noise(v, 1.0, 0.5, { type: 'lowpass', from: 5000, to: 100 });
     arpeggio(v, 'square', [523, 659, 784, 1047, 1319], 0.16, 0.5, 0.14);
   },
+  /** Fallback for the packed reversed tambol (`sigbin-telegraph.ogg`): a rising swell and a snap. */
+  sigbinTelegraph: (v) => {
+    noise(v, 0.55, 0.28, { type: 'lowpass', from: 180, to: 1600 });
+    tone(v, 'sine', 48, 130, 0.55, 0.26);
+    tone(v, 'triangle', 80, 190, 0.55, 0.14);
+    tone(v, 'sine', 150, 70, 0.1, 0.32, 0.55);
+    noise(v, 0.09, 0.22, { type: 'bandpass', from: 900, to: 350, q: 1 }, 0.55);
+  },
   menuMove: (v) => tone(v, 'square', 700, 700, 0.04, 0.08),
   menuConfirm: (v) => arpeggio(v, 'square', [660, 990], 0.06, 0.1, 0.12),
   menuBack: (v) => tone(v, 'square', 500, 300, 0.09, 0.1),
@@ -154,10 +163,31 @@ const RECIPES: Record<SfxName, (v: Voice) => void> = {
   unpause: (v) => tone(v, 'triangle', 300, 600, 0.15, 0.14),
 };
 
+/** Packed one-shot samples in `assets/audio/<id>.ogg`, played when loaded, otherwise the recipe. */
+const SAMPLES: Partial<Record<SfxName, string>> = { sigbinTelegraph: 'sigbin-telegraph' };
+
 export class Sfx {
   private readonly last = new Map<SfxName, number>();
+  private readonly samples = new Map<SfxName, AudioBuffer>();
 
   constructor(private readonly engine: AudioEngine) {}
+
+  /** Decode packed one-shots. Safe to call more than once; missing files keep the procedural recipe. */
+  async loadSamples(base: string): Promise<void> {
+    const ctx = this.engine.context;
+    if (!ctx) return;
+    for (const [name, id] of Object.entries(SAMPLES) as [SfxName, string][]) {
+      if (this.samples.has(name)) continue;
+      try {
+        const res = await fetch(`${base}assets/audio/${id}.ogg`);
+        if (!res.ok) continue;
+        const raw = await res.arrayBuffer();
+        this.samples.set(name, await ctx.decodeAudioData(raw.slice(0)));
+      } catch {
+        // Stay on the recipe: tests have no files, and a missing asset must not break the cue.
+      }
+    }
+  }
 
   play(name: SfxName): void {
     const ctx = this.engine.context;
@@ -167,6 +197,14 @@ export class Sfx {
     const now = ctx.currentTime;
     if (gap !== undefined && now - (this.last.get(name) ?? -Infinity) < gap) return;
     this.last.set(name, now);
+    const sample = this.samples.get(name);
+    if (sample) {
+      const src = ctx.createBufferSource();
+      src.buffer = sample;
+      src.connect(out);
+      src.start(now);
+      return;
+    }
     RECIPES[name]({ ctx, out, t: now });
   }
 }
