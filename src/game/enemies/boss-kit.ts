@@ -114,12 +114,19 @@ export function coreRect(body: { x: number; y: number; w: number }, core: { y: n
  * tick `settleTicks` is `to`. Used so a core can drop from the spine into
  * the standing shot line without a float.
  */
-export function dropCore(from: { y: number; h: number }, to: { y: number; h: number }, ticks: number, settleTicks: number): { y: number; h: number } {
+export function dropCore(
+  from: { y: number; h: number; w?: number },
+  to: { y: number; h: number; w?: number },
+  ticks: number,
+  settleTicks: number,
+): { y: number; h: number; w?: number } {
   const t = Math.min(Math.max(ticks, 0), settleTicks);
-  return {
-    y: from.y + Math.floor(((to.y - from.y) * t) / settleTicks),
-    h: from.h + Math.floor(((to.h - from.h) * t) / settleTicks),
-  };
+  const y = from.y + Math.floor(((to.y - from.y) * t) / settleTicks);
+  const h = from.h + Math.floor(((to.h - from.h) * t) / settleTicks);
+  if (from.w === undefined && to.w === undefined) return { y, h };
+  const fw = from.w ?? to.w ?? 0;
+  const tw = to.w ?? from.w ?? 0;
+  return { y, h, w: fw + Math.floor(((tw - fw) * t) / settleTicks) };
 }
 
 /**

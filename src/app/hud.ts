@@ -1,22 +1,31 @@
-import { PLAYER } from '@game/tuning';
 import type { WorldSnapshot } from '@game/world';
 import { formatScore } from './shell/score';
 
+/** The bar stays up through the death clip. It drops when the boss leaves the snapshot, not when hp hits 0. */
+export const bossBarVisible = (boss: { engaged: boolean } | null): boolean => boss !== null && boss.engaged;
+
 /**
- * In-game HUD (PRD 6.2): hearts top-left with lost ones greyed, lives beside
+ * In-game HUD (PRD 6.2): hearts top-left up to the current max, lost ones
+ * greyed, a short wobble on a heart that just raised the cap, lives beside
  * them, the six-digit score top-right, and the boss bar bottom-centre while a
  * boss is engaged. Built from DOM once per change, not per frame.
  */
 export class Hud {
   private lastKey = '';
+  /** Max hearts last painted. -1 until the first paint, so the opening row does not wobble. */
+  private heartsShown = -1;
 
   constructor(private readonly el: HTMLElement) {}
 
   update(snap: WorldSnapshot, score: number): void {
     const boss = snap.boss;
+    const maxHp = snap.player.maxHp;
     const bossKey = boss?.engaged ? `${boss.hp}/${boss.maxHp}/${boss.phase}` : '';
-    const key = `${snap.player.hp}|${snap.lives}|${score}|${bossKey}`;
+    const key = `${snap.player.hp}/${maxHp}|${snap.lives}|${score}|${bossKey}`;
     if (key === this.lastKey) return;
+    const gainedFrom = this.heartsShown;
+    const gained = gainedFrom >= 0 && maxHp > gainedFrom;
+    this.heartsShown = maxHp;
     this.lastKey = key;
     this.el.textContent = '';
 
@@ -24,9 +33,12 @@ export class Hud {
     top.className = 'hud-top';
     const hearts = document.createElement('div');
     hearts.className = 'hud-hearts';
-    for (let i = 0; i < PLAYER.maxHp; i++) {
+    for (let i = 0; i < maxHp; i++) {
       const h = document.createElement('span');
-      h.className = i < snap.player.hp ? 'hud-heart' : 'hud-heart hud-heart-lost';
+      const classes = ['hud-heart'];
+      if (i >= snap.player.hp) classes.push('hud-heart-lost');
+      if (gained && i >= gainedFrom) classes.push('hud-heart-gained');
+      h.className = classes.join(' ');
       h.textContent = '\u2665';
       hearts.append(h);
     }
@@ -39,7 +51,7 @@ export class Hud {
     top.append(hearts, lives, scoreEl);
     this.el.append(top);
 
-    if (boss?.engaged && boss.hp > 0) {
+    if (bossBarVisible(boss ?? null) && boss) {
       const bar = document.createElement('div');
       bar.className = 'hud-boss';
       const label = document.createElement('div');

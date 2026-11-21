@@ -33,7 +33,7 @@ export interface CheckpointJson extends Rect {
   readonly id: number;
 }
 
-/** `aswang` is the Level 1 boss, `sigbin` the Level 3 boss; `tikbalang` is spawn data until its behaviour exists. */
+/** `aswang` is the Level 1 boss, `sigbin` the Level 3 boss, `tikbalang` the Level 6 scout. */
 export type EnemyType = 'patroller' | 'drone' | 'stealth' | 'tikbalang' | 'aswang' | 'sigbin';
 
 export interface EnemySpawnJson {
@@ -42,6 +42,16 @@ export interface EnemySpawnJson {
   readonly x: number;
   readonly y: number;
   readonly patrolDistance?: number;
+}
+
+/**
+ * Collectible. `hp-up` is the only kind so far; a timed kind (invincibility)
+ * is another entry in `PICKUP_KINDS` plus an effect, and the same rect.
+ */
+export type PickupKind = 'hp-up';
+
+export interface PickupJson extends Rect {
+  readonly kind: PickupKind;
 }
 
 export interface LevelJson {
@@ -62,6 +72,11 @@ export interface LevelJson {
   readonly deathZones: readonly Rect[];
   readonly checkpoints: readonly CheckpointJson[];
   readonly enemies: readonly EnemySpawnJson[];
+  /**
+   * Collectibles. Omitted means none, so a level that has no pickups does not
+   * need an empty array.
+   */
+  readonly pickups?: readonly PickupJson[];
   /** Dressing for the renderer; a level without it renders as grey boxes. */
   readonly art?: LevelArtJson;
 }
@@ -69,6 +84,7 @@ export interface LevelJson {
 const ID_RE = /^[a-z0-9][a-z0-9-]*$/;
 export const HAZARD_KINDS: readonly HazardKind[] = ['spikes', 'crusher'];
 export const ENEMY_TYPES: readonly EnemyType[] = ['patroller', 'drone', 'stealth', 'tikbalang', 'aswang', 'sigbin'];
+export const PICKUP_KINDS: readonly PickupKind[] = ['hp-up'];
 
 
 function rectProblems(r: unknown, label: string, level: { width: number; height: number }): string[] {
@@ -178,6 +194,18 @@ export function levelProblems(json: unknown): string[] {
       problems.push(...pointProblems(e, `enemies[${i}]`, level));
       if (e.patrolDistance !== undefined && (!isInt(e.patrolDistance) || e.patrolDistance < 0)) problems.push(`enemies[${i}].patrolDistance must be a non-negative integer`);
     });
+  }
+
+  if (json.pickups !== undefined) {
+    if (!Array.isArray(json.pickups)) problems.push('pickups must be an array');
+    else {
+      json.pickups.forEach((p, i) => {
+        problems.push(...rectProblems(p, `pickups[${i}]`, level));
+        if (isRecord(p) && !PICKUP_KINDS.includes(p.kind as PickupKind)) {
+          problems.push(`pickups[${i}].kind must be one of ${PICKUP_KINDS.join(', ')}`);
+        }
+      });
+    }
   }
   if (json.art !== undefined) problems.push(...levelArtProblems(json.art, level));
   return problems;

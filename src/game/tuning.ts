@@ -3,6 +3,18 @@
  * One object so the whole feel can be diffed in a PR; the renderer never reads
  * these. Numbers are for a 24 x 48 player against 32 px tiles.
  */
+/**
+ * Pickups. The hitbox is the rect in the level file (like a hazard); the
+ * numbers here are the effect. A timed pickup (invincibility) would add its
+ * duration beside `hpUp` and a kind in `applyPickup`, not a new loop.
+ */
+export const PICKUP = {
+  hpUp: {
+    /** Added to both max HP and current HP. Current is clamped to the new max. */
+    hearts: 1,
+  },
+} as const;
+
 export const PLAYER = {
   width: 24,
   height: 48,
@@ -187,6 +199,42 @@ export const ENEMY = {
     knockback: 80,
     deathTicks: 96,
   },
+  /**
+   * Tikbalang scout (not the Tikbalang-X boss). Patrols in short bursts, then
+   * runs in and stomps: a rear, then a low lunge a jump can clear. The burst
+   * rhythm is the tick counter, not a random draw.
+   */
+  tikbalang: {
+    width: 64,
+    height: 44,
+    hp: 4,
+    /** Trot during a patrol burst. The chase is `burstSpeed`. */
+    speed: 80,
+    /** Gallop this many ticks, then stand, while patrolling. */
+    burstTicks: 36,
+    pauseTicks: 24,
+    /** Centre distance at which it notices the player, in either direction. */
+    sightRange: 500,
+    /** Feet-to-feet band; another storey is not a target. */
+    sightHeight: 128,
+    /** Gives up the chase past this centre distance, or off the storey. */
+    loseRange: 640,
+    burstSpeed: 480,
+    /** Edge gap it holds before stomping, so the approach itself is not the hit. */
+    standoff: 48,
+    /** Rear (the stomp clip) before the lunge. Long enough to leave the ground. */
+    windupTicks: 24,
+    /** Ticks the lunge spends closing that gap. */
+    lungeTicks: 18,
+    lungeSpeed: 420,
+    /** Collider height during the lunge: a jump clears it. */
+    lungeHeight: 22,
+    /** After a stomp, waits this long at the standoff before the next one. */
+    recoverTicks: 90,
+    hurtTicks: 16,
+    knockback: 140,
+    deathTicks: 96,
+  },
 } as const;
 
 /**
@@ -263,24 +311,37 @@ export const SIGBIN = {
   stalkMaxTicks: [200, 160, 130] as readonly number[],
   /** How far past the leading foot counts as a ledge, so a stalk does not walk off the gallery. */
   stalkProbe: 8,
-  /** Pocket behind the player (opposite their facing) the stalk walks to. Far enough that the 98 px lunge stops short of a standing player. */
+  /** Pocket on the boss's side of the player. The 98 px lunge alone stops short of someone standing here. */
   rearOffset: 280,
   /** Close enough to that pocket to start the telegraph. */
   rearSlack: 12,
-  /** Decloak. Alpha ramps to solid and the facing locks to the lunge. Per phase. */
+  /**
+   * During the telegraph the boss walks toward the player at this speed and
+   * stops at `strikeRange`. 250 px/s × 48 ticks (the shortest telegraph) is
+   * 100 px, which is exactly `rearOffset - strikeRange`.
+   */
+  approachSpeed: 250,
+  /**
+   * Centre distance where the approach holds. The 98 px lunge then finishes
+   * 82 px away: inside the 108 px of half-bodies, so a player who stood still
+   * is hit, and one who ran away during the tell is not.
+   */
+  strikeRange: 180,
+  /** Decloak. Alpha ramps to solid while it closes. Per phase. */
   telegraphTicks: [72, 56, 48] as readonly number[],
   lungeSpeed: 420,
   /** 420 px/s × 28 ticks is 98 px: a short pounce, not a screen-wide charge. */
   lungeTicks: 28,
   /** Punish window, including the ticks the core spends dropping into reach. Per phase. */
   exposedTicks: [180, 160, 140] as readonly number[],
-  /** Spine, above a standing shot. Shown while it is not yet in reach. */
-  weakPointRaised: { y: 128, h: 24 },
+  /** Spine, above a standing shot. Chest-wide, not the whole torso. */
+  weakPointRaised: { y: 128, h: 24, w: 64 },
   /**
-   * Where the core rests during the punish: feet+26, 16 px tall. A standing
-   * plasma (muzzle at 30, 6 px tall) crosses it; a shot at the feet does not.
+   * Where the core rests during the punish: feet+26, 16 px tall, 64 px wide
+   * and centred. A standing plasma (muzzle at 30, 6 px tall) crosses the
+   * height; a shot through the flank misses the chest.
    */
-  weakPoint: { y: 26, h: 16 },
+  weakPoint: { y: 26, h: 16, w: 64 },
   /** Ticks for the core to travel from the spine down to `weakPoint`. */
   coreSettleTicks: 40,
   /** Core hits during the window deal this times the shot. Everything else deals 0. */

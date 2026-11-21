@@ -1,3 +1,4 @@
+import { NO_INPUT } from '@core/sim/input';
 import type { Policy } from './harness';
 import { bossFight, dashJump, dropThrough, fight, jump, ride, route, run, sigbinFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
@@ -161,11 +162,20 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // one-way step 2
     run(1, 3600),
     jump(1), // roof 6
+    run(1, 3700), // in the tikbalang's sight, short of its patrol and the spikes
+    fight(4480), // scout at 4100: shoot the burst, jump the stomp
     run(1, 3950),
     jump(1), // spikes at 4000
     run(1, 4480),
   ],
 };
+
+/**
+ * Hold jump in place. Records the Level 1 HP Up, which sits in the spawn
+ * column above the head. The clear route walks out from under it and never
+ * jumps there, so that fixture stays at 3 HP.
+ */
+export const collectHpUp = (): Policy => () => ({ ...NO_INPUT, jump: true });
 
 /** A fresh policy for a level's route (steps carry state, so never share one across recordings). */
 export const clearRoute = (level: string): Policy => {

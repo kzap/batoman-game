@@ -3,8 +3,10 @@ import type { World } from '@game/world';
 import { HttpAssetSource, loadAssets } from '@render/assets';
 import type { App } from '../app';
 import type { GameAudio } from '../audio';
-import type { Overlay } from './overlay';
 import { CONTROL_ROWS, toggleBinding } from '../bindings';
+import type { Overlay, OverlayModel } from './overlay';
+import { selectableLevels, UNLOCK_ALL_LEVELS } from './progression';
+import { tallyAt, tallyPlan } from './results';
 import { loadSave, recordClear, resetBindings, resolveReduceMotion, setBindings, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
 import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { clearPoints, killPoints } from './score';
@@ -37,6 +39,8 @@ export const SHELL_TIMING = {
 export interface ShellOptions {
   /** Session override from `?reduceMotion=`. Not written until the player toggles with R. */
   readonly reduceMotion?: boolean | null;
+  /** Level select. Omit to follow {@link UNLOCK_ALL_LEVELS}. Not written to the save. */
+  readonly unlockAll?: boolean;
 }
 
 /** The current run: score so far and the points earned in the level being played. Reset by "Start game" and level select. */
@@ -58,14 +62,24 @@ export class Shell {
   private run: Run = { score: 0, levelScore: 0, result: null };
   /** The one pending delayed event (intro timeout, results, game over); cleared on every screen change. */
   private timer = 0;
+  /** Wall-clock start of the results tally, and the frame that advances it. */
+  private tallyStart = 0;
+  private tallyFrame = 0;
   private loading: Promise<void> | null = null;
   private readonly levelIds = LEVELS.map((l) => l.id);
+  /** Build flag, or `?unlockAll=` for this page load. */
+  private readonly unlockAll: boolean;
   /** `?reduceMotion=` for this page load. Cleared once the player toggles, which writes the save. */
   private sessionOverride: boolean | null;
   private systemReduceMotion: boolean;
   private media: MediaQueryList | null = null;
   private readonly onKeyDown = (e: KeyboardEvent): void => this.handleKey(e);
   private readonly onPointer = (): void => this.audio.unlock();
+  private readonly onPageHide = (): void => this.stop();
+  private readonly onResize = (): void => {
+    if (this.screen.kind !== 'complete') return;
+    this.paintResults(this.resultsElapsed());
+  };
   private readonly onMotionPreference = (): void => {
     this.systemReduceMotion = this.media?.matches ?? false;
     if (this.sessionOverride !== null || this.save.options.reduceMotion !== null) return;
@@ -80,6 +94,7 @@ export class Shell {
     options: ShellOptions = {},
   ) {
     this.save = loadSave(storage, this.levelIds);
+    this.unlockAll = options.unlockAll ?? UNLOCK_ALL_LEVELS;
     this.sessionOverride = options.reduceMotion ?? null;
     this.systemReduceMotion = systemPrefersReducedMotion();
     app.setBindings(this.save.bindings);
@@ -99,6 +114,8 @@ export class Shell {
   start(directLevelId: string | null): void {
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('pointerdown', this.onPointer);
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('pagehide', this.onPageHide);
     this.app.restartLevel();
     if (directLevelId) {
       this.setScreen({ kind: 'playing', levelId: directLevelId }, [{ type: 'resume' }]);
@@ -180,7 +197,14 @@ export class Shell {
 
   private applyMotion(render: boolean): void {
     this.app.setReduceMotion(this.effectiveReduceMotion());
-    if (render) this.renderOverlay();
+    if (!render) return;
+    if (this.screen.kind === 'complete') {
+      cancelAnimationFrame(this.tallyFrame);
+      this.paintResults(this.resultsElapsed());
+      if (!this.effectiveReduceMotion()) this.armTally();
+      return;
+    }
+    this.renderOverlay();
   }
 
   private watchSystemMotion(): void {
@@ -196,7 +220,8 @@ export class Shell {
       return;
     }
     const before = this.screen;
-    const { screen, effects } = reduce(before, event, { levels: this.levelIds, unlocked: this.save.unlocked });
+    const unlocked = selectableLevels(this.save.unlocked, this.levelIds, this.unlockAll);
+    const { screen, effects } = reduce(before, event, { levels: this.levelIds, unlocked });
     this.menuSound(before, screen, event);
     this.setScreen(screen, effects);
   }
@@ -212,23 +237,76 @@ export class Shell {
 
   private setScreen(screen: Screen, effects: readonly Effect[]): void {
     clearTimeout(this.timer);
+    cancelAnimationFrame(this.tallyFrame);
+    if (screen.kind === 'complete' && this.screen.kind !== 'complete') this.tallyStart = performance.now();
     this.screen = screen;
     this.app.hooks.screen = screen.kind;
     for (const fx of effects) this.apply(fx);
     if (screen.kind === 'intro') this.arm('timeout', SHELL_TIMING.intro);
     if (screen.kind === 'credits') this.audio.music.play(MANIFEST.titleMusic);
     this.renderOverlay();
+    if (screen.kind === 'complete' && !this.effectiveReduceMotion()) this.armTally();
     this.publishAudio();
   }
 
+  /** Drop the window listeners. `pagehide` calls this; nothing else keeps the resize hook. */
+  stop(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('pointerdown', this.onPointer);
+    window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('pagehide', this.onPageHide);
+    this.media?.removeEventListener('change', this.onMotionPreference);
+    this.media = null;
+    clearTimeout(this.timer);
+    cancelAnimationFrame(this.tallyFrame);
+  }
+
   private renderOverlay(): void {
-    this.overlay.render(this.screen, {
+    this.overlay.render(this.screen, this.overlayModel(0));
+  }
+
+  private overlayModel(elapsedMs: number): OverlayModel {
+    const complete = this.screen.kind === 'complete';
+    return {
       levels: LEVELS,
       save: this.save,
+      selectable: selectableLevels(this.save.unlocked, this.levelIds, this.unlockAll),
       score: this.run.score,
       result: this.run.result,
       reduceMotion: this.effectiveReduceMotion(),
-    });
+      results: complete
+        ? {
+            levelScore: this.run.levelScore,
+            elapsedMs: this.resultsElapsed(elapsedMs),
+            player: this.app.hooks.player,
+            camera: this.app.hooks.camera,
+          }
+        : null,
+    };
+  }
+
+  /** Elapsed tally time. The effective preference (save, query, then OS) snaps the count. */
+  private resultsElapsed(elapsedMs?: number): number {
+    if (this.effectiveReduceMotion()) return Number.POSITIVE_INFINITY;
+    return elapsedMs ?? performance.now() - this.tallyStart;
+  }
+
+  /** Count the tally up. Enter still leaves the card whenever it arrives; this loop only repaints. */
+  private armTally(): void {
+    const step = (): void => {
+      if (this.screen.kind !== 'complete') return;
+      const elapsed = this.resultsElapsed();
+      this.paintResults(elapsed);
+      const frame = tallyAt(tallyPlan(this.run.score, this.run.levelScore, this.run.result?.hp ?? 0), elapsed);
+      if (!frame.done) this.tallyFrame = requestAnimationFrame(step);
+    };
+    this.tallyFrame = requestAnimationFrame(step);
+  }
+
+  /** Refresh the open card. A missing card falls back to a full render. */
+  private paintResults(elapsedMs: number): void {
+    const model = this.overlayModel(elapsedMs);
+    if (!this.overlay.updateResults(model)) this.overlay.render(this.screen, model);
   }
 
   /** Schedule the one delayed event, replacing any pending one. */

@@ -5,7 +5,7 @@ import type { EnemyType } from '@content/level';
 import { Health } from '../health';
 import { ENEMY } from '../tuning';
 
-/** Poses the renderer maps to clips. `windup`, `rush`, `stunned` and `shift` are boss-only. */
+/** Poses the renderer maps to clips. `windup`, `stunned` and `shift` are boss-only; the tikbalang's stomp lunge uses `rush`. */
 export type EnemyPose = 'idle' | 'move' | 'shoot' | 'hurt' | 'death' | 'cloaked' | 'windup' | 'rush' | 'stunned' | 'shift';
 
 export interface EnemySnapshot {
@@ -103,9 +103,17 @@ export abstract class Enemy {
     return this.deathTicks >= this.stats.deathTicks;
   }
 
-  /** Can be shot and hurts on contact. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
+  /** Can be shot. Subclasses hide themselves (cloak) or shield themselves (phase shift). */
   get hittable(): boolean {
     return this.alive;
+  }
+
+  /**
+   * Touching this body hurts the player. Defaults to `hittable`. The Sigbin stays
+   * shot-hittable through the punish window, but the lunge is its only contact attack.
+   */
+  get harmsOnContact(): boolean {
+    return this.hittable;
   }
 
   get alpha(): number {

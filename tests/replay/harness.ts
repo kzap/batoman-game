@@ -18,6 +18,8 @@ export interface ReplayFixture extends ReplayInputs {
     readonly ticks: number;
     readonly lives: number;
     readonly hp: number;
+    /** Set when the run's point is a max-HP change. Clear fixtures omit it. */
+    readonly maxHp?: number;
     /** Player x at the final tick (integer pixels). */
     readonly x: number;
   };
@@ -60,11 +62,12 @@ export interface Recording {
   readonly final: WorldSnapshot;
 }
 
-export function record(level: LevelJson, seed: number, policy: Policy, maxTicks: number): Recording {
+export function record(level: LevelJson, seed: number, policy: Policy, maxTicks: number, done?: (snap: WorldSnapshot) => boolean): Recording {
   const world = new World(level, seed);
   const frames: InputFrame[] = [];
   let snap = world.snapshot();
-  while (snap.status === 'playing' && frames.length < maxTicks) {
+  // `done` is read before each tick, so the tick that satisfied it is already in `frames`.
+  while (snap.status === 'playing' && frames.length < maxTicks && !done?.(snap)) {
     const f = policy(world, snap);
     frames.push(f);
     world.step(f);

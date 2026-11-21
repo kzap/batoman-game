@@ -10,11 +10,12 @@ type State = 'dormant' | 'cloak' | 'telegraph' | 'lunge' | 'recover' | 'shift';
  * Level 3 boss: the Sigbin Unit, a cloaked hunter. It is dormant until the
  * player reaches the gallery, then backs off along its own side of them, walking
  * backward (head opposite its travel, footprints pointing the wrong way). A
- * telegraph decloaks it, it lunges, and the dorsal core drops into the
- * standing shot line for the punish window. Shots deal damage only on that
- * core, and only while the window is open. It does not fly and it does not
- * move the room. Three phases, each one faster, with an invulnerable shift
- * between them.
+ * telegraph decloaks it and it steps in to lunge range, then lunges. A player
+ * who stands in the pocket is hit; one who leaves during the tell is not. The
+ * dorsal core then drops into the standing shot line. Shots deal damage only
+ * on that chest-sized core, and only while the window is open. It does not fly
+ * and it does not move the room. Three phases, each one faster, with an
+ * invulnerable shift between them.
  */
 export class Sigbin extends BossUnit {
   private readonly phases = new PhaseGate(SIGBIN.phaseHp);
@@ -71,8 +72,16 @@ export class Sigbin extends BossUnit {
           this.lungeDir = this.toPlayer(ctx) < 0 ? -1 : 1;
           this.facing = this.lungeDir;
         },
-        update: (_ctx, ticks) => {
+        update: (ctx, ticks) => {
           if (this.phases.pending) return 'shift';
+          // Close from the pocket to lunge range. A still player is caught; running away during the tell is not.
+          const dist = Math.abs(this.toPlayer(ctx));
+          if (dist > SIGBIN.strikeRange && this.grounded(ctx.cw)) {
+            const dir: 1 | -1 = this.toPlayer(ctx) < 0 ? -1 : 1;
+            this.lungeDir = dir;
+            this.facing = dir;
+            if (!this.ledgeAhead(ctx.cw, dir, SIGBIN.approachSpeed * SIM_DT)) this.walk(ctx.cw, dir, SIGBIN.approachSpeed);
+          } else this.vx = 0;
           return ticks >= phaseValue(SIGBIN.telegraphTicks, this.phases.index) ? 'lunge' : undefined;
         },
       },
@@ -129,9 +138,14 @@ export class Sigbin extends BossUnit {
   }
 
   override get hittable(): boolean {
-    // The lunge is solid (contact hurts). The cloak, the telegraph and the shift are not.
-    // Shots during the lunge still deal 0: damageFor requires the core to be open.
+    // Shots can land during the lunge and the recovery. The lunge still deals 0:
+    // damageFor requires the core to be open. Cloak, telegraph and shift are not shot-hittable.
     return this.alive && (this.fsm.state === 'lunge' || this.fsm.state === 'recover');
+  }
+
+  /** The lunge is the only contact attack. Recovery is the punish window, not a second hit. */
+  override get harmsOnContact(): boolean {
+    return this.alive && this.fsm.state === 'lunge';
   }
 
   override get alpha(): number {
@@ -158,8 +172,8 @@ export class Sigbin extends BossUnit {
   }
 
   weakPointRect(): { x: number; y: number; w: number; h: number } {
-    const core = this.fsm.state === 'recover' ? dropCore(SIGBIN.weakPointRaised, SIGBIN.weakPoint, this.fsm.ticks, SIGBIN.coreSettleTicks) : SIGBIN.weakPointRaised;
-    return coreRect(this.body, core);
+    const dropped = this.fsm.state === 'recover' ? dropCore(SIGBIN.weakPointRaised, SIGBIN.weakPoint, this.fsm.ticks, SIGBIN.coreSettleTicks) : SIGBIN.weakPointRaised;
+    return coreRect(this.body, dropped);
   }
 
   override tells(): readonly BossTell[] {

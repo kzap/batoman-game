@@ -5,16 +5,80 @@ on:
     branches: [v2, main]
   push:
     branches: [v2, main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      heavy: ${{ steps.filter.outputs.heavy }}
+    steps:
+      - name: Decide whether heavy jobs run
+        id: filter
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Push to v2/main and workflow_dispatch are the main line: never skip.
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "heavy=true" >> "$GITHUB_OUTPUT"
+            echo "event=$EVENT_NAME: running every job"
+            exit 0
+          fi
+
+          # Docs-only pull requests skip replay, build, e2e, and perf. Anything else
+          # is heavy: src/ (including src/content/levels/), art-source/ (tracked
+          # pipeline art; public/assets/ is generated and gitignored), tools/,
+          # tests/, package.json, package-lock.json, playwright/vite/vitest/
+          # ts/eslint configs, index.html, public/, and .github/workflows/.
+          list=$(mktemp)
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > "$list"
+
+          heavy=false
+          count=0
+          while IFS= read -r f || [ -n "${f:-}" ]; do
+            [ -z "$f" ] && continue
+            count=$((count + 1))
+            case "$f" in
+              *.md|docs/*|.claude/*|.github/pull_request_template.md)
+                echo "docs: $f"
+                ;;
+              *)
+                echo "heavy: $f"
+                heavy=true
+                ;;
+            esac
+          done < "$list"
+
+          # The pulls files API caps at 3000 paths. A truncated list can hide
+          # a code change, so run the heavy jobs rather than skip them.
+          if [ "$count" -ge 3000 ]; then
+            echo "file list hit the API cap; running heavy jobs"
+            heavy=true
+          fi
+
+          echo "heavy=$heavy" >> "$GITHUB_OUTPUT"
+          echo "changed=$count heavy=$heavy"
+
   check:
     name: Lint, unit, replay, build (typecheck + validate + budget)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: changes
+    if: ${{ needs.changes.outputs.heavy == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -119,3 +183,35 @@ jobs:
           name: perf-results
           path: perf-results.json
           retention-days: 14
+
+  # Require this job in branch protection, not check, e2e, or perf. Those are
+  # skipped on a docs-only pull request (e2e and perf need check), and a
+  # skipped required check blocks the merge.
+  ci-gate:
+    name: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: always()
+    needs: [changes, check, e2e, perf]
+    steps:
+      - name: Pass when every needed job succeeded or was skipped
+        shell: bash
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          CHECK: ${{ needs.check.result }}
+          E2E: ${{ needs.e2e.result }}
+          PERF: ${{ needs.perf.result }}
+        run: |
+          set -euo pipefail
+          echo "changes=$CHANGES check=$CHECK e2e=$E2E perf=$PERF"
+          fail=0
+          for result in "$CHANGES" "$CHECK" "$E2E" "$PERF"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "not success or skipped: $result"
+                fail=1
+                ;;
+            esac
+          done
+          exit "$fail"

@@ -6,6 +6,7 @@ import type { Enemy } from './enemy';
 import { Patroller } from './patroller';
 import { Sigbin } from './sigbin';
 import { Stealth } from './stealth';
+import { Tikbalang } from './tikbalang';
 
 export type { BossTell } from './boss-kit';
 export type { Enemy, EnemyCtx, EnemyPose, EnemySnapshot, ShotRequest } from './enemy';
@@ -15,8 +16,9 @@ export { Drone } from './drone';
 export { Patroller } from './patroller';
 export { Sigbin } from './sigbin';
 export { Stealth } from './stealth';
+export { Tikbalang } from './tikbalang';
 
-/** Build an enemy from its level entry. Types without behaviour yet (tikbalang) return null and stay spawn data. */
+/** Build an enemy from its level entry. */
 export function spawnEnemy(id: number, spec: EnemySpawnJson): Enemy | null {
   const patrol = spec.patrolDistance ?? ENEMY.defaultPatrol;
   switch (spec.type) {
@@ -31,6 +33,6 @@ export function spawnEnemy(id: number, spec: EnemySpawnJson): Enemy | null {
     case 'sigbin':
       return new Sigbin(id, spec.x, spec.y);
     case 'tikbalang':
-      return null;
+      return new Tikbalang(id, spec.x, spec.y, patrol);
   }
 }

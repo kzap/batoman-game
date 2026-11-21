@@ -1,19 +1,33 @@
 import type { ManifestEntry } from '@content/levels';
 import { SIM_HZ } from '@core/sim/clock';
 import { ACTION_LABELS, CONTROL_ROWS, keyLabel } from '../bindings';
+import { resultsSpotlight, tallyAt, tallyPlan, type Spotlight, type TallyFrame } from './results';
 import type { SaveData } from './save';
 import { GAMEOVER_ITEMS, PAUSE_ITEMS, TITLE_ITEMS, type Screen } from './screens';
 import { formatScore } from './score';
+
+/** Player and camera at the moment the results card is showing, plus how far the tally has counted. */
+export interface ResultsView {
+  readonly levelScore: number;
+  /** Milliseconds since the card appeared. `Infinity` paints the finished tally. */
+  readonly elapsedMs: number;
+  readonly player: { readonly x: number; readonly y: number; readonly pose: string };
+  readonly camera: { readonly x: number; readonly y: number };
+}
 
 /** What the overlay needs besides the screen: level names, progress, the run's numbers. */
 export interface OverlayModel {
   readonly levels: readonly ManifestEntry[];
   readonly save: SaveData;
+  /** Level ids the player may start. The save list while `VITE_UNLOCK_ALL_LEVELS` is off. */
+  readonly selectable: readonly string[];
   readonly score: number;
   /** Result of the level just finished (complete screen). */
   readonly result: { readonly ticks: number; readonly hp: number } | null;
   /** Effective reduce-motion preference, for the hint and `data-reduce-motion`. */
   readonly reduceMotion: boolean;
+  /** Set on the results card; null on every other screen. */
+  readonly results: ResultsView | null;
 }
 
 export const CREDITS: readonly { readonly heading: string; readonly lines: readonly string[] }[] = [
@@ -52,31 +66,49 @@ const menu = (items: readonly string[], selected: number, extra?: (i: number) =>
 
 const hint = (text: string): HTMLElement => el('div', 'shell-hint', text);
 
-/** How each screen sits over the canvas: dimmed when the level behind is not the point, HUD hidden when there is no play to read. */
-const PRESENTATION: Readonly<Record<Screen['kind'], { readonly dim: boolean; readonly hideHud: boolean }>> = {
-  title: { dim: true, hideHud: true },
-  levelSelect: { dim: true, hideHud: true },
-  intro: { dim: false, hideHud: true },
-  playing: { dim: false, hideHud: false },
-  paused: { dim: false, hideHud: false },
-  complete: { dim: false, hideHud: false },
-  gameover: { dim: true, hideHud: false },
-  credits: { dim: true, hideHud: true },
-  controls: { dim: true, hideHud: true },
+/**
+ * How each screen sits over the canvas. `dim` is the flat wash used when the
+ * level behind is not the point. `spotlight` is the results card: the same wash
+ * with a hole on Ando. The HUD hides on screens with nothing to read.
+ */
+export const PRESENTATION: Readonly<Record<Screen['kind'], { readonly dim: boolean; readonly spotlight: boolean; readonly hideHud: boolean }>> = {
+  title: { dim: true, spotlight: false, hideHud: true },
+  levelSelect: { dim: true, spotlight: false, hideHud: true },
+  intro: { dim: false, spotlight: false, hideHud: true },
+  playing: { dim: false, spotlight: false, hideHud: false },
+  paused: { dim: false, spotlight: false, hideHud: false },
+  complete: { dim: false, spotlight: true, hideHud: false },
+  gameover: { dim: true, spotlight: false, hideHud: false },
+  credits: { dim: true, spotlight: false, hideHud: true },
+  controls: { dim: true, spotlight: false, hideHud: true },
 };
+
+interface TallyNodes {
+  readonly nums: ReadonlyMap<string, HTMLElement>;
+  readonly score: HTMLElement;
+  /** Polite region created empty. Its text is set only after the count lands. */
+  readonly status: HTMLElement;
+}
 
 /** Renders one screen into `#overlay`; screens that show the level behind them leave the canvas undimmed. */
 export class Overlay {
+  private tally: TallyNodes | null = null;
+  private tallyAnnounced = false;
+
   constructor(private readonly root: HTMLElement) {}
 
   render(screen: Screen, m: OverlayModel): void {
     const root = this.root;
     root.textContent = '';
+    this.tally = null;
+    this.tallyAnnounced = false;
     const look = PRESENTATION[screen.kind];
     root.classList.toggle('shell-visible', screen.kind !== 'playing');
     root.classList.toggle('shell-dim', look.dim);
+    root.classList.toggle('shell-spotlight', look.spotlight);
     root.dataset['reduceMotion'] = m.reduceMotion ? 'on' : 'off';
     document.body.classList.toggle('shell-hide-hud', look.hideHud);
+    if (!look.spotlight) this.clearSpotlight();
     if (screen.kind === 'playing') return;
     const card = el('div', 'shell-card');
     card.dataset['screen'] = screen.kind;
@@ -94,7 +126,7 @@ export class Overlay {
             (i) => {
               const id = m.levels[i]!.id;
               const best = m.save.best[id];
-              const locked = !m.save.unlocked.includes(id);
+              const locked = !m.selectable.includes(id);
               return { locked, note: locked ? 'locked' : best ? `best ${ticksToClock(best.ticks)}  ${formatScore(best.score)}` : '' };
             },
           ),
@@ -109,13 +141,9 @@ export class Overlay {
       case 'paused':
         card.append(el('h2', 'shell-heading', 'PAUSED'), menu(PAUSE_ITEMS, screen.index), hint(`Esc resume  ·  M music  ·  N sfx  ·  R motion ${m.reduceMotion ? 'on' : 'off'}`));
         break;
-      case 'complete': {
-        const stats = el('div', 'shell-stats');
-        if (m.result) stats.append(el('div', '', `time ${ticksToClock(m.result.ticks)}`), el('div', '', `hearts left ${m.result.hp}`));
-        stats.append(el('div', '', `score ${formatScore(m.score)}`));
-        card.append(el('h2', 'shell-heading', 'LEVEL CLEAR'), stats, hint('Enter continue'));
+      case 'complete':
+        this.buildResults(card, m);
         break;
-      }
       case 'gameover':
         card.append(el('h2', 'shell-heading', 'GAME OVER'), el('div', 'shell-stats', `score ${formatScore(m.score)}`), menu(GAMEOVER_ITEMS, screen.index), hint('Enter select'));
         break;
@@ -146,5 +174,102 @@ export class Overlay {
         break;
       }
     }
+  }
+
+  /**
+   * Move the open results tally forward without rebuilding the card. Returns
+   * false when there is no card yet, so the caller falls back to `render`.
+   */
+  updateResults(m: OverlayModel): boolean {
+    const tally = this.tally;
+    const view = m.results;
+    if (!tally || !view || !tally.status.isConnected) return false;
+    const frame = tallyAt(tallyPlan(m.score, view.levelScore, m.result?.hp ?? 0), view.elapsedMs);
+    this.paintTally(tally, frame);
+    this.root.dataset['tally'] = frame.done ? 'done' : 'running';
+    this.applySpotlight(resultsSpotlight(view.player, view.camera, { w: this.root.clientWidth, h: this.root.clientHeight }));
+    if (frame.done) this.announceTally(tally, frame);
+    return true;
+  }
+
+  private buildResults(card: HTMLElement, m: OverlayModel): void {
+    const root = this.root;
+    const stats = el('div', 'shell-stats');
+    if (m.result) stats.append(el('div', '', `time ${ticksToClock(m.result.ticks)}`), el('div', '', `hearts left ${m.result.hp}`));
+    const view = m.results;
+    const frame = tallyAt(tallyPlan(m.score, view?.levelScore ?? 0, m.result?.hp ?? 0), view?.elapsedMs ?? 0);
+    const list = el('ul', 'shell-tally');
+    const nums = new Map<string, HTMLElement>();
+    for (const line of frame.lines) {
+      const li = el('li', '');
+      li.dataset['line'] = line.id;
+      const num = el('span', 'shell-tally-num', formatScore(line.shown));
+      li.append(el('span', '', line.label), num);
+      list.append(li);
+      nums.set(line.id, num);
+    }
+    const total = el('li', 'shell-tally-total');
+    total.dataset['line'] = 'score';
+    const score = el('span', 'shell-tally-score', formatScore(frame.shown));
+    total.append(el('span', '', 'score'), score);
+    list.append(total);
+    card.append(el('h2', 'shell-heading', 'LEVEL CLEAR'), stats, list, hint('Enter continue'));
+
+    // The parent overlay is a live region. Turn it off for this card so the
+    // counting digits are not announced, and keep a separate region that
+    // already exists before its text arrives.
+    root.setAttribute('aria-live', 'off');
+    const status = el('div', 'shell-tally-status');
+    status.setAttribute('aria-live', 'polite');
+    status.setAttribute('aria-atomic', 'true');
+    root.append(status);
+    const tally: TallyNodes = { nums, score, status };
+    this.tally = tally;
+    root.dataset['tally'] = frame.done ? 'done' : 'running';
+    if (view) this.applySpotlight(resultsSpotlight(view.player, view.camera, { w: root.clientWidth, h: root.clientHeight }));
+    if (frame.done) this.announceTally(tally, frame);
+  }
+
+  private paintTally(tally: TallyNodes, frame: TallyFrame): void {
+    for (const line of frame.lines) {
+      const num = tally.nums.get(line.id);
+      const text = formatScore(line.shown);
+      if (num && num.textContent !== text) num.textContent = text;
+    }
+    const total = formatScore(frame.shown);
+    if (tally.score.textContent !== total) tally.score.textContent = total;
+  }
+
+  /** One frame later, so the live region is already in the document when the text lands. */
+  private announceTally(tally: TallyNodes, frame: TallyFrame): void {
+    if (this.tallyAnnounced) return;
+    this.tallyAnnounced = true;
+    const status = tally.status;
+    const lines = frame.lines.map((line) => `${line.label} ${formatScore(line.shown)}`).join(', ');
+    const text = `Level clear. ${lines}. Score ${formatScore(frame.shown)}.`;
+    requestAnimationFrame(() => {
+      if (status.isConnected) status.textContent = text;
+    });
+  }
+
+  /** CSS variables for the radial hole. Cleared off the results card so the flat dim can use a plain wash. */
+  private applySpotlight(spot: Spotlight): void {
+    const root = this.root;
+    root.style.setProperty('--spot-x', `${spot.x}px`);
+    root.style.setProperty('--spot-y', `${spot.y}px`);
+    root.style.setProperty('--spot-clear', `${spot.clear}px`);
+    root.style.setProperty('--spot-edge', `${spot.edge}px`);
+  }
+
+  private clearSpotlight(): void {
+    const root = this.root;
+    root.style.removeProperty('--spot-x');
+    root.style.removeProperty('--spot-y');
+    root.style.removeProperty('--spot-clear');
+    root.style.removeProperty('--spot-edge');
+    delete root.dataset['tally'];
+    root.setAttribute('aria-live', 'polite');
+    this.tally = null;
+    this.tallyAnnounced = false;
   }
 }

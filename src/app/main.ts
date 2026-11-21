@@ -4,6 +4,7 @@ import { App, installHooks, postOptionsFromQuery } from './app';
 import { lockstepFromQuery } from './lockstep';
 import { GameAudio } from './audio';
 import { Overlay } from './shell/overlay';
+import { resolveUnlockAll } from './shell/progression';
 import { reduceMotionQuery } from './shell/save';
 import { Shell } from './shell/shell';
 
@@ -48,6 +49,7 @@ async function boot(): Promise<void> {
   const audio = new GameAudio(import.meta.env.BASE_URL);
   const shell = new Shell(app, new Overlay(document.getElementById('overlay') ?? document.createElement('div')), audio, localStorage, {
     reduceMotion: reduceMotionQuery(location.search),
+    unlockAll: resolveUnlockAll(import.meta.env.VITE_UNLOCK_ALL_LEVELS, location.search),
   });
   app.start();
   shell.start(direct ? levelId : null);

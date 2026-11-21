@@ -87,19 +87,19 @@ describe('Sigbin phase cycle', () => {
     { tick: 2529, phase: 1, pose: 'windup', exposed: false },
     { tick: 2602, phase: 1, pose: 'rush', exposed: false },
     { tick: 2631, phase: 1, pose: 'stunned', exposed: true },
-    { tick: 2716, phase: 2, pose: 'shift', exposed: false },
-    { tick: 2789, phase: 2, pose: 'cloaked', exposed: false },
-    { tick: 2790, phase: 2, pose: 'move', exposed: false },
-    { tick: 2945, phase: 2, pose: 'windup', exposed: false },
-    { tick: 3002, phase: 2, pose: 'rush', exposed: false },
-    { tick: 3031, phase: 2, pose: 'stunned', exposed: true },
-    { tick: 3114, phase: 3, pose: 'shift', exposed: false },
-    { tick: 3187, phase: 3, pose: 'cloaked', exposed: false },
-    { tick: 3188, phase: 3, pose: 'move', exposed: false },
-    { tick: 3284, phase: 3, pose: 'windup', exposed: false },
-    { tick: 3333, phase: 3, pose: 'rush', exposed: false },
-    { tick: 3362, phase: 3, pose: 'stunned', exposed: true },
-    { tick: 3444, phase: 3, pose: 'death', exposed: false },
+    { tick: 2754, phase: 2, pose: 'shift', exposed: false },
+    { tick: 2827, phase: 2, pose: 'cloaked', exposed: false },
+    { tick: 2828, phase: 2, pose: 'move', exposed: false },
+    { tick: 2988, phase: 2, pose: 'windup', exposed: false },
+    { tick: 3045, phase: 2, pose: 'rush', exposed: false },
+    { tick: 3074, phase: 2, pose: 'stunned', exposed: true },
+    { tick: 3197, phase: 3, pose: 'shift', exposed: false },
+    { tick: 3270, phase: 3, pose: 'cloaked', exposed: false },
+    { tick: 3271, phase: 3, pose: 'move', exposed: false },
+    { tick: 3401, phase: 3, pose: 'windup', exposed: false },
+    { tick: 3450, phase: 3, pose: 'rush', exposed: false },
+    { tick: 3479, phase: 3, pose: 'stunned', exposed: true },
+    { tick: 3601, phase: 3, pose: 'death', exposed: false },
   ] as const;
 
   it('replays the clear through cloak, telegraph, lunge, exposed window, and shift, once per phase', () => {
@@ -278,5 +278,23 @@ describe('World rules', () => {
     for (let i = 0; i < 240; i++) w.step();
     expect(w.player.body.x).toBeGreaterThan(x0 + 60);
     expect(w.player.grounded).toBe(true);
+  });
+});
+
+describe('level 1 HP Up replay', () => {
+  it('jumps at the opening and finishes with the extra heart', () => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-1-hp-up.json'), 'utf8')) as ReplayFixture;
+    const final = replay(fixture);
+    expect(fixture.expect.maxHp).toBe(4);
+    expect(final.status).toBe(fixture.expect.status);
+    expect(final.tick).toBe(fixture.expect.ticks);
+    expect(final.lives).toBe(fixture.expect.lives);
+    expect(final.player.hp).toBe(4);
+    expect(final.player.maxHp).toBe(4);
+    expect(final.pickups).toEqual([]);
+    expect(Math.round(final.player.x)).toBe(fixture.expect.x);
+
+    const again = replay(fixture);
+    expect(again).toEqual(final);
   });
 });

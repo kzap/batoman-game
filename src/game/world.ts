@@ -1,14 +1,15 @@
-import { overlaps } from '@core/math/aabb';
+import { center, overlaps } from '@core/math/aabb';
 import { SIM_DT } from '@core/sim/clock';
 import { CollisionWorld, type Solid } from '@core/sim/collision';
 import { EventBus } from '@core/sim/events';
 import { InputEdges, NO_INPUT, type InputFrame } from '@core/sim/input';
 import { Rng } from '@core/sim/rng';
 import type { AABB } from '@core/math/aabb';
-import type { EnemyType, LevelJson, MovingSolidJson, Rect } from '@content/level';
+import type { EnemyType, LevelJson, MovingSolidJson, PickupKind, Rect } from '@content/level';
 import { CameraController, type CameraSnapshot, type CameraTarget } from './camera';
 import { BossUnit, spawnEnemy, type BossTell, type Enemy, type EnemyCtx, type EnemyPose, type EnemySnapshot, type ShotRequest } from './enemies';
 import { Health } from './health';
+import { createPickups, type Pickup, type PickupSnapshot } from './pickups';
 import { Player, type PlayerPose } from './player';
 import { advanceProjectile, ProjectilePool, projectileBox, type Projectile, type ProjectileKind, type ProjectileSnapshot } from './projectiles';
 import { CAMERA, ENEMY, ENEMY_SHOT, NOVA, PLAYER, PROJECTILE } from './tuning';
@@ -37,9 +38,11 @@ export interface WorldEvents extends Record<string, unknown> {
   /** The boss started a telegraphed attack (the Sigbin's backward drum tell). */
   bossTelegraph: { x: number; y: number };
   bossDefeated: { x: number; y: number };
+  /** A pickup was consumed. `x`/`y` are the hitbox centre. */
+  pickup: { id: number; kind: PickupKind; x: number; y: number };
 }
 
-export type { EnemySnapshot, ProjectileKind, ProjectileSnapshot };
+export type { EnemySnapshot, PickupSnapshot, ProjectileKind, ProjectileSnapshot };
 
 export type DeathCause = 'pit' | 'crusher' | 'squish' | 'damage';
 export type WorldStatus = 'playing' | 'complete' | 'gameover';
@@ -55,6 +58,7 @@ export interface PlayerSnapshot {
   /** Fired recently; the renderer overlays the shooting clip on idle/run. */
   readonly shooting: boolean;
   readonly hp: number;
+  readonly maxHp: number;
   readonly invulnerable: boolean;
   /** Nova charge 0..1 while fire is held. */
   readonly charge: number;
@@ -97,6 +101,8 @@ export interface WorldSnapshot {
   /** Present while the level's boss is alive or dying. */
   readonly boss: BossSnapshot | null;
   readonly movingSolids: readonly SolidSnapshot[];
+  /** Uncollected pickups. A collected one drops out and stays gone for the level. */
+  readonly pickups: readonly PickupSnapshot[];
   readonly camera: CameraSnapshot;
 }
 
@@ -113,10 +119,10 @@ interface Mover {
 }
 
 /**
- * The gameplay simulation for one level: collision world, player, enemies,
- * projectiles, moving solids, hazards, checkpoints and the exit. Deterministic
- * given the level, seed and input sequence; `step` runs exactly one 120 Hz tick.
- * While a boss is alive the exit is inert.
+ * The gameplay simulation for one level: collision world, player, pickups,
+ * enemies, projectiles, moving solids, hazards, checkpoints and the exit.
+ * Deterministic given the level, seed and input sequence; `step` runs exactly
+ * one 120 Hz tick. While a boss is alive the exit is inert.
  */
 export class World {
   readonly events = new EventBus<WorldEvents>();
@@ -133,6 +139,8 @@ export class World {
   private readonly movers: Mover[] = [];
   readonly projectiles = new ProjectilePool();
   readonly enemies: Enemy[] = [];
+  /** Built once. Respawn refreshes enemies, not pickups: a heart stays taken. */
+  private readonly pickups: readonly Pickup[];
   private nextEnemyId = 1;
   /** Boss phase seen last tick; a change emits `bossPhase`. */
   private bossPhaseSeen = 1;
@@ -154,6 +162,7 @@ export class World {
       this.movers.push({ solid, spec: m, target: 1, step: 1, pause: 0, fx: m.x, fy: m.y });
     }
     this.respawnAt = { ...level.spawn };
+    this.pickups = createPickups(level.pickups);
     this.player = new Player(level.spawn.x - PLAYER.width / 2, level.spawn.y);
     this.camera = new CameraController(level.width, level.height, level.spawn);
     this.spawnEnemies();
@@ -205,6 +214,8 @@ export class World {
     } else {
       this.updatePlayer();
       this.checkZones();
+      // Death and the exit are resolved first, so a heart inside a pit is not taken on the way down.
+      if (!this.player.dead && this.status === 'playing') this.collectPickups();
     }
     this.updateEnemies();
     this.updateProjectiles();
@@ -270,8 +281,9 @@ export class World {
         }
         this.bossPoseSeen = e.pose;
       }
-      // Touching a live, visible enemy hurts; knockback away from its centre.
-      if (e.hittable && !this.player.dead && overlaps(this.player.body, e.body)) {
+      // Touching an enemy that attacks on contact hurts; knockback away from its centre.
+      // `hittable` is "a shot can land". The Sigbin is hittable while recovering and does not touch-damage then.
+      if (e.harmsOnContact && !this.player.dead && overlaps(this.player.body, e.body)) {
         this.damage(ENEMY.contactDamage, this.player.body.centerX < e.body.centerX ? -1 : 1);
       }
     }
@@ -378,6 +390,17 @@ export class World {
     }
   }
 
+  /** Overlap with the player body. Each pickup applies its kind once; a miss or a refusal leaves it. */
+  private collectPickups(): void {
+    const collector = { health: this.health };
+    const body = this.player.body;
+    for (const p of this.pickups) {
+      if (!p.tryCollect(body, collector)) continue;
+      const at = center(p.box);
+      this.events.emit('pickup', { id: p.id, kind: p.kind, x: at.x, y: at.y });
+    }
+  }
+
   /** Damage from a hazard or enemy; `dir` is the knockback direction. Respects i-frames and the dash. */
   damage(amount: number, dir: 1 | -1): boolean {
     if (this.player.dead || this.player.invulnerable) return false;
@@ -448,6 +471,7 @@ export class World {
         facing: this.player.facing,
         pose: this.player.pose,
         hp: this.health.hp,
+        maxHp: this.health.max,
         shooting: this.player.shooting,
         invulnerable: this.health.invulnerable || this.player.invulnerable,
         charge: this.player.charge,
@@ -456,6 +480,7 @@ export class World {
       enemies: this.enemies.map((e) => e.snapshot()),
       boss: this.bossSnapshot(),
       movingSolids: this.movers.map((m) => ({ id: m.solid.id, x: m.solid.x, y: m.solid.y, w: m.solid.w, h: m.solid.h, prop: m.spec.prop })),
+      pickups: this.pickups.filter((p) => !p.collected).map((p) => p.snapshot()),
       camera: this.camera.snapshot(),
     };
   }

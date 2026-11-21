@@ -3,6 +3,17 @@ import type { TestHooks } from '../../src/app/app';
 
 const hooks = (page: Page) => page.evaluate(() => JSON.parse(JSON.stringify(window.__batoman)) as TestHooks);
 const ready = (page: Page) => page.waitForFunction(() => window.__batoman?.ready === true && window.__batoman.frames > 10);
+/** Computed animation of a freshly gained heart. Reduce-motion sets it to `none`. */
+const heartWobble = (page: Page) =>
+  page.evaluate(() => {
+    const el = document.createElement('span');
+    el.className = 'hud-heart hud-heart-gained';
+    document.body.append(el);
+    const name = getComputedStyle(el).animationName;
+    el.remove();
+    return name;
+  });
+
 const saveOptions = (page: Page) =>
   page.evaluate(() => {
     const raw = localStorage.getItem('batoman.v2.save');
@@ -17,6 +28,7 @@ test.describe('accessibility', () => {
     const on = await hooks(page);
     expect(on.reduceMotion).toBe(true);
     expect(on.grain).toBe(false);
+    expect(await heartWobble(page)).toBe('none');
     expect(on.errors).toEqual([]);
     await expect(page.locator('#overlay')).toHaveAttribute('data-reduce-motion', 'on');
     await expect(page.locator('.shell-hint')).toContainText('R motion on');
@@ -27,6 +39,7 @@ test.describe('accessibility', () => {
     const off = await hooks(page);
     expect(off.reduceMotion).toBe(false);
     expect(off.grain).toBe(true);
+    expect(await heartWobble(page)).toBe('hud-heart-wobble');
     expect((await saveOptions(page))?.reduceMotion).toBe(false);
     await expect(page.locator('.shell-hint')).toContainText('R motion off');
 
