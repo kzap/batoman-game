@@ -175,25 +175,21 @@ describe('Sigbin', () => {
     run(w, Math.floor(SIGBIN.telegraphTicks[0]! / 2));
     expect(s.state).toBe('telegraph');
     expect(s.alpha).toBeGreaterThan(alpha0);
-    const x0 = s.body.centerX;
+    const xMid = s.body.centerX;
     const toLunge = until(w, () => s.state === 'lunge');
     expect(toLunge).toBe(SIGBIN.telegraphTicks[0]! - Math.floor(SIGBIN.telegraphTicks[0]! / 2) + 1);
     expect(s.pose).toBe('rush');
     expect(s.alpha).toBe(1);
     expect(s.hittable).toBe(true);
-    // The strike is solid but not punishable by shots. Contact during the lunge is the attack.
+    // The second half of the tell is an approach, not a stand.
+    expect(s.body.centerX).toBeLessThan(xMid - 10);
+    const xLunge = s.body.centerX;
+    // The strike is not punishable by shots.
     expect(s.hit(1, 1, true)).toBe(0);
     expect(s.health.hp).toBe(SIGBIN.hp);
-    expect(s.harmsOnContact).toBe(true);
-    w.health.invuln = 0;
-    const beforeTouch = w.health.hp;
-    w.player.body.place(s.body.centerX - PLAYER.width / 2, s.body.y);
-    w.step();
-    expect(w.health.hp).toBe(beforeTouch - 1);
-    // That step was the first tick of the lunge, so one fewer remains before recovery.
     const toRecover = until(w, () => s.state === 'recover');
-    expect(toRecover).toBe(SIGBIN.lungeTicks);
-    const travelled = Math.abs(s.body.centerX - x0);
+    expect(toRecover).toBe(SIGBIN.lungeTicks + 1);
+    const travelled = Math.abs(s.body.centerX - xLunge);
     expect(travelled).toBeGreaterThan(SIGBIN.lungeSpeed * (SIGBIN.lungeTicks - 1) * (1 / 120) - 2);
     expect(travelled).toBeLessThan(SIGBIN.lungeSpeed * SIGBIN.lungeTicks * (1 / 120) + 2);
     expect(s.exposed).toBe(true);
@@ -212,34 +208,53 @@ describe('Sigbin', () => {
     expect(w.snapshot().boss!.exposed).toBe(true);
   });
 
-  it('takes damage only on the settled weak point, and a standing shot misses while the core is still on the spine', () => {
+  it('a player standing in the pocket is hit by the lunge, and leaving during the tell is not', () => {
+    const fight = (dodge: 'still' | 'jump' | 'dash'): number => {
+      const { w, s } = sigbinWorld();
+      // Boss centre is 1500. Stand so that centre is the pocket on the boss's side.
+      w.player.body.place(1500 - SIGBIN.rearOffset - PLAYER.width / 2, 64);
+      w.step();
+      expect(s.state).toBe('cloak');
+      until(w, () => s.state === 'telegraph');
+      let opened = false;
+      for (let i = 0; i < 500 && s.state !== 'recover'; i++) {
+        if (dodge === 'still' || opened) w.step(dodge === 'still' ? NO_INPUT : { ...NO_INPUT, left: true });
+        else if (dodge === 'dash') w.step({ ...NO_INPUT, left: true, dash: true });
+        else w.step({ ...NO_INPUT, left: true, jump: true });
+        opened = true;
+      }
+      expect(s.state).toBe('recover');
+      return w.health.hp;
+    };
+    expect(fight('still')).toBe(PLAYER.maxHp - 1);
+    expect(fight('dash')).toBe(PLAYER.maxHp);
+    expect(fight('jump')).toBe(PLAYER.maxHp);
+  });
+
+  it('only a shot through the chest deals damage during recovery, and that hit is doubled', () => {
     const { w, s } = sigbinWorld();
     engage(w);
     until(w, () => s.state === 'recover');
-    // A body hit during the window is nothing. Only the core counts, and only while it is open.
-    expect(s.hit(1, 1, false)).toBe(0);
-    expect(s.health.hp).toBe(SIGBIN.hp);
-    const muzzleTop = s.body.y + PROJECTILE.muzzleY + PROJECTILE.height / 2;
-    const muzzleBot = s.body.y + PROJECTILE.muzzleY - PROJECTILE.height / 2;
-    expect(s.weakPointRect().y).toBeGreaterThan(muzzleTop);
-    // Standing plasma, just clear of the body. It is inside the wide torso while the core is still dropping.
-    w.player.facing = 1;
-    w.player.body.place(s.body.x - 80, s.body.y);
-    w.step({ ...NO_INPUT, fire: true });
-    expect(s.health.hp).toBe(SIGBIN.hp);
-    let connectedAt = -1;
-    for (let i = 0; i < 80 && s.health.hp === SIGBIN.hp; i++) {
-      w.step();
-      if (s.health.hp < SIGBIN.hp) connectedAt = i;
-    }
-    expect(connectedAt).toBeGreaterThan(10);
-    const core = s.weakPointRect();
-    expect(core.y).toBeLessThan(muzzleTop);
-    expect(core.y + core.h).toBeGreaterThan(muzzleBot);
-    expect(s.health.hp).toBe(SIGBIN.hp - PROJECTILE.damage * SIGBIN.weakPointMultiplier);
-    // Once it has rested, the rect is the standing shot line.
     run(w, SIGBIN.coreSettleTicks);
-    expect(s.weakPointRect().y).toBe(s.body.y + SIGBIN.weakPoint.y);
+    const core = s.weakPointRect();
+    expect(core.w).toBe(SIGBIN.weakPoint.w);
+    expect(core.w).toBeLessThan(s.body.w);
+    expect(core.x).toBe(s.body.x + (s.body.w - core.w) / 2);
+    expect(core.y).toBe(s.body.y + SIGBIN.weakPoint.y);
+    // A body flag that misses the chest rect deals nothing.
+    expect(s.hit(1, 1, false)).toBe(0);
+    // Plasma through the left flank: the box stays left of the chest for this tick.
+    const flankCenter = core.x - PROJECTILE.width - 12;
+    w.player.facing = 1;
+    w.player.body.place(flankCenter - PLAYER.width - PROJECTILE.width / 2, s.body.y);
+    w.step({ ...NO_INPUT, fire: true });
+    const shot = w.snapshot().projectiles.find((p) => p.kind === 'plasma');
+    expect(shot).toBeDefined();
+    expect(shot!.x + PROJECTILE.width / 2).toBeLessThanOrEqual(core.x);
+    expect(s.health.hp).toBe(SIGBIN.hp);
+    // Let that same shot reach the chest.
+    for (let i = 0; i < 30 && s.health.hp === SIGBIN.hp; i++) w.step();
+    expect(s.health.hp).toBe(SIGBIN.hp - PROJECTILE.damage * SIGBIN.weakPointMultiplier);
   });
 
   it('shifts phase at the hp thresholds, is invulnerable during the shift, and telegraphs faster in the next phase', () => {

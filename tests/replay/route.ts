@@ -322,14 +322,15 @@ export function bossFight(): Step {
 
 /**
  * The Level 3 boss. The bot holds a spot on the gallery, clear of the spikes,
- * facing away so the lunge comes from the boss's side and stops short. When
- * the core has dropped into the standing shot line it steps in, lands three
- * plasma hits (6 damage, one phase) and returns to that spot.
+ * facing away. During the tell it steps off so the lunge falls short, then comes
+ * back once the core has dropped and lands three plasma hits (6 damage, one
+ * phase).
  */
 export function sigbinFight(): Step {
   let sinceTap = TAP_EVERY;
   let shotsThisWindow = 0;
   let wasExposed = false;
+  let dashedThisLunge = false;
   // Body left edge. Right of the gallery spikes (2880..2944), left of the boss.
   const home = 3060;
   const minX = 3000;
@@ -363,6 +364,16 @@ export function sigbinFight(): Step {
         return faceToward(c, bossMid);
       }
       wasExposed = false;
+      if (body.pose !== 'rush') dashedThisLunge = false;
+      // Stand for the tell. Dash away on the lunge: a still player is caught, a dash is not.
+      if (body.pose === 'rush') {
+        if (!dashedThisLunge && c.grounded) {
+          dashedThisLunge = true;
+          return { left: true, dash: true };
+        }
+        if (c.x > minX) return { left: true };
+        return {};
+      }
       return hold(home) ?? faceToward(c, c.x - 20);
     },
     done: (c) => c.snap.boss === null || c.snap.boss.hp <= 0,
