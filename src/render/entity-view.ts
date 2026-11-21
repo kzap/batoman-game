@@ -139,6 +139,8 @@ export class EntityView {
   /** Last cue `presentCore` applied. Null when the core is hidden. The hook reads this, not a hardcoded flag. */
   private weakPointCueState: WeakPointCue | null = null;
   private reduceMotion = false;
+  /** Faded stomp frame left where Tikbalang-X warped from. Not a collider. */
+  private ghost: { quad: SpriteQuad; material: MeshBasicMaterial } | null = null;
   /** Placeholder prints for the Sigbin's backward trail. One material each so they can fade independently. */
   private readonly prints: { mesh: Mesh; material: MeshBasicMaterial }[] = [];
   private readonly movers = new Map<number, MoverView>();
@@ -255,6 +257,7 @@ export class EntityView {
     this.presentPlayer(prev.player, cur.player, cur.tick, alpha);
     this.syncEnemies(prev.enemies, cur.enemies, cur.tick, alpha);
     this.presentCore(prev.boss, cur.boss, cur.tick, alpha);
+    this.presentGhost(cur.boss);
     this.presentBossMarks(cur.boss);
     this.presentPrints(cur.boss);
     this.syncProjectiles(prev.projectiles, cur.projectiles, cur.tick, alpha);
@@ -374,6 +377,29 @@ export class EntityView {
     this.core.position.set(toUnits(x), toUnits(y), CORE_Z);
     const s = (toUnits(r.h) / 2) * PRESENTATION.weakPoint.scale;
     this.core.scale.set(s, s, 1);
+  }
+
+  /** The warp decoy. A frame of the horse sheet, not a second body. */
+  private presentGhost(boss: BossSnapshot | null): void {
+    const g = boss?.afterimage;
+    if (!g) {
+      if (this.ghost) this.ghost.quad.mesh.visible = false;
+      return;
+    }
+    if (!this.ghost) {
+      const atlas = this.assets.enemies.get('tikbalang');
+      const frame = atlas?.json.animations.stomp?.frames.at(-1);
+      if (!atlas || !frame) return;
+      const material = atlasMaterial(atlas.texture);
+      material.opacity = g.alpha;
+      const quad = new SpriteQuad(atlas, material, frame);
+      this.group.add(quad.mesh);
+      this.ghost = { quad, material };
+    }
+    const look = ENEMY_LOOK['tikbalang-x'];
+    this.ghost.quad.mesh.visible = true;
+    this.ghost.material.opacity = g.alpha;
+    this.ghost.quad.place(g.x + g.w / 2, g.y, ENEMY_Z - 0.05, { scale: look.scale });
   }
 
   /** Wing shadow, perch cable, and the planted half. Boxes stand in for the sheet. */
@@ -555,6 +581,8 @@ export class EntityView {
     this.coreFillMaterial.dispose();
     this.coreRing.geometry.dispose();
     this.coreRingMaterial.dispose();
+    this.ghost?.quad.dispose();
+    this.ghost?.material.dispose();
     for (const p of this.prints) p.material.dispose();
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();

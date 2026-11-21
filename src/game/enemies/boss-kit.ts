@@ -80,6 +80,15 @@ export abstract class BossUnit extends Enemy {
   plantedRect(): Rect | null {
     return null;
   }
+
+  /**
+   * A decoy left behind a warp. It is not a body, so shots never land on it.
+   * Null when this boss is not showing one. Aswang, Sigbin, and Manananggal
+   * leave none, so their clears stay on the old pins.
+   */
+  afterimage(): (Rect & { readonly alpha: number }) | null {
+    return null;
+  }
 }
 
 /**

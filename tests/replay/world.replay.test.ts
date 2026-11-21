@@ -5,7 +5,7 @@ import { World } from '@game/world';
 import { NO_INPUT } from '@core/sim/input';
 import { decodeInputs } from '@core/sim/replay';
 import { CAMERA, PLAYER, SIGBIN } from '@game/tuning';
-import { clearRoute, lyingPathRoute } from './bots';
+import { clearRoute, lyingPathRoute, tikbalangPhaseRoute } from './bots';
 import { FIXTURE_DIR, loadLevel, record, replay, toFixture, type ReplayFixture } from './harness';
 
 /**
@@ -19,7 +19,7 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
   const level = loadLevel(id);
 
   it('is completable by the scripted route, taking no damage', () => {
-    const cap = id === 'level-4' ? 12000 : 6000;
+    const cap = id === 'level-4' ? 12000 : id === 'level-6' ? 9000 : 6000;
     const rec = record(level, 1, clearRoute(id), cap);
     expect(rec.final.status).toBe('complete');
     expect(rec.final.lives).toBe(3);
@@ -37,7 +37,7 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
   });
 
   it('is deterministic: two runs of the same inputs match snapshot for snapshot', () => {
-    const rec = record(level, 7, clearRoute(id), id === 'level-4' ? 12000 : 6000);
+    const rec = record(level, 7, clearRoute(id), id === 'level-4' ? 12000 : id === 'level-6' ? 9000 : 6000);
     const a = new World(level, 7);
     const b = new World(level, 7);
     for (const f of rec.frames) {
@@ -48,7 +48,7 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
   });
 
   it('records a fixture that round-trips through the RLE encoding', () => {
-    const rec = record(level, 1, clearRoute(id), id === 'level-4' ? 12000 : 6000);
+    const rec = record(level, 1, clearRoute(id), id === 'level-4' ? 12000 : id === 'level-6' ? 9000 : 6000);
     const fx = toFixture(id, 1, rec);
     expect(fx.inputs.reduce((n, [, c]) => n + c, 0)).toBe(rec.frames.length);
     expect(replay(fx).tick).toBe(rec.final.tick);
@@ -308,6 +308,62 @@ describe('level 6 lying path replay', () => {
     expect(rec.final.player.y).toBeLessThan(80);
   });
 });
+
+describe('level 6 tikbalang phases', () => {
+  it('reaches phase 3 while the boss is alive, then the death', () => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-6-tikbalang-phases.json'), 'utf8')) as ReplayFixture;
+    const world = new World(loadLevel(fixture.level), fixture.seed);
+    let sawPhase3 = false;
+    for (const frame of decodeInputs(fixture.inputs)) {
+      const snap = world.snapshot();
+      if (snap.boss && snap.boss.hp > 0 && snap.boss.phase >= 3) sawPhase3 = true;
+      world.step(frame);
+    }
+    const final = world.snapshot();
+    expect(sawPhase3).toBe(true);
+    expect(final.boss === null || final.boss.hp <= 0).toBe(true);
+    expect(final.tick).toBe(fixture.expect.ticks);
+    expect(final.player.hp).toBe(fixture.expect.hp);
+    const again = replay(fixture);
+    expect(again).toEqual(final);
+  });
+
+  it('the scripted fight is the same pin', () => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-6-tikbalang-phases.json'), 'utf8')) as ReplayFixture;
+    let sawPhase3 = false;
+    const rec = record(loadLevel('level-6'), 1, tikbalangPhaseRoute(), 12000, (snap) => {
+      if (snap.boss && snap.boss.hp > 0 && snap.boss.phase >= 3) sawPhase3 = true;
+      return (snap.boss?.hp ?? 1) <= 0
+        && !snap.enemies.some((e) => e.type === 'tikbalang' && e.hp > 0 && e.pose !== 'death')
+        && !snap.projectiles.some((p) => p.kind === 'enemy');
+    });
+    expect(sawPhase3).toBe(true);
+    expect(rec.final.tick).toBe(fixture.expect.ticks);
+    expect(toFixture('level-6', 1, rec).inputs).toEqual(fixture.inputs);
+  });
+});
+
+describe('level 6 fight keeps the player out of solids', () => {
+  it.each(['level-6-clear.json', 'level-6-tikbalang-phases.json'])('%s', (name) => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, name), 'utf8')) as ReplayFixture;
+    const world = new World(loadLevel(fixture.level), fixture.seed);
+    for (const frame of decodeInputs(fixture.inputs)) {
+      world.step(frame);
+      expect(world.collision.solidAt(world.player.body)).toBeNull();
+    }
+  });
+});
+
+describe('level 6 clear leaves the roof empty', () => {
+  it('pins every enemy dead at the exit', () => {
+    const fixture = JSON.parse(readFileSync(join(FIXTURE_DIR, 'level-6-clear.json'), 'utf8')) as ReplayFixture;
+    const final = replay(fixture);
+    expect(final.status).toBe('complete');
+    expect(final.enemies.filter((e) => e.hp > 0 && e.pose !== 'death')).toEqual([]);
+    expect(final.boss === null || final.boss.hp <= 0).toBe(true);
+  });
+});
+
 
 describe('level 1 HP Up replay', () => {
   it('jumps at the opening and finishes with the extra heart', () => {

@@ -41,7 +41,7 @@ export interface EnemyLook {
   readonly pivot: 'feet' | 'centre';
   /** Which way the sheet's frames face unflipped; the view mirrors them to match the sim's facing. */
   readonly faces: 'left' | 'right';
-  readonly clips: { readonly idle: string; readonly move: string; readonly shoot: string };
+  readonly clips: { readonly idle: string; readonly move: string; readonly shoot: string; readonly stomp?: string };
 }
 
 const PATROLLER_LOOK: EnemyLook = { atlas: 'patroller', scale: 1, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'move', shoot: 'shoot' } };
@@ -57,6 +57,7 @@ export const ENEMY_LOOK: Readonly<Record<EnemyType, EnemyLook>> = {
   manananggal: { ...PATROLLER_LOOK, scale: 1.8, tint: 0xff5a3c },
   drone: { atlas: 'drone', scale: 1, tint: 0xffffff, pivot: 'centre', faces: 'left', clips: { idle: 'hover', move: 'move', shoot: 'shoot' } },
   tikbalang: { atlas: 'tikbalang', scale: 1, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'run', shoot: 'stomp' } },
+  'tikbalang-x': { atlas: 'tikbalang', scale: 1.5, tint: 0xffffff, pivot: 'feet', faces: 'right', clips: { idle: 'idle', move: 'run', shoot: 'projectile', stomp: 'stomp' } },
 };
 
 /** Atlas names a level's enemies need; a boss also needs the drones it summons. */

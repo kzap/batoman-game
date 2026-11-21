@@ -109,6 +109,7 @@ describe('Sigbin view', () => {
       weakPoint: { x: 100, y: 90, w: SIGBIN.width, h: SIGBIN.weakPoint.h },
       exposed: true,
       tells: [],
+      afterimage: null,
     };
     const s = snap({ boss, enemies: [sigbinEnemy('stunned')] });
     v.present(s, s, 0);

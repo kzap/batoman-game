@@ -359,6 +359,71 @@ export const SIGBIN = {
 } as const;
 
 /**
+ * Level 6 boss, Tikbalang-X. Not the scout. It runs between two anchors, fires
+ * one straight shot, then warps: the afterimage stays and takes no damage, and
+ * the body can be hurt only during the stumble, on the core. The run still
+ * deals contact while the body is not shot-hittable. Same pattern each phase,
+ * faster. Ticks at 120 Hz.
+ */
+export const TIKBALANG_X = {
+  width: 96,
+  height: 66,
+  hp: 18,
+  label: 'TIKBALANG-X',
+  /**
+   * Dormant until the player is standing on the roof, within this range.
+   * The last roof runs from x 3648 to 4480.
+   */
+  engageRange: 720,
+  /** Feet-to-feet. The roof is the fight; the platform a storey below is not. */
+  sightHeight: 40,
+  /** Hp where phases 2 and 3 begin. One nova on the core (3 × 2) crosses each. */
+  phaseHp: [12, 6] as readonly number[],
+  phaseShiftTicks: 72,
+  /**
+   * Feet x of the left landing. The 96 px body then starts at the roof edge, x 3648.
+   */
+  leftFeet: 3696,
+  /**
+   * The exit rect is a solid door at this x while the boss is alive. The right
+   * landing is derived from it so the whole body sits left of the door.
+   */
+  doorX: 4416,
+  /** Gap between the body's right edge and the door. A run that lands inside the door is blocked and never crosses back. */
+  doorMargin: 16,
+  /** doorX − doorMargin − width/2. Body covers x 4304–4400, 16 px clear of the door. */
+  rightFeet: 4416 - 16 - 96 / 2,
+  /** A timed jump clears the 96 px body: the sweep crosses a standing player inside the jump's airborne window. */
+  runSpeed: [800, 880, 960] as readonly number[],
+  /**
+   * Face the next anchor before moving. Phase 3 is 24 ticks: a held jump
+   * clears the 66 px body at tick 21, so the run starts after the jump is up.
+   */
+  runWindupTicks: [28, 22, 24] as readonly number[],
+  shotWindupTicks: [36, 28, 22] as readonly number[],
+  /** Hold the firing pose after the shot leaves, so the muzzle flash reads. */
+  shotHoldTicks: 16,
+  shotSpeed: 320,
+  /**
+   * Shot centre above the feet. The enemy shot is 10 px tall, so the box is
+   * y+19..29. A 24 px crouch overlaps it by 5 px. Crouch is not a dodge.
+   */
+  muzzleY: 24,
+  /** The stomp before the warp. The body has not moved yet. */
+  warpWindupTicks: [48, 36, 28] as readonly number[],
+  /** Ticks the decoy stays up after the body has moved. */
+  warpTicks: 20,
+  /** Long enough to land, then put three shots into the core, after a jump that opened the window. */
+  exposedTicks: [220, 220, 220] as readonly number[],
+  /** Chest band a standing plasma (muzzle 30, 6 px tall) and a nova both cross. */
+  weakPoint: { y: 18, h: 24 },
+  weakPointMultiplier: 2,
+  afterimageAlpha: 0.45,
+  hurtTicks: 8,
+  deathTicks: 180,
+} as const;
+
+/**
  * Level 4 boss, Manananggal-7. One health bar, three phases. Phase 1 is the
  * whole body on the roof. Phase 2 plants the lower half on the balcony the
  * climb already passed (`perchDx`/`perchDy` from the spawn feet) and the flyer

@@ -70,9 +70,9 @@ export interface BossSnapshot {
   readonly phase: number;
   /** Weak point rect in level px. The colour-blind-safe diamond (PR #39) draws on this while `exposed`. */
   readonly weakPoint: Rect;
-  /** The punish window is open. ASWANG doubles core hits; the Sigbin takes damage only then. */
+  /** The punish window is open. ASWANG doubles core hits; Sigbin and Tikbalang-X take damage only then. */
   readonly exposed: boolean;
-  /** HUD name ("ASWANG PROTOTYPE", "SIGBIN UNIT", "MANANANGGAL-7"). */
+  /** HUD name ("ASWANG PROTOTYPE", "SIGBIN UNIT", "MANANANGGAL-7", "TIKBALANG-X"). */
   readonly label: string;
   /** Footprints and other non-body tells. Empty for a boss that leaves none. */
   readonly tells: readonly BossTell[];
@@ -82,6 +82,8 @@ export interface BossSnapshot {
   readonly shadow?: Rect | null;
   /** Mark on a perch the player will have to return to. Absent or null when the boss has none. */
   readonly perch?: Rect | null;
+  /** Decoy left by a warp. Not a body, so it never takes a hit. Null for bosses that leave none. */
+  readonly afterimage: (Rect & { readonly alpha: number }) | null;
 }
 
 export interface SolidSnapshot extends Rect {
@@ -151,6 +153,10 @@ export class World {
   private respawnAt = { x: 0, y: 0 };
   private respawnIn = 0;
   private checkpointId = -1;
+  /** The exit rect, solid while Tikbalang-X is alive so a knockback cannot shove the player off the roof. */
+  private exitDoor: Solid | null = null;
+  /** The roof Tikbalang-X stands on. A knockback is clamped at `x` only for a player already standing on it. */
+  private fightRoof: { x: number; right: number; top: number } | null = null;
 
   constructor(
     readonly level: LevelJson,
@@ -168,6 +174,7 @@ export class World {
     this.player = new Player(level.spawn.x - PLAYER.width / 2, level.spawn.y);
     this.camera = new CameraController(level.width, level.height, level.spawn);
     this.spawnEnemies();
+    this.syncExitDoor();
   }
 
   /** Enemies start fresh at level start and after every respawn. */
@@ -191,6 +198,43 @@ export class World {
   get exitOpen(): boolean {
     const boss = this.boss;
     return boss === null || boss.releasesExit;
+  }
+
+  /**
+   * Tikbalang-X's arena ends at the exit. While the boss is alive that rect is
+   * a solid door, so shot knockback stops on the roof. It is removed on death.
+   * Other bosses are unchanged: their clear fixtures do not grow a new wall.
+   */
+  private syncExitDoor(): void {
+    const seal = this.level.enemies.some((e) => e.type === 'tikbalang-x') && !this.exitOpen;
+    if (seal && !this.exitDoor) {
+      this.exitDoor = this.collision.addSolid(this.level.exit);
+      const spawn = this.level.enemies.find((e) => e.type === 'tikbalang-x');
+      const floor = spawn && this.level.solids.find((s) => s.y + s.h === spawn.y && spawn.x >= s.x && spawn.x < s.x + s.w);
+      this.fightRoof = floor ? { x: floor.x, right: floor.x + floor.w, top: floor.y + floor.h } : null;
+    } else if (!seal && this.exitDoor) {
+      this.collision.removeSolid(this.exitDoor);
+      this.exitDoor = null;
+      this.fightRoof = null;
+      this.player.knockbackMinX = null;
+    }
+  }
+
+  /**
+   * Left edge of the fight roof when the player is standing on it. A hit
+   * anywhere else must not arm the lip clamp.
+   */
+  private fightLip(): number | null {
+    const roof = this.fightRoof;
+    if (!roof) return null;
+    const b = this.player.body;
+    if (!this.player.grounded || b.y !== roof.top || b.x < roof.x || b.x >= roof.right) return null;
+    return roof.x;
+  }
+
+  /** Drop the lip clamp once the knockback slide has stopped. */
+  private releaseKnockbackLimit(): void {
+    if (this.player.knockbackMinX !== null && this.player.hurtStun <= 0 && this.player.vx >= 0) this.player.knockbackMinX = null;
   }
 
   private cameraTarget(): CameraTarget {
@@ -220,6 +264,7 @@ export class World {
     }
     this.updateEnemies();
     this.updateProjectiles();
+    this.syncExitDoor();
     this.camera.update(this.cameraTarget(), this.rng);
     this.events.emit('tick', { tick: this.tick });
   }
@@ -231,6 +276,7 @@ export class World {
     if (a.dashed) this.events.emit('dash', {});
     if (a.fired) this.fire('plasma');
     if (a.novaFired) this.fire('nova');
+    this.releaseKnockbackLimit();
   }
 
   private fire(kind: 'plasma' | 'nova'): void {
@@ -278,6 +324,7 @@ export class World {
       }
       // Contact is the boxes `harmsOnContact` selects. One body for everyone except a
       // split boss. The Sigbin is hittable while recovering and does not touch-damage then.
+      // Tikbalang-X's run is the reverse: contact while the body is not shot-hittable.
       if (!this.player.dead) {
         for (const box of e.contactBoxes()) {
           if (!overlaps(this.player.body, box)) continue;
@@ -410,7 +457,9 @@ export class World {
     if (this.player.dead || this.player.invulnerable) return false;
     if (!this.health.hit(amount)) return false;
     if (this.health.alive) {
+      const lip = this.fightLip();
       this.player.knockback(dir, this.collision);
+      if (lip !== null) this.player.knockbackMinX = lip;
       this.camera.shake(CAMERA.hurtShake.amplitude, CAMERA.hurtShake.ticks);
       this.events.emit('hurt', { hp: this.health.hp });
     } else {
@@ -461,6 +510,7 @@ export class World {
       planted: boss.plantedRect(),
       shadow: boss.shadowRect(),
       perch: boss.perchRect(),
+      afterimage: boss.afterimage(),
     };
   }
 

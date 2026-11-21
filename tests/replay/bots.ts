@@ -1,6 +1,6 @@
 import { NO_INPUT } from '@core/sim/input';
 import type { Policy } from './harness';
-import { bossFight, dashJump, descendTo, dropThrough, fight, jump, manananggal, ride, route, run, sigbinFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
+import { bossFight, dashJump, descendTo, dropThrough, fight, jump, manananggal, ride, route, run, sigbinFight, tikbalangBossFight, type Step, waitMover, waitMoverSettling, waitUntil, wallClimb } from './route';
 
 /**
  * Scripted routes used to record fixtures. They read the live world, so they
@@ -175,13 +175,50 @@ export const ROUTES: Readonly<Record<string, () => Step[]>> = {
     jump(1), // one-way step 2
     run(1, 3600),
     jump(1), // roof 6
-    run(1, 3700), // in the tikbalang's sight, short of its patrol and the spikes
-    fight(4480), // scout at 4100: shoot the burst, jump the stomp
+    tikbalangBossFight(),
     run(1, 3950),
     jump(1), // spikes at 4000
     run(1, 4480),
   ],
 };
+
+/**
+ * Same walk as the clear, then one shot-group per stumble. The boss lives
+ * through phase 3 and dies on the next window. The clear route taps extra
+ * plasma and skips that phase.
+ */
+export const tikbalangPhaseRoute = (): Policy =>
+  route([
+    run(1, 612),
+    jump(1),
+    run(1, 726),
+    jump(1),
+    run(1, 850),
+    fight(1200),
+    run(1, 1210),
+    dashJump(1),
+    run(1, 1650),
+    jump(1),
+    run(1, 2000),
+    waitMover(0, { y: 208 }),
+    run(1, 2080),
+    waitUntil('lift at the top', (c) => (c.snap.movingSolids[0]?.y ?? 0) >= 430),
+    fight(2400),
+    run(1, 2200),
+    run(1, 2350),
+    jump(1),
+    run(1, 2570),
+    jump(1),
+    run(1, 2790),
+    jump(1),
+    run(1, 3340),
+    jump(1),
+    run(1, 3470),
+    jump(1),
+    run(1, 3600),
+    jump(1),
+    tikbalangBossFight(true),
+  ]);
 
 /**
  * Trust the painted rope bridge. Same opening as the clear route through the

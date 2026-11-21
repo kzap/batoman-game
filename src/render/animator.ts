@@ -129,10 +129,11 @@ export function enemyClips(atlas: AtlasJson, look: EnemyLook): Record<EnemyPose,
     hurt: anim('hurt'),
     death: { ...anim('death'), loop: false },
     cloaked: still,
-    windup: slice('hurt', 0, 1, { loop: false }),
+    windup: look.clips.stomp ? { ...anim(look.clips.stomp), loop: false } : slice('hurt', 0, 1, { loop: false }),
     commit: anim(look.clips.shoot),
-    rush:
-      look.clips.shoot === 'stomp'
+    rush: look.clips.stomp
+      ? slice(look.clips.stomp, -1, undefined, { loop: false })
+      : look.clips.shoot === 'stomp'
         ? slice(look.clips.shoot, -1, undefined, { loop: false })
         : { ...move, fps: move.fps * RUSH_FPS_FACTOR },
     stunned: slice('hurt', 1, 2, { loop: false }),

@@ -18,7 +18,7 @@ today ships four level files. The finale is the fifth, not built yet. The plan f
 
 Andre's decision on [#51](https://github.com/kzap/batoman-game/issues/51): build Level 5 now, as part of finishing the levels. The caps are 900 KB code and 20 MB served ([#53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7056472819), #54 at `44c4288`). The plan is [docs/FINALE.md](docs/FINALE.md).
 
-Dress Level 3 (#14) and the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off) continue beside the finale. The scout AI is in (#26). The lying path is the rope bridge over the pit at x 1248: it reads as a floor and is not one. Still open beside that: the #11 coverage pins, a second mid layer, a Level 6 music track, and Tikbalang-X itself.
+Dress Level 3 (#14) and the Phase 8 remainder (#40 results card, the 60 fps mid-laptop sign-off) continue beside the finale. The scout AI is in (#26). The lying path is the rope bridge over the pit at x 1248: it reads as a floor and is not one. Tikbalang-X is the boss at 4300; the scout at 4100 stays. Still open beside that: a second mid layer and a Level 6 music track.
 
 ## Why a remake
 
@@ -247,10 +247,10 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
 - Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 10.93 MB / 20 MB at 188085ca914e34a66c7482b5f8496a0682336dae, 2026-11-20.
 
 The lying path is `bridge_rope` painted over the pit at x 1248–1376. Nothing solid is under it, so a
-walk onto the bridge dies. The clear route still dash-jumps to the next roof. Still open, and each
-needs code rather than more painting: the Tikbalang-X boss (the spawn at 4100 is the scout from #26,
-not that boss; #11 is the remaining coverage gate), a possible second mid layer for the upper roofs,
-and a music track of its own (the manifest still points Level 6 at `level-1`).
+walk onto the bridge dies. The clear route still dash-jumps to the next roof. Tikbalang-X is the boss
+at 4300; the scout stays at 4100. The clear kills both and pins every enemy dead. E2E requests
+`atlases/tikbalang`. Still open: a second mid layer and a Level 6 music track (the manifest still
+points Level 6 at `level-1`).
 
 Exit: Level 6 loads dressed, the existing clear fixture completes, and e2e asserts the atlas and both
 backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. That exit is met.

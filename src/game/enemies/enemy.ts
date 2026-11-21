@@ -122,6 +122,7 @@ export abstract class Enemy {
   /**
    * Touching this body hurts the player. Defaults to `hittable`. The Sigbin stays
    * shot-hittable through the punish window, but the lunge is its only contact attack.
+   * Tikbalang-X's run is the other way around: contact while it is not shot-hittable.
    */
   get harmsOnContact(): boolean {
     return this.hittable;
