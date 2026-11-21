@@ -6,17 +6,11 @@ Written for Andre. Measured on v2 commit `e9d3a81f453bc75a28806cc0684428ff25b6f4
 
 Keep the current caps: **12 MB served** and **900 KB code**. The single-image cap stays 1.5 MB and the single-audio cap stays 6 MB. [PR #54](https://github.com/kzap/batoman-game/pull/54) would raise served to 20 MB. That alternative is not adopted. [Andre's decision on #53](https://github.com/kzap/batoman-game/issues/53#issuecomment-7055947438) is to compress and reuse first, and to raise a cap only inside a PR that has actually gone over, with the new number and the measured bytes on a named commit.
 
-The compression step that fits the remaining levels is atlas WebP quality 90 (alpha quality 100, effort 6). On this build it removes **3,189,622 bytes** from the eight shipped atlases. Opaque-pixel color error (RMSE) is 2.4 to 5.4 levels out of 255. Alpha on the sheets that were checked stayed within 16 of the lossless mask.
+The compression step is atlas WebP quality 90. Sining (art and audio director) reviewed this plan and approved that setting. The encoder call is `.webp({ quality: 90, alphaQuality: 100, effort: 6 })`. On the sheets already shipping, that removes **3,189,622 bytes**. Her pass found the alpha bit-exact on every sheet. Do not go below quality 90.
 
-With that setting, the planning stack below is **11,869,887 bytes**, which is **713,025 bytes under 12 MB**:
+Her build of v2 plus [#45](https://github.com/kzap/batoman-game/pull/45) plus Manananggal-7, all at quality 90, is **10.01 MB**, **2.09 MB under 12** (2,090,000 bytes of headroom against the 12,582,912 byte ceiling, a total of 10,492,912 bytes). Manananggal at quality 90 is **544 KB** (1,005 KB lossless, RMSE 6.99). It is the weakest sheet and it is fine in play. It is not a Sigbin-sized file. The encoder change itself is a separate PR, `infra/atlas-q90`. This plan does not change `writeAtlas`.
 
-- Sigbin from [#45](https://github.com/kzap/batoman-game/pull/45), re-encoded at quality 90
-- Tikbalang-X on the sheet already shipped (`tikbalang.webp`, 447,618 bytes)
-- Manananggal-7 and Bakunawa each the size of that Sigbin sheet
-- A Level 5 finale the size of Level 6's backdrops (both formats, because `dist/` counts both) and Level 6's prop sheet
-- One new 60-second music cue at the current 80 kbps Opus setting
-
-A second new cue of that length ([#50](https://github.com/kzap/batoman-game/issues/50)'s tower music) or a three-minute finale cue uses up the rest. Those are the points where reuse, a shorter loop, or a lower bitrate comes before a raise. The code cap has 54,945 bytes free after #40. Keep 900 KB.
+From that 10.01 MB, a 90-second finale cue (about 952 KB at ~84 kbps VBR) leaves **1,137,954 bytes**. A new finale the size of Level 6 (both backdrop formats, plus the prop sheet at quality 90) leaves **126,814 bytes**. Bakunawa, still unpainted and counted at Sigbin's quality-90 size, needs 502,952 bytes more than that. L4 Tower Pulse (962 KB at 100 kbps, [#50](https://github.com/kzap/batoman-game/issues/50)) is the squeeze candidate when that room has to come from somewhere. The code cap has 54,945 bytes free after #40. Keep 900 KB.
 
 ```mermaid
 flowchart LR
@@ -122,12 +116,12 @@ No Level 5 art, no Manananggal sheet, and no Bakunawa sheet exist. Each row cite
 | Sigbin telegraph | 7,882 | `sigbin-telegraph.wav` is 0.80 s, mono, 48 kHz. Opus 80 kbps, the music pipeline's setting. The PR's "7.7 KB" matches. |
 | Level 3 props, #45 tileset | 406,372 lossless, 176,200 at q90 | Current shipped sheet is 509,300 (1024×1024, 23 frames). The #45 tileset repacks to 1024×512, 24 frames, including `footprint_back`. The canvas shrink is in that source, so the delta is real for #45 and is not a quality setting. |
 | Tikbalang-X | 0 | The boss is the shipped mechanical horse. `tikbalang.webp` is already 447,618 bytes (30 frames, 1024×1024). A tint, if the fight wants one, is the path `aswang` already uses on the patroller sheet. |
-| Manananggal-7 | 885,342 lossless, or 625,920 at q90 | No sheet. Sigbin is the half-screen boss baseline (19 frames, one body). High case 1.5× (1,328,013 lossless, 938,880 at q90) if whole, upper, and lower bodies do not share frames. `docs/ART.md`'s old 64×128 cell is retired for bosses by the half-screen rule. |
-| Bakunawa | same sigbin-class number | No sheet. Planning uses one Sigbin-class atlas. Low case is the tikbalang sheet (447,618 lossless, 222,562 at q90) if the body is the tiled 96×96 segment `docs/ART.md` describes. High case is the same 1.5× as Manananggal. |
+| Manananggal-7 | 1,005,000 lossless, 544,000 at q90 | Art director's review. 1,005 KB lossless, 544 KB at quality 90, RMSE 6.99. Weakest sheet, fine in play. Larger than Sigbin when lossless (885,342), smaller once encoded at quality 90 (Sigbin q90 is 625,920). Kilobytes here are decimal, the same reading as her "~635 KB" for the 634,697-byte one-minute loop. |
+| Bakunawa | 625,920 at q90 until a sheet exists | Still unpainted. Planning keeps Sigbin's quality-90 size (625,920 + 3,846 JSON). Her Manananggal result is the evidence a multi-form sheet can land nearer 544 KB. Low case remains the tikbalang sheet (222,562 at q90) if the body is the tiled 96×96 segment in `docs/ART.md`. |
 | Finale backdrops | 800,896 | No `art-source` finale folder. Level 6's pair, both formats, because the cap counts both: sky WebP 103,304 + KTX2 114,477, garden WebP 386,766 + KTX2 196,168, meta 181. Level 4's pair is 740,191 and Level 1's is 519,817. The story can reuse plates ("the rubble carries each place's light"); that case is 0 for backdrops, or one arena pair instead of a whole level. |
 | Finale props | 655,532 lossless, or 210,244 at q90 | One new catalogue the size of `level-6-props` (650,920 + JSON 4,612). At quality 90 that sheet measures 205,632. |
-| Finale music | 634,697 for 60 s, or 2,008,819 for 191 s | `level-2.ogg` is 60.02 s at 80 kbps Opus. `level-1.ogg` is 191.11 s at the same setting. [#51](https://github.com/kzap/batoman-game/issues/51) needs a new cue. The planning row is the one-minute loop. |
-| Tower music (#50) | another 634,697 if it is also a 60 s cue | Not part of the finale. It spends the same cap. Shown separately so a second cue is visible. |
+| Finale music | 952,046 for 90 s | Art director's cue: a 90-second loop, about 952 KB at ~84 kbps VBR. A 60-second loop is the shipped Level 2 size, 634,697 bytes (~635 KB). 952,046 is 90/60 of that file. Level 1 (191.11 s, 2,008,819) stays the long case. [#51](https://github.com/kzap/batoman-game/issues/51). |
+| Tower music (#50) | 962,000 | Art director's L4 Tower Pulse: 962 KB at 100 kbps. Not in the finale stack. This is the track to shorten or bring down from 100 kbps if Bakunawa and the finale need the last 127 KB. |
 | Boss code | a few KB each | #40 measured +6,058 bytes. #41's +5.4 KB forecast on #53 was not rebuilt here: `art/sigbin-boss` does not merge cleanly onto this tip. Three later fights at that size are about 18 KB. |
 
 #45's branch also carries the Sigbin fight. Its served total of 11.72 MB and code of 899.8 KB were measured before the #46 diet and before #40. They are not the numbers for this tip.
@@ -151,9 +145,16 @@ No Level 5 art, no Manananggal sheet, and no Bakunawa sheet exist. Each row cite
 | **Shipped total** | **4,841,994** | **1,652,372** | | **1,257,060** | |
 | sigbin (incoming) | 885,342 | 625,920 | 3.98 | 531,184 | 6.04 |
 
-Quality 90 saves **3,189,622 bytes** on the sheets already shipping. Quality 80 saves another 395,312 and the error climbs to 4.4–7.2. Sigbin from quality 70 to quality 60 only drops 16,776 bytes (487,004 to 470,228). Near-lossless at 80 was larger than quality 90 (sigbin 758,316, tikbalang 363,474).
+Quality 90 saves **3,189,622 bytes** on the sheets already shipping. Quality 80 saves another 395,312 and the error climbs to 4.4–7.2. Sigbin from quality 70 to quality 60 only drops 16,776 bytes (487,004 to 470,228). Near-lossless at 80 was larger than quality 90 (sigbin 758,316, tikbalang 363,474). Those lower settings stay in the table as measurements. The art director's floor is quality 90. Do not ship below it.
 
-On sigbin, tikbalang, batoman, level-4-props, and the #45 chapel props, a lossy re-encode at alpha quality 100 had zero pixels whose alpha moved by more than 16, and zero new fringe pixels above alpha 8, from quality 90 down through 60. The edge shape holds. The color does move, by the RMSE above. Batoman, the inkiest sheet, has the highest error. A painterly prop sheet hides it better than a hard outline. The art change that flips `writeAtlas` should look at Batoman and Sigbin at game scale before it lands. This plan does not change the encoder.
+Her review of the same encoder call, `.webp({ quality: 90, alphaQuality: 100, effort: 6 })`:
+
+- Alpha is bit-exact on every sheet. This plan's earlier check (no pixel moved by more than 16, on sigbin, tikbalang, batoman, level-4-props, and the #45 chapel props) was the weaker test. Her pass is the one to use.
+- Do not turn on `sharp_yuv` for the whole pipeline. Batoman's max error goes from 71 to 126, and the drone RMSE gets worse.
+- `smartSubsample` is optional on the Manananggal sheet only. It costs about 16 KB on that file. Leave it off everywhere else.
+- `-exact` is not needed. `tools/pack/atlas.ts` already extrudes each frame by 1 pixel.
+
+Color still moves by the RMSE above. Manananggal is the weakest of the set at RMSE 6.99, and she judged it fine in play. Batoman, at 5.40 on this plan's re-encode, is the inkiest sheet already shipping. The implementation PR (`infra/atlas-q90`) is where `writeAtlas` changes. This document does not change it.
 
 **Audio, second, and only for a new cue that is already long.** The pipeline is Opus in Ogg at 80 kbps (`tools/pack/audio.ts`). A re-encode of the same masters matches the shipped files (level-1 2,008,824 against 2,008,819, level-2 634,705 against 634,697).
 
@@ -171,7 +172,7 @@ On sigbin, tikbalang, batoman, level-4-props, and the #45 chapel props, a lossy 
 
 Mono at a fixed bitrate saves almost nothing, because the bitrate is the total. It drops the stereo image and spends the same bits on one channel. Duration and bitrate are the levers. 80 kbps is the setting the pack comment calls no audible loss for this music. 64 kbps is a mild dulling. 48 kbps thins cymbals and noise and is a real cut on a three-minute piece. 32 kbps is for a short sting, not a level. MP3 at 128 kbps is larger than Opus at 80. Vorbis at 80 kbps was smaller (1,797,948 on the long track) and is not a reason to leave the codec the game already plays. Gzip does not shrink the Ogg files.
 
-Keep the two shipped tracks at 80 kbps. Author the finale cue as a one-minute loop unless the scene needs the long form. Drop a long new cue to 64 kbps before touching the shipped tracks.
+Keep the two shipped tracks at 80 kbps. The finale cue is a 90-second loop at about 84 kbps VBR, ~952 KB, which is 90/60 of the 634,697-byte Level 2 file. L4 Tower Pulse is the separate cue at 962 KB and 100 kbps. That higher bitrate is what comes down first if the cap gets tight. Do not cut the shipped tracks to make room for it.
 
 **KTX2 settings do not create this room.** Production is ETC1S quality 192, effort 1, no mipmaps, BasisLZ (`tools/pack/ktx2.ts`). Re-encoded from the same RGBA the packer feeds `level-4/street` (2816×1536, with alpha) and `level-1/sky` (1008×528, opaque):
 
@@ -194,7 +195,7 @@ Street's WebP is already lossy (170,094 bytes at quality 90). Re-encoding it at 
 
 Tikbalang-X adds no texture. The sheet is in the tree.
 
-The finale's rhyme with the docks, the chapel, the tower, and the garden can reuse those plates. Budgeting a full new Level 6 pair (800,896 bytes, both formats) is the case where the art is all new. Reusing the plates, and painting one arena pair only if the Pasig arena needs it, is the reuse step. It is worth about 0.8 MB, which is the difference between a one-minute cue fitting comfortably and a three-minute cue fitting at all.
+The finale's rhyme with the docks, the chapel, the tower, and the garden can reuse those plates. Budgeting a full new Level 6 pair (800,896 bytes, both formats) is the case where the art is all new. Reusing the plates, and painting one arena pair only if the Pasig arena needs it, gives back that 800,896. That is more than the 502,952 bytes a Sigbin-sized Bakunawa needs after the 90-second cue and a full new finale are in (see the projection).
 
 Level 3's backdrops and props are already packed. #45 should wire them, not pack a second set. The footprint decal lands on that sheet (the repack measured above).
 
@@ -212,36 +213,33 @@ Lazy loading does not shrink the cap. Levels are already fetched one at a time. 
 
 ## Projected totals
 
-Planning assumptions, stated above: two new bosses at the measured Sigbin size, Tikbalang-X at 0, a finale the size of Level 6, a 60-second cue, and #45's prop-sheet delta. JSON for a new boss sheet is counted as Sigbin's 3,846 bytes.
+Planning assumptions, stated above. Manananggal's sizes and the 10.01 MB subtotal are the art director's review numbers. Bakunawa is still Sigbin's quality-90 size until a sheet exists. The finale cue is 90 seconds. JSON for an unpainted boss sheet is counted as Sigbin's 3,846 bytes. Her 544 KB and 1,005 KB are decimal kilobytes (544,000 and 1,005,000), matching the way 634,697 bytes is "~635 KB".
 
-**Stay lossless.** Sigbin still fits. The next sheet does not.
+**Stay lossless.** Sigbin still fits. Manananggal's lossless sheet, at 1,005 KB, does not.
 
 | Step | Served bytes | Against 12,582,912 |
 |---|---:|---|
 | This build | 11,470,826 | under by 1,112,086 |
 | + #45 (Sigbin 885,342 + JSON 3,846 + cue 7,882 − 102,928 props) | 12,264,968 | under by 317,944 |
-| + Manananggal, sigbin-sized | 13,154,156 | over by 571,244 |
-| + Bakunawa, sigbin-sized | 14,043,344 | over by 1,460,432 |
-| + finale backdrops and props | 15,499,772 | over by 2,916,860 |
-| + 60 s finale cue | 16,134,469 | over by 3,551,557 (15.39 MB) |
-| Same stack, 191 s cue instead | 17,508,591 | over by 4,925,679 (16.70 MB) |
+| + Manananggal lossless 1,005,000 + JSON 3,846 | 13,273,814 | over by 690,902 |
+| + Bakunawa, sigbin-sized | 14,163,002 | over by 1,580,090 |
+| + finale backdrops and props | 15,619,430 | over by 3,036,518 |
+| + 90 s finale cue (952,046) | 16,571,476 | over by 3,988,564 (15.80 MB) |
+| Same stack, 191 s cue instead | 17,628,249 | over by 5,045,337 (16.81 MB) |
 
-**Quality 90 on every atlas, including the new ones.** This is the path that stays under 12 MB.
+**Quality 90, using her measured stack through Manananggal.** She put v2, #45, and Manananggal, all at quality 90, at 10.01 MB. Read as bytes: 2,090,000 under the 12,582,912 ceiling is a total of 10,492,912, which displays as 10.01 MB, and 2,090,000 is 2.09 MB in decimal. The rows under that are this plan's additions.
 
-| Piece | Bytes |
-|---|---:|
-| This build after the 3,189,622 byte atlas save | 8,281,204 |
-| Sigbin q90 + JSON + telegraph | 637,648 |
-| Level 3 props, q90 delta against today's q90 sheet | 45,666 |
-| Manananggal q90 + JSON | 629,766 |
-| Bakunawa q90 + JSON | 629,766 |
-| Finale backdrops, Level 6 both formats | 800,896 |
-| Finale props at the level-6 q90 size, plus JSON | 210,244 |
-| Finale music, 60 s at 80 kbps | 634,697 |
-| **Total** | **11,869,887** |
-| Headroom under 12 MB | **713,025** |
+| Piece | Bytes | Running total | Headroom |
+|---|---:|---:|---:|
+| v2 + #45 + Manananggal, all q90 (art director) | 10,492,912 | 10,492,912 | 2,090,000 |
+| Finale music, 90 s at ~84 kbps (952,046) | 952,046 | 11,444,958 | 1,137,954 |
+| Finale backdrops, Level 6 both formats | 800,896 | 12,245,854 | 337,058 |
+| Finale props at the level-6 q90 size, plus JSON | 210,244 | 12,456,098 | 126,814 |
+| Bakunawa at Sigbin q90 + JSON | 629,766 | 13,085,864 | over by 502,952 |
 
-Add a 1.5× Manananggal (the three body forms) and headroom falls to 400,065. Add a second 60-second cue for the tower and the total is 12,504,584, under by 78,328. That is inside the noise of a real encode. Treat a second full-length cue, or a 191-second finale cue (total 13,244,009, over by 661,097), as the moment to reuse backdrop plates or shorten the loop. A 191-second cue at 48 kbps is 1,196,559 instead of 2,008,819 and would scrape under. That is a worse trade than a one-minute loop at 80 kbps.
+After the 90-second cue and a full new finale, **126,814 bytes** remain. That is the headroom. Bakunawa at Sigbin's quality-90 size spends it and another 502,952. A Manananggal-sized Bakunawa (544,000) is still 417,186 over those 126,814. Reusing the finale plates instead of shipping a new 800,896-byte pair covers the Sigbin-sized Bakunawa and leaves 297,944 bytes (800,896 − 502,952).
+
+L4 Tower Pulse is not in the table. At 962 KB (962,000 bytes) and 100 kbps it is larger than the 126,814 bytes left, and larger than the 502,952-byte gap. It is the cue to shorten or encode closer to the finale's ~84 kbps if both Bakunawa and the tower sting have to land without a cap change. `smartSubsample` on Manananggal only moves her sheet by about 16 KB and does not change which row crosses the line.
 
 Code stays a separate column. 866,655 plus #41's forecast 5.4 KB plus about 18 KB for three later fights is still under 921,600, with roughly 30 KB left. A fight that imports a new runtime is the change that would spend it.
 
@@ -251,15 +249,15 @@ They do not bind for this content. The served total does.
 
 | Cap | Ceiling | Largest thing in the plan | Room |
 |---|---:|---:|---:|
-| Single image | 1,572,864 | Sigbin lossless 885,342. A 1.5× sheet is 1,328,013. | A sheet at 2× Sigbin (1,770,684) would fail this cap on its own. |
-| Single audio | 6,291,456 | Level 1 at 80 kbps, 2,008,819. | A new track has to run about three times that length, near 9.5 minutes, to hit 6 MB. |
+| Single image | 1,572,864 | Manananggal lossless, her 1,005 KB (1,005,000). Sigbin lossless is 885,342. | Both clear 1.5 MB. A sheet at 2× Sigbin (1,770,684) would fail this cap on its own. |
+| Single audio | 6,291,456 | Level 1 at 80 kbps, 2,008,819. The 90 s finale cue is ~952 KB. Tower Pulse is 962 KB. | A new track has to run about three times Level 1, near 9.5 minutes, to hit 6 MB. |
 | Code | 921,600 | 866,655 today | 54,945, and the fights above fit in it. |
 
 ## When a later build would need a raise
 
 Not this plan, and not up front. #54's 20 MB would cover the lossless stack (15.39 MB, or 16.70 MB with a long cue) with megabytes to spare. The decision is to compress first so that raise is unnecessary.
 
-If a PR keeps lossless atlases and adds the next sigbin-sized sheet, the build above measures about **13.15 MB**. Propose **14 MB** in that PR. If one PR lands the whole uncompressed finale, propose **16 MB** for the one-minute cue (measured about 15.39 MB) or **18 MB** for the three-minute cue (measured about 16.70 MB). Use the `npm run budget` line from that commit if it disagrees with this table. The estimates move if a sheet is larger than Sigbin or a cue is longer than Level 1.
+Quality 90 through Manananggal stays under the cap by her 2.09 MB. The quality-90 stack that also carries a Level 6-sized finale, the 90-second cue, and a Sigbin-sized Bakunawa is **13,085,864 bytes (12.48 MB)**, over by 502,952. The PR that actually contains that build proposes **13 MB** if `npm run budget` matches this table, or **14 MB** if the measured line is higher. Reusing finale plates, or bringing Tower Pulse down from 100 kbps, is how that PR stays at 12 instead. If one PR lands the whole uncompressed finale with the 90-second cue, the table above is **15.80 MB**; propose **16 MB**. The 191-second cue on that same lossless stack is **16.81 MB**; propose **18 MB**. Use the `npm run budget` line from that commit if it disagrees with this table.
 
 ## How to raise a cap
 
