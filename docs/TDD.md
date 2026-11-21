@@ -693,7 +693,10 @@ MSAA back on, and the backdrop work is not what it is waiting on. A mid-laptop 6
 this environment has no discrete or integrated GPU to sample.
 
 CI (`.github/workflows/ci.yml`): lint, unit, replay, build (typecheck + assets + validate + budget), then e2e on the
-uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally.
+uploaded `dist/` artefact. E2E does not rebuild; run `npm run build` before `npm run test:e2e` locally. On a pull
+request, `changes` skips those jobs and the Playwright perf job when every path is documentation (`*.md`, `docs/`, `.claude/`, or the PR template).
+A push to `v2` or `main`, and `workflow_dispatch`, run every job. Require `ci-gate`: it passes when each needed job
+succeeded or was skipped, and fails when one failed or was cancelled.
 
 ## 11. Level editor `[implemented: Phase 5]`
 
