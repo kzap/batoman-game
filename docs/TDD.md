@@ -526,7 +526,7 @@ and re-plans; a `RecipeError` returns 400 and leaves the file untouched.
 
 `buildAtlas` (`atlas.ts`) crops each frame using the label map (so touching neighbours are excluded),
 scales, extrudes edges by 1 px with a 1 px gutter, and packs with a skyline packer into the smallest
-power-of-two texture up to `ATLAS_MAX_SIZE` (4096). Output is lossless WebP plus JSON in the `AtlasJson`
+power-of-two texture up to `ATLAS_MAX_SIZE` (4096). Output is WebP at quality 90 (`alphaQuality` 100, effort 6) plus JSON in the `AtlasJson`
 shape (`src/content/atlas.ts`, shared with the renderer): frame rects, per-frame pivots in atlas pixels,
 and animations `{ fps, loop, frames }`. Frame names are `<animation>_<NN>` for sheets and the prop name for
 catalogues.
@@ -543,8 +543,10 @@ horizontally without a seam. Level 1 ships `sky` (opaque, from `background.png`)
 `skyline` (opaque) and `street` (keyed from magenta `#fd6cf7` at tolerance 96, lossy at quality 90); both
 erase the watermark with `fill`.
 
-Atlases stay lossless WebP. Their alpha-tested edges pick up block artefacts under Basis, and they are not
-the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`, Basis Universal via
+Atlases are lossy WebP at quality 90 with alpha quality 100. Quality does not go below 90, per
+art-director review; `sharp_yuv` worsens Batoman's max error, so it stays off. They are not KTX2:
+alpha-tested edges pick up block artefacts under Basis. Backdrops are also written as ETC1S KTX2
+(`tools/pack/ktx2.ts`, Basis Universal via
 `@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. Source rows are top-down, and
 a compressed upload cannot set `UNPACK_FLIP_Y_WEBGL`, so the encoder sets Basis `flipY` and stores the
 bottom row first. Without that, every KTX2 backdrop (levels 1, 4 and 6; level 3 has no art) draws upside
@@ -563,14 +565,16 @@ whose supercompression scheme (header offset 44) is not BasisLZ (1).
 
 | Atlas | Frames | Texture | Size |
 |---|---|---|---|
-| `batoman` | 48 | 1024x1024 | 622 KB |
-| `patroller` | 32 | 1024x1024 | 555 KB |
-| `drone` | 34 | 1024x512 | 420 KB |
-| `tikbalang` | 30 | 1024x1024 | 437 KB |
-| `level-1-props` | 24 | 1024x1024 | 769 KB |
-| `level-4-props` | 27 | 1024x1024 | 791 KB |
+| `batoman` | 48 | 1024x1024 | 200 KB |
+| `patroller` | 32 | 1024x1024 | 239 KB |
+| `drone` | 34 | 1024x512 | 218 KB |
+| `tikbalang` | 30 | 1024x1024 | 216 KB |
+| `level-1-props` | 24 | 1024x1024 | 162 KB |
+| `level-3-props` | 23 | 1024x1024 | 125 KB |
+| `level-4-props` | 27 | 1024x1024 | 230 KB |
+| `level-6-props` | 29 | 1024x1024 | 199 KB |
 
-Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops, WebP / KTX2: `sky` 35 / 66 KB (far LOD,
+Sizes are quality-90 WebP as printed by `npm run assets` (KiB, rounded). Level 1 backdrops, WebP / KTX2: `sky` 35 / 66 KB (far LOD,
 1008x528), `town` 225 / 183 KB. Level 4: `skyline` 57 / 88 KB (far LOD, 1008x548), `street` 166 / 412 KB.
 The KTX2 is what a desktop GPU samples; the WebP is the software-GL fallback. Both are in the payload
 budget because `dist/` carries every file.
