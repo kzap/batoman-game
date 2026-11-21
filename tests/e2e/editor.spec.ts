@@ -2,6 +2,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import type { TestHooks } from '../../src/app/app';
+import { advance, withLockstep } from './drive';
 
 declare global {
   interface Window {
@@ -30,9 +31,10 @@ test.describe('level editor (?edit=1)', () => {
     await expect(page.locator('.editor-prop')).toHaveCount(24); // level-1-props palette
     await page.screenshot({ path: resolve(SHOTS, 'editor-open.png') });
 
-    // Ticks must not advance while editing.
+    // Ticks must not advance while editing, across several presented frames.
     const ticks0 = h0.simTicks;
-    await page.waitForTimeout(300);
+    const frames0 = h0.frames;
+    await page.waitForFunction((n) => (window.__batoman?.frames ?? 0) > n + 5, frames0);
     expect((await hooks(page)).simTicks).toBe(ticks0);
 
     // Solid tool (1), drag a rectangle in the middle of the canvas.
@@ -63,17 +65,19 @@ test.describe('level editor (?edit=1)', () => {
   });
 
   test('P playtests the edited level from the spawn and returns to the editor', async ({ page }) => {
-    await page.goto('/?edit=1');
+    await page.goto(withLockstep('/?edit=1', true));
     await editorReady(page);
     await page.keyboard.press('KeyP');
     await page.waitForFunction(() => window.__batoman?.mode === 'play');
     await page.keyboard.down('ArrowRight');
-    await page.waitForTimeout(700);
+    // 80 ticks of run speed passes x=150 (full speed is reached around tick 15; spawn x is 88).
+    await advance(page, 80);
     await page.keyboard.up('ArrowRight');
     const playing = await hooks(page);
     expect(playing.editor!.playing).toBe(true);
     expect(playing.player.x).toBeGreaterThan(150);
     expect(playing.simTicks).toBeGreaterThan(50);
+    expect(playing.simTicks).toBe(80);
     await page.keyboard.press('KeyP');
     await page.waitForFunction(() => window.__batoman?.mode === 'edit');
     const back = await hooks(page);

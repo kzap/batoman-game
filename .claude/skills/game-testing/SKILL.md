@@ -12,17 +12,31 @@ Two routes. Prefer the test suite for anything repeatable; use Playwright MCP fo
 ```bash
 npm run test          # unit tests over src/core and src/game (headless, no browser)
 npm run test:replay   # recorded-input replays against the headless sim
-npm run build         # required before e2e: e2e serves dist/ as-is and does not rebuild
-npm run test:e2e      # Playwright against the production build in dist/
-npm run ci            # everything, in CI order
+npm run build:e2e     # required before e2e: dist/ with VITE_E2E_LOCKSTEP=1 (npm run build omits it)
+npm run test:e2e      # Playwright gate project against that dist/
+npm run test:e2e:perf # frame-budget floor (hosted-runner calibration) plus perf-results.json
+npm run ci            # lint, unit, replay, build, e2e gate
 ```
 
-E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`, `editor.spec.ts`). They run against `vite preview`
+E2E specs live in `tests/e2e/*.spec.ts` (`smoke.spec.ts`, `level.spec.ts`, `shell.spec.ts`, `editor.spec.ts`). They run against `vite preview`
 on port 4173 with software WebGL (`--use-angle=swiftshader`) so they behave the same on CI runners, one
 worker at a time (parallel SwiftShader pages halve each other's frame rate). `level.spec.ts` writes
-screenshots to `e2e-screenshots/` (start, debug overlay, one-way, mover and dash sections, Level 3 and 6
-start/complete, editor open/created); look at them after a render change. The frame budget floor is 20 fps
-under SwiftShader; the measured value is logged.
+screenshots to `e2e-screenshots/` (start, debug overlay, one-way, mover and dash sections, Level 3
+start/complete, Level 4 balcony/lift/roof, Level 6 start/lift/checkpoint/boss-roof/complete, editor
+open/created); look at them after a render change.
+
+**Assert on ticks, never on milliseconds.** Hosted runners render at about 2-6 fps, so `waitForTimeout` plus a
+position check measures the machine. `?lockstep=1` only exists in the e2e build (`npm run build:e2e`); `npm run dev`,
+`npm run build`, and Pages ignore it. Each rendered frame then steps a fixed
+tick count and ignores wall time. `?ticksPerFrame=0` (with `lockstep=1`) steps only when the test calls `window.__batoman.advance(n)`,
+which runs exactly `n` sim ticks and presents once (`tests/e2e/drive.ts` wraps both). Wait on `simTicks`, `player`,
+`status`, or `screen`. Replay specs keep the exact fixture outcome (`simTicks === fixture.expect.ticks`).
+
+One smoke test (`boots, renders frames, and runs the sim`) stays on the production clock, with no lockstep flag,
+so `FixedClock` is still exercised. It waits for `simTicks` to pass a count, not for a tick rate. The frame-budget
+test is tagged `@perf`. It fails below a floor set from hosted-runner measurements (see the comment in
+`level.spec.ts`) and writes `perf-results.json`. `npm run test:e2e:perf` runs it. Shell card delays (intro, results, game over) stay on wall-clock `setTimeout`s;
+tests wait for the screen, not for a distance travelled in N ms.
 
 Replay fixtures are recorded from routes in `tests/replay/bots.ts` (step language in `route.ts`). After
 changing a level or the player tuning: `npm run replay:trace -- level-1` shows where the route stalls or
@@ -60,6 +74,10 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `camera` | `{ x, y }` camera centre in sim pixels |
 | `enemies` | `[{ type, pose, x, hp }]` live enemies from the latest snapshot (dying ones show `pose: 'death'` until dropped) |
 | `boss` | null, or `{ hp, phase, engaged }`; `engaged` flips when the player reaches the arena and the HUD bar appears |
+| `weakPoint` | null, or `{ shape: 'diamond', ring: 'white', pulsing }` while the boss core is on screen. The white ring is the non-colour channel |
+| `shake` | `{ simX, simY, x, y }` sim shake and the offset added to the camera. `x` and `y` are 0 when reduce-motion is on |
+| `grain` | film grain is contributing. False when reduce-motion is on or `?post=0` |
+| `reduceMotion` | effective presentation preference (save, OS, or `?reduceMotion=`) |
 | `entities` | sprites the entity view is showing: player + pickups + enemies + shots + movers |
 | `status` | `playing`, `complete`, or `gameover` |
 | `level` | id of the loaded level |
@@ -69,12 +87,18 @@ The app exposes `window.__batoman` for assertions. Read it with `page.evaluate`:
 | `music` | track id requested (`level-1`, `level-2`), null before the shell asks for one |
 | `audio` | true once the AudioContext is running (after the first key or pointer) |
 | `editor` | null, or `{ tool, selection, objects, revision, dirty, lastSave, playing }` while `?edit=1` is attached |
+| `lockstep` | true only when `?lockstep=1` is set on an e2e build (`VITE_E2E_LOCKSTEP=1`). `ticksPerFrame` or `replayTicks` alone leave the production clock |
+| `advance(ticks)` | lockstep only: step exactly `ticks` and present once. Null on the production clock |
 | `replay(fixture)` | restart and feed a replay fixture (`tests/replay/fixtures/*.json`) instead of the keyboard |
 | `errors` | uncaught errors and unhandled rejections captured in-page |
 
-A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` at 60 fps while `status` is
-`playing` (it freezes after completion or game over until a jump restarts), and
-`droppedFrames` staying near 0 after the first second.
+A healthy real-time session has `errors: []`, `simTicks` growing while `status` is `playing` (it freezes after
+completion or game over until a restart), and `droppedFrames` staying near 0 after the first second. Under
+`?lockstep=1` in an e2e build, playing steps 4 ticks per frame (or `ticksPerFrame`) instead of following the display rate.
+`?ticksPerFrame` and `?replayTicks` only change those budgets when `lockstep=1` is also set. Either one alone does nothing.
+A replay does not advance on the frame loop (`replayTicks` defaults to 0): call `advance(n)` or
+`stepUntil` in `tests/e2e/drive.ts` so the sim stays put during a screenshot. `?ticksPerFrame=0` with `lockstep=1` steps
+only through `advance`. `?replayTicks=N` with `lockstep=1` opts back into frame-loop batches.
 
 ### Workflow
 
@@ -82,7 +106,8 @@ A healthy session has `errors: []`, `simTicks` growing at roughly `2 x frames` a
    card) or `http://localhost:5173/?level=level-1` to start in a level directly; wait for
    `window.__batoman.ready === true`. `Esc` pauses; menus take Enter/Esc/arrows.
 2. Screenshot the initial state.
-3. Drive input with `keyboard.down` / `keyboard.up` (hold durations matter for variable jump and charge).
+3. Drive input with `keyboard.down` / `keyboard.up`, then `advance(n)` (or wait until `simTicks` has moved)
+   rather than holding a key for N ms. Hold length still matters for variable jump and charge; express it in ticks.
 4. Screenshot after each action; compare against the expected state.
 5. Read `window.__batoman.errors` and the console; both must be empty.
 
@@ -96,14 +121,18 @@ Controls (`src/app/keyboard.ts`):
 | Dash | X / K / Shift |
 | Fire | Z / J tap for plasma; hold 0.8 s and release for a piercing nova |
 | Debug overlay | backtick: stats bottom-left plus collider outlines |
-| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx |
+| Menus | Enter confirm, Esc back/pause, P pause, arrows move; M music, N sfx, R reduce-motion |
 
 Poses reported in `player.pose`: `idle run jump fall wallslide dash crouch slide hurt dead`.
 
 Query flags: `?level=<id>` loads a manifest level (`level-1`, `level-3`, `level-4`, `level-6`; an unknown id is a boot
 error); `?edit=1` opens the level editor (keys listed in the panel tooltips and docs/TDD.md section 11; `P`
 playtests, `Ctrl+S` saves through the dev server); `?post=0` disables the post stack (bloom, vignette, grain)
-to isolate a rendering problem; `?dof=1` enables depth of field. Only some poses have their own art; see `PlayerAnimator`
+to isolate a rendering problem; `?dof=1` enables depth of field; `?reduceMotion=1` or `0` overrides
+reduce-motion for the session without writing the save until R is pressed. Lockstep is on only for `?lockstep=1` in an e2e build
+(`npm run build:e2e`, `VITE_E2E_LOCKSTEP=1`); `npm run dev`, `npm run build`, and Pages ignore it. `?ticksPerFrame=N`
+and `?replayTicks=N` override the per-frame budgets only when `lockstep=1` is present (`ticksPerFrame=0` means only `advance`).
+Only some poses have their own art; see `PlayerAnimator`
 (`src/render/animator.ts`) for which frames `fall`, `wallslide`, `dash`, `crouch`, `slide` and `dead` borrow.
 
 ## Common issues
@@ -128,3 +157,20 @@ to isolate a rendering problem; `?dof=1` enables depth of field. Only some poses
 
 After a session report: what was tested, screenshots captured, contents of `__batoman.errors` and the
 console, pass/fail per feature, and for each failure which layer (sim / render / app) owns it.
+
+## PR screenshots (`npm run shots`)
+
+E2E keeps writing its own frames to `e2e-screenshots/` for the CI artifact. Pull request pictures are a separate command:
+
+```bash
+npm run shots                         # pr-shots/head/: title, level-1-start, level-1-mid, editor, level-1-walk.webm
+npm run shots -- --baseline v2        # same filenames in pr-shots/baseline/
+npm run shots -- --slug my-change     # copy into docs/pr-assets/my-change/ for the PR body
+```
+
+Checkable rules (the same list is in `AGENTS.md`):
+
+- Viewport is 1280×720, SwiftShader, one page at a time. Before and after use the same filenames.
+- `npm run shots` serves `npm run build`, which does not compile lockstep. Gameplay stills still open with `?lockstep=1&ticksPerFrame=0`. `advance` exists only in an e2e build (`VITE_E2E_LOCKSTEP=1`) and only when the URL has `lockstep=1`. `ticksPerFrame` or `replayTicks` alone do not enable it. When `advance` is missing, those flags are ignored and the same inputs are replayed on the production clock. The command must succeed in that case. `manifest.json` records `mode`, `simTicks`, and `playerX`. Compare a pair only when both sides used the same mode.
+- The walk clip omits the lockstep query so the video shows the run on the production clock.
+- Commit the files the body shows under `docs/pr-assets/<slug>/`. After that commit, `npm run shots -- --links <slug>` prints markdown pinned to the full commit SHA: `https://github.com/kzap/batoman-game/raw/<40-char-sha>/docs/pr-assets/<slug>/<file>.png`. A branch name in that URL breaks when the branch is deleted and shifts if the branch is force-pushed. If the files are not in HEAD yet, the command prints the two-step flow (commit, then `--links`) and does not invent a URL. A relative path does not render: GitHub resolves PR-body links against `main`, and these PRs target `v2`. The `e2e-screenshots` artifact zip does not render inline. A webm URL is a download link; inline playback needs a GitHub attachment.

@@ -9,14 +9,15 @@ import { PICKUP } from './tuning';
  * and a method here — a buff clock, for example — and leaves the loop alone.
  */
 export interface PickupCollector {
-  /** False while the player is dead. A dead collector never receives an effect. */
-  readonly alive: boolean;
   readonly health: Health;
 }
 
-/** Apply `kind` once. False means "do not consume" (dead, or a no-op amount). */
+/**
+ * Apply `kind` once. False means "do not consume" (dead, or a no-op amount).
+ * The World only calls this while the player is alive; a dead `Health` still refuses.
+ */
 export function applyPickup(kind: PickupKind, collector: PickupCollector): boolean {
-  if (!collector.alive || !collector.health.alive) return false;
+  if (!collector.health.alive) return false;
   switch (kind) {
     case 'hp-up':
       return collector.health.gainHearts(PICKUP.hpUp.hearts);

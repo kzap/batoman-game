@@ -134,15 +134,12 @@ describe('HP Up', () => {
     expect(w.snapshot().player.maxHp).toBe(4);
   });
 
-  it('applyPickup refuses a dead collector and does not change the cap', () => {
+  it('applyPickup refuses a dead body and does not change the cap', () => {
     const health = new Health(PLAYER.maxHp, PLAYER.invulnTicks);
     health.kill();
-    expect(applyPickup('hp-up', { alive: false, health })).toBe(false);
+    expect(applyPickup('hp-up', { health })).toBe(false);
     expect(health.max).toBe(PLAYER.maxHp);
     expect(health.hp).toBe(0);
-    health.reset();
-    expect(applyPickup('hp-up', { alive: false, health })).toBe(false);
-    expect(health.max).toBe(PLAYER.maxHp);
   });
 });
 

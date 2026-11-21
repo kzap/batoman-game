@@ -1,4 +1,20 @@
-import { AdditiveBlending, BoxGeometry, EdgesGeometry, Group, LineBasicMaterial, LineSegments, Mesh, MeshBasicMaterial, MeshStandardMaterial, type Object3D } from 'three';
+import {
+  AdditiveBlending,
+  BoxGeometry,
+  BufferGeometry,
+  EdgesGeometry,
+  Group,
+  LineBasicMaterial,
+  LineLoop,
+  LineSegments,
+  Mesh,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  Shape,
+  ShapeGeometry,
+  Vector3,
+  type Object3D,
+} from 'three';
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, PickupKind, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
@@ -6,6 +22,7 @@ import { PROJECTILE } from '@game/tuning';
 import type { BossSnapshot, EnemySnapshot, PickupSnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
+import { chargeGlowScale, enemyHurtTint, invulnOpacity, pickupBob, PRESENTATION, weakPointDiamond, weakPointLook, type WeakPointCue } from './motion';
 import { atlasMaterial, SpriteQuad } from './sprite';
 import { PALETTE } from './stage';
 import { toUnits } from './units';
@@ -28,19 +45,10 @@ const SHOT_SCALE: Readonly<Record<ProjectileKind, number>> = { plasma: 0.4, nova
 /** Animation in the batoman atlas whose first frame is the plasma shot; enemy sheets have their own `projectile` clip. */
 const ORB_ANIMATION = 'orb';
 const ENEMY_SHOT_ANIMATION = 'projectile';
-/** Invulnerability blink: on for this many ticks, off for as many. */
-const BLINK_HALF_PERIOD_TICKS = 6;
-/** Hurt flash alternates tint every this many ticks. */
-const FLASH_HALF_PERIOD_TICKS = 3;
-/** Charge glow at the muzzle: orb scale at empty and full charge, its pulse, and how far past the body it sits. */
-const CHARGE_GLOW = { min: 0.15, max: 0.7, pulse: 0.1, pulsePeriodTicks: 12, offsetX: 6 } as const;
 /** The nova is drawn white-hot; plasma keeps the sheet's cyan. */
 const NOVA_TINT = 0xfffde0;
-/** The boss core glow: shown only while the double-damage window is open, pulsing. */
-const CORE = { pulseTicks: 20, opacity: 0.55, pulse: 0.25, scale: 1.6 } as const;
 /** Pickup quads sit in front of the player. The bob is visual only; the hitbox does not move. */
 const PICKUP_Z = 0.45;
-const PICKUP_BOB = { amplitude: 3, periodTicks: 90 } as const;
 
 /** Colour per kind. A new kind (invincibility) adds a case here and nothing else in the loop. */
 function pickupColor(kind: PickupKind): number {
@@ -52,6 +60,18 @@ function pickupColor(kind: PickupKind): number {
       return unreachable;
     }
   }
+}
+
+/** Fill is a shape; the ring is a line loop of the same diamond, slightly larger. Both come from `weakPointDiamond`. */
+function diamondGeometry(which: 'fill' | 'ring'): BufferGeometry {
+  const pts = weakPointDiamond(which);
+  if (which === 'ring') return new BufferGeometry().setFromPoints(pts.map(([x, y]) => new Vector3(x, y, 0)));
+  const shape = new Shape();
+  const [first, ...rest] = pts;
+  shape.moveTo(first![0], first![1]);
+  for (const [x, y] of rest) shape.lineTo(x, y);
+  shape.closePath();
+  return new ShapeGeometry(shape);
 }
 
 interface MoverView {
@@ -111,8 +131,14 @@ export class EntityView {
   private readonly shotPool: ShotView[] = [];
   private readonly enemies = new Map<number, EnemyView>();
   private readonly enemyPool = new Map<EnemyType, EnemyView[]>();
-  private readonly core: Mesh;
-  private readonly coreMaterial: MeshBasicMaterial;
+  private readonly core: Group;
+  private readonly coreFill: Mesh;
+  private readonly coreFillMaterial: MeshBasicMaterial;
+  private readonly coreRing: LineLoop;
+  private readonly coreRingMaterial: LineBasicMaterial;
+  /** Last cue `presentCore` applied. Null when the core is hidden. The hook reads this, not a hardcoded flag. */
+  private weakPointCueState: WeakPointCue | null = null;
+  private reduceMotion = false;
   private readonly movers = new Map<number, MoverView>();
   private readonly pickups = new Map<number, PickupView>();
   private readonly unitBox = new BoxGeometry(1, 1, 1);
@@ -137,11 +163,20 @@ export class EntityView {
     this.chargeGlow.mesh.visible = false;
     this.enemyShot = this.enemyShotSource();
     this.propMaterial = assets.levelArt ? atlasMaterial(assets.levelArt.props.texture) : null;
-    this.coreMaterial = atlasMaterial(assets.batoman.texture);
-    this.coreMaterial.blending = AdditiveBlending;
-    this.coreMaterial.color.setHex(PALETTE.neonMagenta);
-    const core = new SpriteQuad(assets.batoman, this.coreMaterial, this.orbFrame);
-    this.core = core.mesh;
+    // Magenta diamond plus a white outline. The outline is the non-colour channel; geometry is `weakPointDiamond` only.
+    this.coreFillMaterial = new MeshBasicMaterial({
+      color: PALETTE.neonMagenta,
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    this.coreFill = new Mesh(diamondGeometry('fill'), this.coreFillMaterial);
+    this.coreRingMaterial = new LineBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false });
+    this.coreRing = new LineLoop(diamondGeometry('ring'), this.coreRingMaterial);
+    this.coreRing.position.z = 0.02;
+    this.core = new Group();
+    this.core.name = 'weak-point';
+    this.core.add(this.coreFill, this.coreRing);
     this.core.visible = false;
     // The player's collider outline is a sibling, not a child: the quad's scale is the art size, not the hitbox.
     this.playerOutline = this.outline(this.outlineMaterial);
@@ -168,6 +203,16 @@ export class EntityView {
     return o;
   }
 
+  /** Presentation policy. Does not change what the sim simulated. */
+  setReduceMotion(on: boolean): void {
+    this.reduceMotion = on;
+  }
+
+  /** Cue drawn for the exposed core, or null when it is hidden. */
+  get weakPointCue(): WeakPointCue | null {
+    return this.weakPointCueState;
+  }
+
   /** Show collision boxes (debug overlay). */
   setOutlines(on: boolean): void {
     this.outlines = on;
@@ -191,16 +236,14 @@ export class EntityView {
     this.player.setFrame(this.animator.frameAt(b.pose, b.shooting, tick));
     this.player.place(x + b.w / 2, y, PLAYER_Z, { flip: b.facing < 0 });
     // Blink while invulnerable; flash magenta while hurt or dead (the dead clip holds the hurt frame until respawn).
-    const blink = b.invulnerable && Math.floor(tick / BLINK_HALF_PERIOD_TICKS) % 2 === 0;
-    this.playerMaterial.opacity = blink ? 0.45 : 1;
+    this.playerMaterial.opacity = invulnOpacity(b.invulnerable, tick, this.reduceMotion);
     this.playerMaterial.color.setHex(b.pose === 'hurt' || b.pose === 'dead' ? PALETTE.neonMagenta : 0xffffff);
     this.placeOutline(this.playerOutline, { x, y, w: b.w, h: b.h }, PLAYER_Z);
-    // Charge glow grows at the muzzle while fire is held.
+    // Charge glow grows at the muzzle while fire is held. The pulse is decorative and drops out under reduce-motion.
     this.chargeGlow.mesh.visible = b.charge > 0;
     if (b.charge > 0) {
-      const muzzleX = x + b.w / 2 + b.facing * (b.w / 2 + CHARGE_GLOW.offsetX);
-      const pulse = 1 + CHARGE_GLOW.pulse * Math.sin((tick / CHARGE_GLOW.pulsePeriodTicks) * Math.PI * 2);
-      this.chargeGlow.place(muzzleX, y + PROJECTILE.muzzleY, ORB_Z, { scale: (CHARGE_GLOW.min + (CHARGE_GLOW.max - CHARGE_GLOW.min) * b.charge) * pulse });
+      const muzzleX = x + b.w / 2 + b.facing * (b.w / 2 + PRESENTATION.charge.offsetX);
+      this.chargeGlow.place(muzzleX, y + PROJECTILE.muzzleY, ORB_Z, { scale: chargeGlowScale(b.charge, tick, this.reduceMotion) });
     }
   }
 
@@ -230,8 +273,7 @@ export class EntityView {
       const pivotY = look.pivot === 'centre' ? y + c.h / 2 : y;
       const flip = look.faces === 'right' ? c.facing < 0 : c.facing > 0;
       v.quad.place(x + c.w / 2, pivotY, ENEMY_Z, { flip, scale: look.scale });
-      const flashing = c.flash > 0 && Math.floor(tick / FLASH_HALF_PERIOD_TICKS) % 2 === 0;
-      v.material.color.setHex(flashing ? PALETTE.neonMagenta : look.tint);
+      v.material.color.setHex(enemyHurtTint(c.flash > 0, tick, this.reduceMotion, look.tint, PALETTE.neonMagenta));
       v.material.opacity = c.alpha;
       this.placeOutline(v.outline, { x, y, w: c.w, h: c.h }, ENEMY_Z);
     }
@@ -270,17 +312,28 @@ export class EntityView {
     this.enemyPool.set(v.type, list);
   }
 
-  /** The boss's weak-point core: a pulsing magenta glow shown only while the double-damage window is open. */
+  /**
+   * The boss's weak point: a magenta diamond with a white outline, shown only
+   * while the double-damage window is open. The outline does not pulse. Reduce-motion
+   * holds the fill steady so the shape cue remains without a brightness throb.
+   */
   private presentCore(prev: BossSnapshot | null, cur: BossSnapshot | null, tick: number, alpha: number): void {
-    this.core.visible = cur !== null && cur.exposed && cur.hp > 0;
-    if (!this.core.visible || !cur) return;
+    const show = cur !== null && cur.exposed && cur.hp > 0;
+    this.core.visible = show;
+    if (!show || !cur) {
+      this.weakPointCueState = null;
+      return;
+    }
+    const look = weakPointLook(tick, this.reduceMotion);
+    this.weakPointCueState = { shape: look.shape, ring: look.ring, pulsing: look.pulsing };
     const p = prev ?? cur;
     const r = cur.weakPoint;
     const x = lerp(p.weakPoint.x, r.x, alpha) + r.w / 2;
     const y = lerp(p.weakPoint.y, r.y, alpha) + r.h / 2;
-    this.coreMaterial.opacity = CORE.opacity + CORE.pulse * Math.sin((tick / CORE.pulseTicks) * Math.PI * 2);
+    this.coreFillMaterial.opacity = look.fillOpacity;
+    this.coreFill.scale.set(look.fillScale, look.fillScale, 1);
     this.core.position.set(toUnits(x), toUnits(y), CORE_Z);
-    const s = (toUnits(r.h) / 2) * CORE.scale;
+    const s = (toUnits(r.h) / 2) * PRESENTATION.weakPoint.scale;
     this.core.scale.set(s, s, 1);
   }
 
@@ -385,7 +438,7 @@ export class EntityView {
   /** Unlit placeholder quads. Collected pickups leave the snapshot, so the mesh goes with them. */
   private syncPickups(cur: readonly PickupSnapshot[], tick: number): void {
     const seen = new Set<number>();
-    const bob = Math.sin((tick / PICKUP_BOB.periodTicks) * Math.PI * 2) * PICKUP_BOB.amplitude;
+    const bob = pickupBob(tick, this.reduceMotion);
     for (const p of cur) {
       seen.add(p.id);
       let v = this.pickups.get(p.id);
@@ -427,7 +480,10 @@ export class EntityView {
     this.playerMaterial.dispose();
     this.orbMaterial.dispose();
     this.novaMaterial.dispose();
-    this.coreMaterial.dispose();
+    this.coreFill.geometry.dispose();
+    this.coreFillMaterial.dispose();
+    this.coreRing.geometry.dispose();
+    this.coreRingMaterial.dispose();
     this.enemyShot?.material.dispose();
     this.propMaterial?.dispose();
     this.moverMaterial.dispose();

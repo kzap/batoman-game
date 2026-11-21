@@ -34,9 +34,14 @@ npm run dev                        # http://localhost:5173
 | `npm run test:replay` | Headless sim replay tests |
 | `npm run replay:record` | Re-record the replay fixtures from the scripted routes (after a level or tuning change) |
 | `npm run replay:trace -- <level>` | Print where a route's steps finish, for authoring levels and routes |
-| `npm run test:e2e` | Playwright against `dist/` (run `npm run build` first) |
+| `npm run build:e2e` | Production build plus `VITE_E2E_LOCKSTEP=1` (required before e2e; `npm run build` omits it) |
+| `npm run test:e2e` | Playwright gate against that `dist/`. Asserts on sim ticks |
+| `npm run test:e2e:perf` | Frame-budget floor calibrated for hosted runners; writes `perf-results.json` |
 | `npm run validate` | Content checks: no raw art or unpipelined images in `public/`, manifest parses |
-| `npm run ci` | Everything above in CI order |
+| `npm run ci` | Lint, unit, replay, build, and the e2e gate |
+
+Gate e2e loads gameplay with `?lockstep=1` (e2e build only) and checks sim ticks or player state.
+`window.__batoman.advance(n)` steps exactly `n` ticks. One smoke test stays on the real-time clock.
 
 ---
 
@@ -63,10 +68,13 @@ Three.js or touch the DOM.
 Levels: `?level=level-4` loads another manifest level (`level-1`, `level-3`, `level-4`, `level-6`); `?edit=1` opens the current level in the editor, whose
 `Ctrl+S` writes `src/content/levels/<id>.json` through the dev server after validating it.
 
-Controls: arrows or WASD move, `Space` jumps (down + jump drops through platforms), `Shift` or `X` dashes, `Z` fires; hold
-`Z` for 0.8 s and release for a piercing nova. `Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N`
-toggle music and sound effects. Level 1 ends at the ASWANG prototype; the exit opens when it falls.
-Progress (unlocked levels, best times, audio options) is saved in `localStorage`.
+Controls: arrows or A/D move, Down or S crouches, `Space`, `W` or `Up` jumps (down + jump drops through
+platforms), `Shift` or `X` dashes, `Z` or `J` fires; hold `Z` for 0.8 s and release for a piercing nova.
+`Esc` or `P` pauses, `Enter` confirms in menus, `M` and `N` toggle music and sound effects. The title menu
+and the pause menu open Controls, where Enter on an action then a key adds or removes that key (one to four
+keys per action; the last key cannot be removed). Reset to defaults restores the layout above. `Esc`,
+`Enter`, `P`, `M`, `N` and backtick cannot be bound. Level 1 ends at the ASWANG prototype; the exit opens
+when it falls. Progress (unlocked levels, best times, audio options, key bindings) is saved in `localStorage`.
 
 Music sources live in `art-source/audio/` and are transcoded to Opus by `npm run assets` (via
 `ffmpeg-static`); sound effects are synthesised in the browser, so there are no sample files.
@@ -84,6 +92,9 @@ Before opening a PR:
 ```bash
 npm run ci
 ```
+
+Commits must pass the DCO check. `git commit -s` adds the `Signed-off-by:` trailer. A local commit missing
+it can be fixed with `git commit --amend -s`. Do not force-push to rewrite a commit that is already on the remote.
 
 Conventions that matter most:
 
@@ -104,3 +115,9 @@ Conventions that matter most:
 | Language | TypeScript 5.9, strict |
 | Bundler | Vite 7 |
 | Tests | Vitest 5, Playwright 1.63 |
+
+---
+
+## PR screenshots
+
+`npm run shots` builds `dist/`, serves it, and writes the title, Level 1 start, Level 1 mid, and the editor to `pr-shots/head/`, plus a short walk clip. `npm run shots -- --baseline <ref>` captures the same frames from another commit so a before/after pair lines up. Commit the pictures a PR body shows under `docs/pr-assets/<slug>/`, then `npm run shots -- --links <slug>` prints markdown pinned to that commit's SHA. How to embed them so GitHub renders them is in [AGENTS.md](AGENTS.md).

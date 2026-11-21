@@ -376,7 +376,7 @@ export class World {
 
   /** Overlap with the player body. Each pickup applies its kind once; a miss or a refusal leaves it. */
   private collectPickups(): void {
-    const collector = { alive: true, health: this.health };
+    const collector = { health: this.health };
     const body = this.player.body;
     for (const p of this.pickups) {
       if (!p.tryCollect(body, collector)) continue;

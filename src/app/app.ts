@@ -1,5 +1,6 @@
 import { lerp } from '@core/math/vec2';
-import { FixedClock } from '@core/sim/clock';
+import { FixedClock, SIM_DT } from '@core/sim/clock';
+import { MAX_ADVANCE_TICKS, type LockstepOptions } from './lockstep';
 import type { InputFrame } from '@core/sim/input';
 import { decodeInputs, type ReplayInputs } from '@core/sim/replay';
 import { World, type WorldSnapshot } from '@game/world';
@@ -7,10 +8,12 @@ import { disposeAssets, type GameAssets } from '@render/assets';
 import { Effects } from '@render/effects';
 import { EntityView } from '@render/entity-view';
 import { LevelView } from '@render/level-view';
+import { presentedCamera, type WeakPointCue } from '@render/motion';
 import type { PostOptions } from '@render/post';
 import { Stage } from '@render/stage';
 import { toUnits } from '@render/units';
 import type { LevelJson } from '@content/level';
+import type { Bindings } from './bindings';
 import { DebugOverlay } from './debug';
 import { Hud } from './hud';
 import { Keyboard } from './keyboard';
@@ -35,6 +38,17 @@ export interface TestHooks {
   /** Live enemies by type and pose, and the boss bar state (null when the level has no boss). */
   enemies: { type: string; pose: string; x: number; hp: number }[];
   boss: { hp: number; phase: number; engaged: boolean } | null;
+  /**
+   * Colourblind-safe weak-point cue while the boss core is on screen.
+   * `ring: 'white'` is the non-colour channel (a diamond outline). Null otherwise.
+   */
+  weakPoint: WeakPointCue | null;
+  /** Sim shake this tick, and the offset actually added to the camera. Both are zeroed in the view when reduce-motion is on; `simX`/`simY` stay. */
+  shake: { simX: number; simY: number; x: number; y: number };
+  /** Film grain is contributing. False when reduce-motion is on or the post stack is off (`?post=0`). */
+  grain: boolean;
+  /** Effective reduce-motion preference (save, OS, or `?reduceMotion=`). Presentation only. */
+  reduceMotion: boolean;
   /** Sprites the entity view is currently showing (player, pickups, enemies, shots, movers). */
   entities: number;
   status: string;
@@ -48,6 +62,16 @@ export interface TestHooks {
   audio: boolean;
   /** Present only while the editor is attached. */
   editor: EditorHooks | null;
+  /**
+   * True when this build was compiled with `VITE_E2E_LOCKSTEP=1` and the page
+   * was opened with `?lockstep=1`. The frame loop then ignores wall-clock deltas.
+   */
+  lockstep: boolean;
+  /**
+   * Step the sim exactly `ticks` times and present once. Null unless lockstep is on.
+   * Independent of the render frame rate: tests use this instead of holding a key for N ms.
+   */
+  advance: ((ticks: number) => void) | null;
   readonly errors: string[];
   /**
    * Restart the level and feed a recorded input sequence instead of the
@@ -80,6 +104,10 @@ export function installHooks(): TestHooks {
     camera: { x: 0, y: 0 },
     enemies: [],
     boss: null,
+    weakPoint: null,
+    shake: { simX: 0, simY: 0, x: 0, y: 0 },
+    grain: false,
+    reduceMotion: false,
     entities: 0,
     status: 'playing',
     level: '',
@@ -89,6 +117,8 @@ export function installHooks(): TestHooks {
     music: null,
     audio: false,
     editor: null,
+    lockstep: false,
+    advance: null,
     errors: [],
     replay: null,
   };
@@ -122,6 +152,11 @@ export interface EditorCamera {
 export interface AppOptions {
   /** Post-processing switches; `null` disables the stack (see `postOptionsFromQuery`). */
   readonly post?: PostOptions | null;
+  /**
+   * Test-only fixed stepping. Production leaves this unset: the frame loop follows
+   * the wall clock through `FixedClock`, capped at `MAX_TICKS_PER_FRAME`.
+   */
+  readonly lockstep?: LockstepOptions | null;
 }
 
 /**
@@ -158,6 +193,8 @@ export class App {
   private lastTime = 0;
   private frameSeconds = 0;
   private rafId = 0;
+  private readonly lockstep: LockstepOptions | null;
+  private reduceMotion = false;
   private readonly onResize = (): void => this.stage.resize();
 
   constructor(
@@ -167,7 +204,15 @@ export class App {
     private assets: GameAssets,
     opts: AppOptions = {},
   ) {
+    // The env compare is a build-time constant. Prod and Pages builds fold this to null
+    // and drop `lockstep.ts`. Only `npm run build:e2e` sets VITE_E2E_LOCKSTEP=1.
+    this.lockstep = import.meta.env.VITE_E2E_LOCKSTEP === '1' ? (opts.lockstep ?? null) : null;
+    if (import.meta.env.VITE_E2E_LOCKSTEP === '1' && this.lockstep) {
+      hooks.lockstep = true;
+      hooks.advance = (ticks: number): void => this.advance(ticks);
+    }
     this.stage = new Stage({ canvas, post: opts.post ?? {} });
+    this.hooks.grain = this.stage.grainEnabled;
     this.levelView = new LevelView(level, assets.levelArt);
     this.entities = new EntityView(assets);
     this.stage.scene.add(this.levelView.group, this.entities.group, this.effects.particles.points);
@@ -205,6 +250,7 @@ export class App {
     this.stage.dispose();
     this.hooks.ready = false;
     this.hooks.replay = null;
+    this.hooks.advance = null;
   }
 
   /**
@@ -235,6 +281,7 @@ export class App {
     this.level = level;
     this.hooks.level = level.id;
     this.entities = new EntityView(assets);
+    this.entities.setReduceMotion(this.reduceMotion);
     this.entities.setOutlines(this.debug.enabled);
     this.levelView = new LevelView(level, assets.levelArt);
     this.levelView.setOutlines(this.debug.enabled);
@@ -282,6 +329,25 @@ export class App {
     this.editorCamera = cam;
   }
 
+  /**
+   * Presentation preference. Camera shake, film grain, and decorative pulses
+   * follow it. The sim, its RNG, and the snapshots replays compare do not.
+   */
+  setReduceMotion(on: boolean): void {
+    this.reduceMotion = on;
+    this.entities.setReduceMotion(on);
+    this.stage.setReduceMotion(on);
+    // The heart wobble is CSS. The HUD is not inside `#overlay`, so the flag lives on the document.
+    document.documentElement.dataset['reduceMotion'] = on ? 'on' : 'off';
+    this.hooks.reduceMotion = on;
+    this.hooks.grain = this.stage.grainEnabled;
+  }
+
+  /** Gameplay key table from the save. Replays ignore it and feed packed frames. */
+  setBindings(bindings: Bindings): void {
+    this.keyboard.setBindings(bindings);
+  }
+
   private newWorld(seed: number): World {
     const w = new World(this.level, seed);
     w.events.on('respawn', () => (this.teleported = true));
@@ -315,20 +381,13 @@ export class App {
     return this.keyboard.frame();
   }
 
-  private readonly frame = (now: number): void => {
-    const frameMs = now - this.lastTime;
-    const frameSeconds = frameMs / 1000;
-    this.lastTime = now;
-    this.hooks.lastFrameMs = frameMs;
-    this.frameSeconds = frameSeconds;
-
-    const step = this.clock.advance(frameSeconds);
-    if (step.dropped) this.hooks.droppedFrames += 1;
-
-    // The freeze skips this frame's ticks; the sim resumes from the same state, so replays are unaffected.
-    const ticks = this.mode === 'play' && this.freezeFrames === 0 ? step.ticks : 0;
-    if (this.freezeFrames > 0) this.freezeFrames--;
-    for (let i = 0; i < ticks; i++) {
+  /**
+   * Step up to `count` sim ticks. Replay batches stop when boss phase, engagement,
+   * or world status changes so a published frame still shows that signal.
+   */
+  private applyTicks(count: number, stopOnSignal: boolean): void {
+    for (let i = 0; i < count; i++) {
+      const before = stopOnSignal ? this.observeSignal() : '';
       this.previous = this.current;
       this.world.step(this.nextInput());
       this.current = this.world.snapshot();
@@ -336,9 +395,56 @@ export class App {
         this.previous = this.current;
         this.teleported = false;
       }
+      if (stopOnSignal && this.observeSignal() !== before) break;
+    }
+  }
+
+  /** Boss phase, engagement, and world status: the signals e2e waits on across a replay. */
+  private observeSignal(): string {
+    const boss = this.current.boss;
+    return `${this.current.status}|${boss ? boss.phase : 'x'}|${boss?.engaged ? 1 : 0}`;
+  }
+
+  /** Lockstep hook: exactly `ticks` sim steps, then one present. No-op unless the sim is in `play`. */
+  private advance(ticks: number): void {
+    if (import.meta.env.VITE_E2E_LOCKSTEP !== '1') return;
+    if (!Number.isFinite(ticks) || ticks <= 0 || this.mode !== 'play') return;
+    const n = Math.min(Math.floor(ticks), MAX_ADVANCE_TICKS);
+    this.frameSeconds = n * SIM_DT;
+    this.applyTicks(n, false);
+    this.publish();
+    // Alpha 1 shows the snapshot just simulated, which is what the hooks publish.
+    this.present(1);
+  }
+
+  private readonly frame = (now: number): void => {
+    const frameMs = now - this.lastTime;
+    this.lastTime = now;
+    this.hooks.lastFrameMs = frameMs;
+
+    let alpha = 0;
+    const lockstep = this.lockstep;
+    if (import.meta.env.VITE_E2E_LOCKSTEP === '1' && lockstep) {
+      // Ignore the wall-clock delta. Slow software-GL frames and short rAF deltas
+      // both make the production clock run late; tests must not depend on either.
+      const budget = this.mode === 'play' && this.freezeFrames === 0 ? (this.replay ? lockstep.replay : lockstep.interactive) : 0;
+      if (this.freezeFrames > 0) this.freezeFrames--;
+      this.frameSeconds = budget * SIM_DT;
+      this.applyTicks(budget, this.replay != null);
+      alpha = 1;
+    } else {
+      const frameSeconds = frameMs / 1000;
+      this.frameSeconds = frameSeconds;
+      const step = this.clock.advance(frameSeconds);
+      if (step.dropped) this.hooks.droppedFrames += 1;
+      alpha = step.alpha;
+      // The freeze skips this frame's ticks; the sim resumes from the same state, so replays are unaffected.
+      const ticks = this.mode === 'play' && this.freezeFrames === 0 ? step.ticks : 0;
+      if (this.freezeFrames > 0) this.freezeFrames--;
+      this.applyTicks(ticks, false);
     }
     this.publish();
-    this.present(step.alpha);
+    this.present(alpha);
     this.debug.update(now, this.current, { frameMs, droppedFrames: this.hooks.droppedFrames, entities: this.entities.entityCount });
     this.hud.update(this.current, this.hooks.score);
     this.hooks.frames += 1;
@@ -361,11 +467,16 @@ export class App {
     this.entities.present(this.previous, this.current, alpha);
     if (this.editorCamera) {
       this.stage.setCamera(toUnits(this.editorCamera.x), toUnits(this.editorCamera.y), this.editorCamera.distance);
+      const shake = this.current.camera;
+      this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: 0, y: 0 };
     } else {
       const cam = lerp(this.previous.camera, this.current.camera, alpha);
       const shake = this.current.camera;
-      this.stage.setCamera(toUnits(cam.x + shake.shakeX), toUnits(cam.y + shake.shakeY));
+      const at = presentedCamera(cam.x, cam.y, shake.shakeX, shake.shakeY, this.reduceMotion);
+      this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: at.x - cam.x, y: at.y - cam.y };
+      this.stage.setCamera(toUnits(at.x), toUnits(at.y));
     }
+    this.hooks.weakPoint = this.entities.weakPointCue;
     this.effects.update(this.frameSeconds, this.stage.renderer.getPixelRatio());
     this.stage.render(this.frameSeconds);
   }

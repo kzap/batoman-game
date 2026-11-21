@@ -80,6 +80,11 @@ body {
   animation: hud-heart-wobble 420ms ease-out;
 }
 
+/* Same flag as the other presentation effects: `App.setReduceMotion` sets this from the shell. */
+html[data-reduce-motion='on'] .hud-heart-gained {
+  animation: none;
+}
+
 .hud-score {
   margin-left: auto;
   color: var(--cyan);
@@ -213,6 +218,29 @@ body.shell-hide-hud #hud {
   color: #9a9aaa;
 }
 
+.shell-card[data-screen='controls'] {
+  min-width: 480px;
+}
+
+.shell-controls li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+}
+
+.shell-controls .shell-action {
+  flex: 1;
+}
+
+.shell-controls .shell-keys {
+  color: #9a9aaa;
+}
+
+.shell-controls li.shell-selected .shell-keys {
+  color: var(--amber);
+}
+
 .shell-credits {
   max-height: 70vh;
   overflow: hidden;
@@ -236,4 +264,17 @@ body.shell-hide-hud #hud {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+/* Commit and build time for the hosted playtest build. Empty, so invisible, on local builds. */
+#build-stamp {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(232, 228, 216, 0.55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }

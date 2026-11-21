@@ -1,6 +1,6 @@
 # BatoMan v2 - Remake Plan
 
-Status: Phases 0-7 merged (Levels 3 and 6 dressing deferred: no source art exists); Phase 7b (Level 4) in review. `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
+Status: Phases 0-7, 7b, and 8.1 are on `v2`. Level 6 source art and data-only dressing are in review (`content/level-6`); the lying-path collider, Tikbalang-X, a second mid layer, and a dedicated music track are still open. Level 3 source art is on `v2` and the level is still grey-box (no `art` block). `main` still holds v1 (Phaser 3, tagged `v1-archive`). The remake lands on
 the `v2` branch one phase per PR, then merges to `main` when playable.
 
 ## Why a remake
@@ -176,6 +176,25 @@ magenta background, so backdrop layers gained a `key` chroma-key option in the p
 stealths gained a `sightHeight` (128 px) so an enemy does not react to the player climbing past on another
 storey; the existing fixtures were unaffected. Route DSL gained `wallClimb`, `waitMoverSettling` and a
 direction for `fight`. 86 decor quads; fixture 2802 ticks undamaged.
+
+### Level 6 source art and dressing (`content/level-6`)
+
+Source art for the Abandoned Rooftop Garden in the Level 1 inked-painterly style, painted as a sunny lush
+rooftop farm (the approved brightness direction; ART.md's earlier night-rain row is updated to match), plus
+the data-only dressing. Geometry is unchanged.
+
+- `art-source/level-6/`: `background.png`, a mirrored 2560-wide `foreground.png` that tiles without a seam,
+  `backdrops.json`, `tileset.png`, and a 29-prop recipe.
+- `src/content/levels/level-6.json`: `art` block, 144 decor quads, the lift mover uses `platform_pallet`.
+  `level-6-clear` stays 3954 ticks.
+- Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
+
+Still open, and each needs code rather than more painting: a fake-solid collider for the lying path, the
+Tikbalang-X boss (the spawn at 4100 is still a scout with no behaviour), a possible second mid layer for
+the upper roofs, and a music track of its own (the manifest still points Level 6 at `level-1`).
+
+Exit: Level 6 loads dressed, the existing clear fixture completes, and e2e asserts the atlas and both
+backdrops and screenshots the start, the lift, and the last roof.
 
 ### Phase 8 - Polish and performance (`phase/8-polish-perf`)
 

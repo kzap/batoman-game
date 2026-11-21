@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "source": "art-source/level-3/tileset.png",
+  "name": "level-3-props",
+  "kind": "catalogue",
+  "scale": 1,
+  "props": {
+    "r0f0": "platform_long_a",
+    "r0f1": "platform_long_b",
+    "r0f2": "platform_block",
+    "r0f3": "block_small",
+    "r1f0": "stone_step_large",
+    "r1f1": "stone_step_medium",
+    "r1f2": "stone_step_small",
+    "r1f3": "crusher",
+    "r1f4": "ladder",
+    "r1f5": "pillar",
+    "r2f0": "pew",
+    "r2f1": "wall_carved",
+    "r2f2": "wall_circuit",
+    "r2f3": "altar",
+    "r2f4": "wall_brick",
+    "r2f5": "sanctuary_lamp",
+    "r2f6": "candles",
+    "r2f7": "mushrooms",
+    "r2f8": "candelabra",
+    "r2f9": "water_a",
+    "r2f10": "water_b",
+    "r2f11": "santo",
+    "r2f12": "santo_bust"
+  },
+  "notes": "Level 3 Quiapo Underground Chapel props (issue #13). Generated on a #fd6cf7 key with every prop separated by clear key (no erase cuts needed), then soft-keyed to alpha with key unmixing so edges carry no magenta fringe; RGB under alpha 0 is still #fd6cf7. Native 1280x720 source packed at scale 1 (same on-screen density as the L1/L4 2816-wide sheets at 0.5)."
+}
