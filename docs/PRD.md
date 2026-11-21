@@ -152,7 +152,7 @@ The tikbalang type is in the schema, with a sheet and a render look, and with no
 
 ## v0.2 — the scope change, flagged
 
-**Already on `v2`.** `level-1` dressed and bossed. `level-4` dressed, still no boss. `level-6` dressed as the sunny farm: the tikbalang spawn still has no behaviour, the painted lying path is not a collider, and the music is still the Tondo track. `level-3` has source art in `art-source/level-3/` and still plays grey-box, because the level JSON has no `art` block. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
+**Already on `v2`.** `level-1` dressed and bossed. `level-4` dressed, still no boss. `level-6` dressed as the sunny farm: the lying path is a rope bridge over the pit at x 1248 (it is not a floor), the tikbalang at 4100 is the scout (Tikbalang-X is unbuilt), and the music is still the Tondo track. `level-3` has source art in `art-source/level-3/` and still plays grey-box, because the level JSON has no `art` block. Phase 8.1 (instancing, culling, KTX2, far LOD), 8.2 (remappable keyboard), and 8.3 (reduce-motion, colourblind-safe weak points) have landed.
 
 **Andre confirmed Manananggal-7 as the `level-4` boss.** It is not built. The hangar fighter stays unused. `level-3` and `level-6` still have no boss.
 

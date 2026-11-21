@@ -20,7 +20,8 @@ Whether v0.2 grows to include the unbuilt bosses is still an open question for A
 
 Priority until that call: dress Level 3 (#14) and finish the Phase 8 remainder (#40 results card, the
 60 fps mid-laptop sign-off). The scout AI is in (#26). Still open beside that: the #11 coverage pins, the
-lying-path collider, a second mid layer, a Level 6 music track, and Tikbalang-X itself.
+a second mid layer, a Level 6 music track, and Tikbalang-X itself. The lying path is the rope
+bridge over the pit at x 1248: it reads as a floor and is not one.
 
 ## Why a remake
 
@@ -248,10 +249,11 @@ updated to match), plus the data-only dressing. Geometry is unchanged.
   `level-6-clear` is 4059 ticks after the scout (#26).
 - Packed: atlas 636 KB, sky 104 KB, garden 378 KB (about 1.12 MB for Level 6). Served total 8.53 MB / 12 MB.
 
-Still open, and each needs code rather than more painting: a fake-solid collider for the lying path, the
-Tikbalang-X boss (the spawn at 4100 is the scout from #26, not that boss; #11 is the remaining coverage
-gate), a possible second mid layer for the upper roofs, and a music track of its own (the manifest still
-points Level 6 at `level-1`).
+The lying path is `bridge_rope` painted over the pit at x 1248–1376. Nothing solid is under it, so a
+walk onto the bridge dies. The clear route still dash-jumps to the next roof. Still open, and each
+needs code rather than more painting: the Tikbalang-X boss (the spawn at 4100 is the scout from #26,
+not that boss; #11 is the remaining coverage gate), a possible second mid layer for the upper roofs,
+and a music track of its own (the manifest still points Level 6 at `level-1`).
 
 Exit: Level 6 loads dressed, the existing clear fixture completes, and e2e asserts the atlas and both
 backdrops and screenshots the start, the lift, the checkpoint roof, and the last roof. That exit is met.
