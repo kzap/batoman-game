@@ -4,10 +4,10 @@ import { INPUT_BUTTONS, NO_INPUT, type InputButton, type InputFrame } from '@cor
 export const MAX_BINDS = 4;
 
 /**
- * Keys the shell (confirm, back, pause, music, sfx) and the debug overlay own.
- * They are not gameplay binds, so a remap cannot swallow pause or the menus.
+ * Keys the shell (confirm, back, pause, music, sfx, reduce-motion) and the debug overlay own.
+ * They are not gameplay binds, so a remap cannot swallow pause, the menus, or R.
  */
-export const RESERVED_CODES: readonly string[] = ['Escape', 'Enter', 'KeyP', 'KeyM', 'KeyN', 'Backquote'];
+export const RESERVED_CODES: readonly string[] = ['Escape', 'Enter', 'KeyP', 'KeyM', 'KeyN', 'KeyR', 'Backquote'];
 
 const CODE_OK =
   /^(?:Key[A-Z]|Digit[0-9]|Arrow(?:Left|Right|Up|Down)|Space|Shift(?:Left|Right)|Numpad[0-9]|Numpad(?:Add|Subtract|Decimal)|Comma|Period|Slash|Semicolon|Quote|Bracket(?:Left|Right)|Backslash|Minus|Equal|Backspace)$/;
