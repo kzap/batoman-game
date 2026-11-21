@@ -57,6 +57,7 @@ function snap(extra: Partial<WorldSnapshot> = {}): WorldSnapshot {
     boss: null,
     movingSolids: [],
     pickups: [],
+    tide: [],
     camera: { x: 0, y: 0, shakeX: 0, shakeY: 0 },
     ...extra,
   };
@@ -109,6 +110,7 @@ describe('Sigbin view', () => {
       weakPoint: { x: 100, y: 90, w: SIGBIN.width, h: SIGBIN.weakPoint.h },
       exposed: true,
       tells: [],
+      afterimage: null,
     };
     const s = snap({ boss, enemies: [sigbinEnemy('stunned')] });
     v.present(s, s, 0);

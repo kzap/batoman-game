@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { cutsceneProblems } from '../../src/content/cutscene';
 import { levelProblems, type LevelJson } from '../../src/content/level';
 import { PATHS, forbiddenServedPathReason } from '../config';
 import { validateAssets } from './assets';
@@ -13,6 +14,7 @@ import { Report, walk } from './lib';
  *  - every recipe/backdrop spec has pipeline output and each atlas JSON matches its image (assets.ts)
  *  - every manifest level exists and passes levelProblems (src/content/level.ts)
  *  - every prop and backdrop a level's art block names exists in the built assets
+ *  - every cutscene JSON under content/cutscenes passes cutsceneProblems and names a manifest level
  */
 export function validateContent(root = '.'): Report {
   const report = new Report();
@@ -24,6 +26,7 @@ export function validateContent(root = '.'): Report {
   }
   report.note(`public/: ${pub.length} files`);
 
+  const levelIds: string[] = [];
   const manifestPath = join(root, PATHS.content, 'manifest.json');
   if (!existsSync(manifestPath)) {
     report.error(`missing ${manifestPath}`);
@@ -35,14 +38,47 @@ export function validateContent(root = '.'): Report {
       if (!Array.isArray(m.levels)) report.error('manifest.levels must be an array');
       else {
         report.note(`manifest: ${m.levels.length} levels`);
-        for (const entry of m.levels) checkLevelEntry(entry, root, tracks, report);
+        for (const entry of m.levels) {
+          checkLevelEntry(entry, root, tracks, report);
+          if (typeof entry === 'object' && entry !== null && typeof (entry as { id?: unknown }).id === 'string') {
+            levelIds.push((entry as { id: string }).id);
+          }
+        }
       }
     } catch (e) {
       report.error(`manifest.json is not valid JSON: ${(e as Error).message}`);
     }
   }
 
+  checkCutscenes(root, levelIds, report);
   return report;
+}
+
+/** Every `cutscenes/*.json` must parse, pass cutsceneProblems, and name a known level id. */
+function checkCutscenes(root: string, levelIds: readonly string[], report: Report): void {
+  const dir = join(root, PATHS.content, 'cutscenes');
+  if (!existsSync(dir)) {
+    report.note('cutscenes/: none');
+    return;
+  }
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json'));
+  report.note(`cutscenes/: ${files.length} scripts`);
+  for (const file of files) {
+    const path = join(dir, file);
+    let json: unknown;
+    try {
+      json = JSON.parse(readFileSync(path, 'utf8'));
+    } catch (e) {
+      report.error(`cutscene ${file}: not valid JSON: ${(e as Error).message}`);
+      continue;
+    }
+    const problems = cutsceneProblems(json);
+    for (const p of problems) report.error(`cutscene ${file}: ${p}`);
+    if (problems.length) continue;
+    const id = (json as { id: string }).id;
+    if (id !== file.replace(/\.json$/, '')) report.error(`cutscene ${file}: id "${id}" does not match file name`);
+    if (!levelIds.includes(id)) report.error(`cutscene ${file}: id "${id}" is not a manifest level`);
+  }
 }
 
 /** Track ids the music spec will build; an empty list when the spec is missing or broken (reported separately by the pack step). */

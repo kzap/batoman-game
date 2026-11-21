@@ -121,7 +121,7 @@ face, fire once `shotWindupTicks` in, hold as long again, arm the cooldown) and 
 with the knockback decaying by `ENEMY.knockbackDecay`, then resume with the cooldown restarted); a hit
 interrupts a shooter into `hurt`. The tikbalang's chase and stomp do not flinch. Ground enemies fall under
 `ENEMY.gravity`. Poses
-(`idle | move | shoot | hurt | death | cloaked | windup | rush | stunned | shift`) are what the renderer maps
+(`idle | move | shoot | hurt | death | cloaked | windup | commit | rush | stunned | shift`) are what the renderer maps
 to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 
 | Type | Sheet | Behaviour |
@@ -131,7 +131,9 @@ to clips; `alpha` and `flash` ride along in `EnemySnapshot`.
 | `stealth` | patroller (no sigbin art yet) | 40x60, 3 hp. Cloaked (alpha 0.15, not hittable, no contact damage) until the player is within 200 px and on the same storey (feet within `sightHeight` 128 px), decloaks over 40 ticks, then chases at 110 px/s to an 80 px stand-off and fires fast shots (340 px/s); re-cloaks beyond 420 px or when the player leaves the storey. |
 | `aswang` | patroller at 1.6x, lilac tint | The Level 1 boss, 64x96, 24 hp; see below. |
 | `sigbin` | patroller at 3.1x, near-black placeholder | The Level 3 boss, 192x188 (half the 378 px camera, within a pixel), 18 hp; see below. |
-| `tikbalang` | tikbalang | 64x44, 4 hp. The Level 6 scout, not Tikbalang-X: no warp, no perception twist, no stumble-only window (that boss is out of this version; STORY/PRD describe it). Patrols its spawn +/- `patrolDistance` in bursts (36 ticks at 80 px/s, then 24 ticks still), turning at bounds, walls and ledges. A player within 500 px on the same storey (`sightHeight` 128, either direction) is chased at 480 px/s to a 48 px standoff. It then rears for 24 ticks (`shoot` → the sheet's `stomp`) and lunges for up to 18 ticks at 420 px/s with the body lowered to 22 px. `rush` holds the stomp clip's last frame (`stomp_04`), and the view fits that quad to the live body height, so the impact matches the hurtbox a jump clears. The lunge is committed. It backs out to the standoff before standing up, then waits 90 ticks. It gives up past 640 px or off the storey. A hit while it is only patrolling knocks it back at 140 px/s; the chase does not. |
+| `manananggal` | patroller at 1.8x, warm red (placeholder) | The Level 4 boss, 64x112 whole, 64x72 flyer, 48x64 planted half, 24 hp; see below. |
+| `tikbalang` | tikbalang | 64x44, 4 hp. The Level 6 scout, not Tikbalang-X. Patrols its spawn +/- `patrolDistance` in bursts (36 ticks at 80 px/s, then 24 ticks still), turning at bounds, walls and ledges. A player within 500 px on the same storey (`sightHeight` 128, either direction) is chased at 480 px/s to a 48 px standoff. It then rears for 24 ticks (`shoot` → the sheet's `stomp`) and lunges for up to 18 ticks at 420 px/s with the body lowered to 22 px. `rush` holds the stomp clip's last frame (`stomp_04`), and the view fits that quad to the live body height, so the impact matches the hurtbox a jump clears. The lunge is committed. It backs out to the standoff before standing up, then waits 90 ticks. It gives up past 640 px or off the storey. A hit while it is only patrolling knocks it back at 140 px/s; the chase does not. |
+| `tikbalang-x` | tikbalang at 1.5x | Level 6 boss, 96x66, 18 hp. Separate from the scout. Dormant until the player is standing on the roof within 720 px. It runs between feet x 3696 and 4352 at 800 / 880 / 960 px/s. The right landing is the exit door (x 4416) minus a 16 px margin minus half the body, so the body covers x 3648–4400 and never stands inside the door. A timed jump clears the pass. A hit while the player is standing on that roof clamps the knockback so the body cannot be pushed past x 3648 into the pit. A hit off that roof is an ordinary knockback and does not move the player. A run deals contact damage even though the body is not shot-hittable; the run tell (28 / 22 / 24 ticks) is the dodge, and a held jump clears the 66 px body before phase 3's run starts. Then one straight shot (320 px/s, centre 24 px up, so a 24 px crouch still overlaps it by 5 px), a warp to the other anchor, and a second shot from that landing. The afterimage stays 20 ticks and is not a body. The stumble is the only shot-hittable state (220 ticks), and only a core hit counts, at double damage. Phases at 12 and 6 hp. While it is alive the exit rect is a solid door so a knockback cannot leave the roof. The door goes away when it dies, and the exit opens. |
 
 The boss (`boss.ts`) is dormant until the player is within 560 px (`BossSnapshot.engaged` shows the HUD
 bar). Phases by hp: 1 (24-17) walks to a 200 px stand-off and fires bursts of three shots 12 ticks apart at
@@ -150,6 +152,27 @@ The Sigbin (`sigbin.ts`) is the same contract through `BossUnit` in `boss-kit.ts
 
 Numbers are a first pass chosen so a standing player wins a patroller duel engaged at sight range and the
 route bot clears Level 1 undamaged; they live in `tuning.ts` and nowhere else.
+
+Manananggal-7 (`manananggal.ts`, tuning `MANANANGGAL`) is the Level 4 boss, on the shared `BossUnit` kit
+(`boss-kit.ts`: `PhaseGate`, `coreRect`, `exposedMultiplier`, `exposedOnlyDamage`). It stands on the roof
+at (1280, 1408) and stays dormant until the player is grounded there, within 420 px and 40 px of that
+floor. A jump that is still above the roof does not start the tell. Phase 1 (24–17 hp) waits 24 ticks,
+then the sweep tell. Its last 12 ticks are `commit` (the shoot clip), the jump beat. A jump on the first
+wind-up frame lands in the sweep; a jump as `commit` starts clears it.
+The sweep is 420 px/s with the body cut to 44 px. Standing in the path does not clear it. The chest core (in the standing plasma line) takes 2× during the
+140-tick exposed window; body hits still count. Damage stops on the phase threshold, so one hit cannot
+skip the split. The shift is 72 invulnerable ticks. Phase 2 plants the lower half on the balcony already
+passed (1000, 832). Shots on the flyer deal 0 and, after the opening hover, send it back to the shaft
+anchor (720, 1000). The opening hover is 640 ticks so the climb back down finishes before the first dive.
+The planted half then telegraphs one horizontal shot; only a conduit hit during the following 170-tick
+window deals damage, at 2×. If the return has not reached the anchor after 100 ticks, that window opens
+anyway. Phase 3 removes the half. The flyer dives the distance to the locked player plus 56 px (capped at
+320 ticks, 1120 px, so a player anywhere on the roof is in the path), then the chest core is the only
+hit, at 2×, until it dies. The exit stays shut through the 160-tick death clip (`releasesExit` once the
+body is gone). The ASWANG exit still opens on the killing tick. Before the fight a wing shadow sweeps the
+first shaft and a cable mark sits on the perch. Both are sim rects. The sheet is still the patroller
+placeholder; the planted half, the cable, and the shadow are coloured boxes. Wind in the top shaft is not
+in this fight.
 
 ### 4.7 Pickups (`src/game/pickups.ts`, tuning `PICKUP`)
 
@@ -297,8 +320,8 @@ one quad and one material each (alpha for the cloak, magenta flash while `flash 
 is one table, `ENEMY_LOOK` in `assets.ts`: sheet, scale, tint, pivot (drones pivot at their centre), the
 way the painted frames face (patroller and tikbalang right, drone left; the view mirrors to the sim's
 facing) and the clip names for idle/move/shoot (the drone's idle is `hover`); the boss is the patroller look
-at 1.6x with a lilac tint. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
-`stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
+at 1.6x with a lilac tint. Manananggal-7 is the same sheet at 1.8× tinted warm red (`#ff5a3c`). Its planted half, perch cable, and wing shadow are coloured boxes until the sheet exists. A body shorter than the full 112 px (the sweep, the dive, the flyer) is fitted to the live height, the same way the tikbalang lunge is. `enemyClips(atlas, look)` (`animator.ts`) maps poses onto that (`rush` is the walk sped up,
+`commit` plays the shoot clip, `stunned` holds the second hurt frame, death clips never loop) for a `ClipAnimator<EnemyPose>`; views of
 dropped enemies go to a per-type free list and are reused. The boss core sits on `BossSnapshot.weakPoint`
 and is shown only while `exposed` and `hp > 0`. It is a diamond, not the round plasma orb: an additive
 magenta (`#ff2d78`) fill plus a larger white (`#ffffff`) outline, both from `weakPointDiamond` in
@@ -387,14 +410,26 @@ staged level around a spotlight on Ando and tallies the HUD score (section 6.1).
 
 ### 6.1 Shell (`src/app/shell/`)
 
-The shell is the game around the level: title, level select, intro card, pause, results, game over and
-credits. `screens.ts` is a pure reducer: `reduce(screen, event, ctx)` takes a `Screen`
-(`title | levelSelect | intro | playing | paused | complete | gameover | credits`, menus carry their cursor
-`index`), a `ShellEvent` (`confirm | back | up | down | pause | levelComplete | gameOver | timeout`) and the
-level list with what is unlocked, and returns the next screen plus `Effect`s (`startLevel {levelId, newRun}`,
-`restartLevel`, `resume`, `freeze`, `quitToTitle`). Menus wrap; a locked level does not start; the last
-level's clear leads to the credits; game over offers retry or quit. `tests/unit/app/screens.test.ts`
-covers every transition.
+The shell is the game around the level: title, level select, intro card, optional level-intro cutscene,
+pause, results, game over and credits. `screens.ts` is a pure reducer: `reduce(screen, event, ctx)` takes a
+`Screen` (`title | levelSelect | intro | cutscene | playing | paused | complete | gameover | credits |
+controls`, menus carry their cursor `index`, cutscene carries `levelId` and `beat`), a `ShellEvent`
+(`confirm | back | up | down | pause | levelComplete | gameOver | timeout | stopListen | skip`) and the
+level list with what is unlocked plus `cutsceneBeats` (beat counts for levels that have a script), and
+returns the next screen plus `Effect`s (`startLevel {levelId, newRun}`, `restartLevel`, `resume`, `freeze`,
+`quitToTitle`, `resetBindings`, `cutsceneBeat {levelId, beat}`). Menus wrap; a locked level does not start;
+the last level's clear leads to the credits; game over offers retry or quit. After the LEVEL N intro card,
+confirm or the intro timeout opens `cutscene` when `cutsceneBeats[levelId] > 0`, otherwise it resumes play.
+On the cutscene screen each beat auto-advances after `holdMs` (default 3200 ms, shell wall-clock), Enter or a
+click/tap on `#overlay` skips ahead one line, and Esc (`skip`) finishes the script and resumes play — Esc does
+**not** return to the title during a cutscene. The sim stays `paused` (tick 0) for the whole dialog.
+`?level=` / `?edit=1` still skip the intro card; `?cutscene=0` skips scripts on the title path. Scripts live
+in `src/content/cutscenes/<id>.json` (static JSON via `?url&no-inline`), parsed by `src/content/cutscene.ts`.
+Portraits name a packed atlas (frame or animation) or a level backdrop stem with an absolute crop, plus an
+optional tint; the overlay fits the crop into a 120 px box so a backdrop stall does not dwarf Ando idle.
+Level 1 sari-sari uses the painted SARI-SARI STORE from the mid `town` backdrop (`crop` 80,400,280,280), not
+an enemy sheet. `tests/unit/app/screens.test.ts` and `tests/unit/app/cutscene.test.ts` cover the transitions
+and the runner.
 
 `Shell` (`shell.ts`) interprets the effects against the `App`, `Overlay`, `GameAudio` and the save store.
 Keys: Enter confirm, Esc back/pause, P pause, arrows or W/S move the cursor, M and N toggle music and sfx
@@ -413,17 +448,21 @@ reads. `options.reduceMotion` is `true`, `false`, or `null`. `null` (missing or 
 stops following the OS. `?reduceMotion=1` or `0` overrides the session without writing until R is pressed.
 The title and pause hints show `R motion on/off`, and `#overlay` carries `data-reduce-motion`.
 
-`startLevel` fetches the level and its assets and calls `replaceLevel` (or
-`restartLevel` when it is the current level); the intro card advances on Enter or after `SHELL_TIMING.intro`
-2.2 s (re-armed while the level is still loading). One timer slot holds the pending delayed event and every
-screen change clears it, so a quit or restart cannot be followed by a stale card. Each new World is watched
-for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per type), `complete` (clear bonus 500 + 100 per
-heart from the event's `hp`, result recorded, `levelComplete` after 0.9 s) and `gameover` (`gameOver` after
-1.2 s); a completion or game over that lands while paused still shows its card. The run keeps the total
-score and the current level's share: a restart or retry takes the level's points back, and the save records
-the level's own score, not the run's. `Overlay` (`overlay.ts`) renders the current screen into `#overlay` as
-a card (`data-screen` names it), dims the canvas on the title, level select, credits and game over, and
-hides the HUD on screens without play; `CREDITS` holds the credits text.
+`startLevel` fetches the level and its assets (and the level's cutscene script when one exists) and calls
+`replaceLevel` (or `restartLevel` when it is the current level); the intro card advances on Enter or after
+`SHELL_TIMING.intro` 2.2 s (re-armed while the level is still loading). Cutscene beats auto-advance on
+`holdMs` (or `DEFAULT_HOLD_MS`) via the same shell timer slot; Enter and overlay click/tap skip ahead.
+Camera pans are presentation-only (`App.setCutsceneCamera`); they never call `World.step`. One timer slot
+holds the pending delayed event and every screen change clears it, so a quit or restart cannot be followed
+by a stale card. Each new World is watched for `enemyDeath` (score, `score.ts`: 100/150/200/500/1000 per
+type), `complete` (clear bonus 500 + 100 per heart from the event's `hp`, result recorded, `levelComplete`
+after 0.9 s) and `gameover` (`gameOver` after 1.2 s); a completion or game over that lands while paused
+still shows its card. The run keeps the total score and the current level's share: a restart or retry takes
+the level's points back, and the save records the level's own score, not the run's. `Overlay` (`overlay.ts`)
+renders the current screen into `#overlay` as a card (`data-screen` names it), dims the canvas on the title,
+level select, credits and game over, and hides the HUD on screens without play; the cutscene card is a bottom
+dialog with an atlas portrait (optional tint/crop; typography-only only if the sheet failed to resolve);
+`CREDITS` holds the credits text.
 
 The results card (`complete`) does not use that flat dim. `results.ts` is the presentation, pure and
 unit-tested. `tallyPlan` splits the HUD score into the points brought in from earlier levels plus three
@@ -526,7 +565,7 @@ and re-plans; a `RecipeError` returns 400 and leaves the file untouched.
 
 `buildAtlas` (`atlas.ts`) crops each frame using the label map (so touching neighbours are excluded),
 scales, extrudes edges by 1 px with a 1 px gutter, and packs with a skyline packer into the smallest
-power-of-two texture up to `ATLAS_MAX_SIZE` (4096). Output is lossless WebP plus JSON in the `AtlasJson`
+power-of-two texture up to `ATLAS_MAX_SIZE` (4096). Output is WebP at quality 90 (`alphaQuality` 100, effort 6) plus JSON in the `AtlasJson`
 shape (`src/content/atlas.ts`, shared with the renderer): frame rects, per-frame pivots in atlas pixels,
 and animations `{ fps, loop, frames }`. Frame names are `<animation>_<NN>` for sheets and the prop name for
 catalogues.
@@ -543,8 +582,10 @@ horizontally without a seam. Level 1 ships `sky` (opaque, from `background.png`)
 `skyline` (opaque) and `street` (keyed from magenta `#fd6cf7` at tolerance 96, lossy at quality 90); both
 erase the watermark with `fill`.
 
-Atlases stay lossless WebP. Their alpha-tested edges pick up block artefacts under Basis, and they are not
-the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`, Basis Universal via
+Atlases are lossy WebP at quality 90 with alpha quality 100. Quality does not go below 90, per
+art-director review; `sharp_yuv` worsens Batoman's max error, so it stays off. They are not KTX2:
+alpha-tested edges pick up block artefacts under Basis. Backdrops are also written as ETC1S KTX2
+(`tools/pack/ktx2.ts`, Basis Universal via
 `@babylonjs/ktx2encoder`, quality 192, effort 1, no mipmaps) beside the WebP. Source rows are top-down, and
 a compressed upload cannot set `UNPACK_FLIP_Y_WEBGL`, so the encoder sets Basis `flipY` and stores the
 bottom row first. Without that, every KTX2 backdrop (levels 1, 4 and 6; level 3 has no art) draws upside
@@ -563,14 +604,16 @@ whose supercompression scheme (header offset 44) is not BasisLZ (1).
 
 | Atlas | Frames | Texture | Size |
 |---|---|---|---|
-| `batoman` | 48 | 1024x1024 | 622 KB |
-| `patroller` | 32 | 1024x1024 | 555 KB |
-| `drone` | 34 | 1024x512 | 420 KB |
-| `tikbalang` | 30 | 1024x1024 | 437 KB |
-| `level-1-props` | 24 | 1024x1024 | 769 KB |
-| `level-4-props` | 27 | 1024x1024 | 791 KB |
+| `batoman` | 48 | 1024x1024 | 200 KB |
+| `patroller` | 32 | 1024x1024 | 239 KB |
+| `drone` | 34 | 1024x512 | 218 KB |
+| `tikbalang` | 30 | 1024x1024 | 216 KB |
+| `level-1-props` | 24 | 1024x1024 | 162 KB |
+| `level-3-props` | 23 | 1024x1024 | 125 KB |
+| `level-4-props` | 27 | 1024x1024 | 230 KB |
+| `level-6-props` | 29 | 1024x1024 | 199 KB |
 
-Sizes are as printed by `npm run assets` (KiB). Level 1 backdrops, WebP / KTX2: `sky` 35 / 66 KB (far LOD,
+Sizes are quality-90 WebP as printed by `npm run assets` (KiB, rounded). Level 1 backdrops, WebP / KTX2: `sky` 35 / 66 KB (far LOD,
 1008x528), `town` 225 / 183 KB. Level 4: `skyline` 57 / 88 KB (far LOD, 1008x548), `street` 166 / 412 KB.
 The KTX2 is what a desktop GPU samples; the WebP is the software-GL fallback. Both are in the payload
 budget because `dist/` carries every file.
@@ -619,8 +662,8 @@ objects and point arrays on one line, so rects and decor entries diff line by li
 |---|---|---|---|
 | `level-1` | Tondo Sublevel Docks | 6400x768 | Six floor segments split by a 96 px pit, a 256 px pit crossed on a mover, a 128 px dash gap, a 96 px pit and a second dash gap; a one-way to drop through, hop blocks, a plateau, two spike strips, two checkpoints, two upper ledges reached by one-way steps; fully dressed (58 decor quads). Enemies: patrollers at 700, 3400 and 5000, drones at 1500 and 4300, the `aswang` boss at 6150 on the last floor (the arena is the 672 px final segment; the exit stays shut until it dies). One HP Up, a 16×16 rect at (92, 128), above the opening: a jump in the spawn column collects it and the clear route walks under it |
 | `level-3` | Quiapo Underground Chapel | 3584x1024 | Entrance ledge, drop to the nave, three stepping stones over a water death zone, a crusher pillar and spikes, a four-step one-way ladder up a shaft, upper gallery with a pillar and spikes. Dressed: `level-3-props`, far `nave` and mid `chapel`, `midFloorY` 448 so the chapel band stands on the nave rather than the spawn ledge, 77 decor quads (platforms, pews, santos, votives, painted spikes, backward prints, eyes in the dark, a Sigbin silhouette in the flood). Enemies: a cloaked `stealth` at 800, a drone at 1900, a patroller at 3100, the `sigbin` boss at 3424 on the gallery (the exit stays shut until it dies). No new arena walls; the existing gallery floor is the fight. |
-| `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, the exit at the far right of the roof. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony |
-| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px pit under a painted rope bridge, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 145 decor quads from `level-6-props` (`bridge_rope` over the pit), far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000 (burst chase and stomp; the route jumps the lunge). The manifest still plays the `level-1` track |
+| `level-4` | NSA Tower Exterior | 1600x1664 | Vertical: a street with a spike strip, then a climb up the outside of a tower (solid core on the right, 1152-1600) by one-way rungs zigzagging between a left scaffold column and the tower face, a first balcony, a hanging lift (`platform_hanging_a`, 432-816) up to a second solid balcony, a hanging column above it that forms a wall-jump shaft against the tower face, three upper rungs to the roof at 1408, a 16×128 parapet at x 1584 so a knockback at the right lip cannot walk off, the exit at the far right of the roof. The left lip (x 1152) still drops onto the shaft rungs. Two checkpoints. Fully dressed (86 decor quads: corrugated wall tiles on the tower face, plank and cable rungs, street plates, ladders, neon, lamps, barrels, tires, stairs, a gantry at the exit). Enemies: patrollers at 500 (street) and 1540 (roof, in front of the exit), drones at 960 (first rungs) and 900 (upper rungs), a `stealth` on the second balcony, the `manananggal` boss at 1280 on the roof. The exit stays shut until the death clip ends. The clear route kills the whole body, drops back to the second balcony for the planted half, kills the flyer, then climbs to the exit |
+| `level-6` | Abandoned Rooftop Garden | 4480x896 | Six rooftops at different heights with a hop, a 128 px pit under a painted rope bridge, a vertical lift (`platform_pallet`), a 128 px drop, planter one-way steps; spikes, a checkpoint. Dressed: 145 decor quads from `level-6-props` (`bridge_rope` over the pit), far `sky` and a mirrored 2560-wide `garden` mid layer that tiles without a seam. Enemies: a drone at 1000, a patroller at 2300, a tikbalang scout at 4100 with `patrolDistance` 36 so its body stays east of the spikes at 4000, and Tikbalang-X at 4300 (the exit stays shut, and is a solid door, until the boss dies). The manifest still plays the `level-1` track |
 
 Level 3 is dressed from `art-source/level-3/` (`nave` and `chapel` backdrops, a props recipe, and an `art`
 block with `midFloorY` 448). The mid chapel band's painted floor is pinned to that y at the live camera,
@@ -634,9 +677,10 @@ zone covered by a `water_` prop draws no teal plane, so the painted flood is the
 between the second and third roofs (x 1248–1376, both tops at y 224). No solid crosses that span.
 The death zone `{ x: 1248, y: 0, w: 128, h: 32 }` is the floor: walking onto the bridge is a pit death.
 `levelProblems` still passes, because the bridge is decor and the pit is an ordinary death zone.
-`level-6-clear` dash-jumps to the true landing on the next roof, so that fixture stays on its previous
-pin. `level-6-lying-path` walks off the lip and dies. The tikbalang at 4100 is the scout: it burst-chases
-and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge. Level 4 was added in Phase 7b because its
+`level-6-clear` dash-jumps that pit, kills the scout and Tikbalang-X, and is pinned at 4810 ticks (it was 4059 before the boss, then 5550 when the right anchor sat inside the exit door). The rounded x is 4393, the first pixel whose body overlaps the exit.
+`level-6-lying-path` walks off the lip and dies. The tikbalang at 4100 is the scout: it burst-chases
+and stomps, `patrolDistance` 36 keeps it off the spikes at 4000, and the route jumps the lunge.
+Tikbalang-X stands at 4300 and is not that scout. `level-6-tikbalang-phases` reaches phase 3 and then the death; the clear skips phase 3 by landing extra hits in one stumble. Level 4 was added in Phase 7b because its
 art does exist; it is the first vertical level and is why drones and stealths got a `sightHeight`, so an
 enemy on one storey does not react to the player climbing past on another. Enemy placement follows one rule the routes rely on: a patroller must be
 killable from a spot the player reaches before entering its sight range, with no solid between (a
@@ -679,12 +723,12 @@ arrive (late enough that a three-shot burst passes under one jump) and finishes 
 and no enemy shot is in flight. `bossFight()` adds: jump a rush 0.2 s before contact, back off while the
 boss winds up within 150 px, hold fire for a nova while it is stunned, stop when it dies. `sigbinFight()`
 holds on the gallery clear of the spikes, and once `BossSnapshot.exposed` and the core has dropped to the
-standing line it steps in for three plasma hits, then returns. Steps keep state,
+standing line it steps in for three plasma hits, then returns. `tikbalangBossFight()` jumps the run and the straight shot, and fires while Tikbalang-X is exposed. The run deals contact even though `hittable` is false: the tell is the dodge. Steps keep state,
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 3889
 (through the Sigbin kill; the clear route dashes off each lunge, so it is 189 ticks longer than the stand-still version),
-`level-4-clear` 2802, `level-6-clear` 4059, all without damage, plus `level-1-hp-up` (a jump in place at the
+`level-4-clear` 4961, `level-6-clear` 4810 (4059 before the boss; 5550 while the right anchor was inside the door), `level-5-clear` 2622 (grey-box, no boss; tide locked in #67 by Andre, Nov 21), all without damage, plus `level-6-tikbalang-phases` (6525 ticks, hp 3, reaches phase 3 while the boss is alive, then the death) and `level-1-hp-up` (a jump in place at the
 spawn until the heart is taken; pins hp 4 and maxHp 4) and `level-6-lying-path` (walks onto the
 painted bridge and dies in the pit, hp 0, x still in the gap). `input-remap` (section 4.5) is a separate
 105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
@@ -728,8 +772,10 @@ drives the sim through `?level=`), `editor.spec.ts` (section 11), `shell.spec.ts
 select under `?unlockAll=1` (any level starts, the save stays unwritten) and `?unlockAll=0` (only the
 first level starts); credits, intro card, pause freezing the tick count and resuming, quit; music element playing
 after the first key and M saving the mute; the full loop title to credits by replaying all four fixtures
-in sequence, asserting the save gains only the next id after Level 1 and then every id, then a reload with
-`?unlockAll=0` showing those saved unlocks and best times), `a11y.spec.ts` (the OS
+in sequence with `?cutscene=0`, asserting the save gains only the next id after Level 1 and then every id, then a reload with
+`?unlockAll=0` showing those saved unlocks and best times), `cutscene.spec.ts` (title-path Level 1 dialog
+shows, Enter skip-ahead, Esc skip-all, click skip-ahead, auto-advance on holdMs; `simTicks` stays 0 until
+play; `?cutscene=0` skips the script), `a11y.spec.ts` (the OS
 reduce-motion preference starts the option and zeros grain, R stores a boolean that wins on reload,
 `?reduceMotion=1` overrides without writing until R), and `level.spec.ts` (loading
 `?level=level-1` directly): a check that

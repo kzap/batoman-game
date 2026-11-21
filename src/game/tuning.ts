@@ -359,6 +359,177 @@ export const SIGBIN = {
 } as const;
 
 /**
+ * Level 6 boss, Tikbalang-X. Not the scout. It runs between two anchors, fires
+ * one straight shot, then warps: the afterimage stays and takes no damage, and
+ * the body can be hurt only during the stumble, on the core. The run still
+ * deals contact while the body is not shot-hittable. Same pattern each phase,
+ * faster. Ticks at 120 Hz.
+ */
+export const TIKBALANG_X = {
+  width: 96,
+  height: 66,
+  hp: 18,
+  label: 'TIKBALANG-X',
+  /**
+   * Dormant until the player is standing on the roof, within this range.
+   * The last roof runs from x 3648 to 4480.
+   */
+  engageRange: 720,
+  /** Feet-to-feet. The roof is the fight; the platform a storey below is not. */
+  sightHeight: 40,
+  /** Hp where phases 2 and 3 begin. One nova on the core (3 × 2) crosses each. */
+  phaseHp: [12, 6] as readonly number[],
+  phaseShiftTicks: 72,
+  /**
+   * Feet x of the left landing. The 96 px body then starts at the roof edge, x 3648.
+   */
+  leftFeet: 3696,
+  /**
+   * The exit rect is a solid door at this x while the boss is alive. The right
+   * landing is derived from it so the whole body sits left of the door.
+   */
+  doorX: 4416,
+  /** Gap between the body's right edge and the door. A run that lands inside the door is blocked and never crosses back. */
+  doorMargin: 16,
+  /** doorX − doorMargin − width/2. Body covers x 4304–4400, 16 px clear of the door. */
+  rightFeet: 4416 - 16 - 96 / 2,
+  /** A timed jump clears the 96 px body: the sweep crosses a standing player inside the jump's airborne window. */
+  runSpeed: [800, 880, 960] as readonly number[],
+  /**
+   * Face the next anchor before moving. Phase 3 is 24 ticks: a held jump
+   * clears the 66 px body at tick 21, so the run starts after the jump is up.
+   */
+  runWindupTicks: [28, 22, 24] as readonly number[],
+  shotWindupTicks: [36, 28, 22] as readonly number[],
+  /** Hold the firing pose after the shot leaves, so the muzzle flash reads. */
+  shotHoldTicks: 16,
+  shotSpeed: 320,
+  /**
+   * Shot centre above the feet. The enemy shot is 10 px tall, so the box is
+   * y+19..29. A 24 px crouch overlaps it by 5 px. Crouch is not a dodge.
+   */
+  muzzleY: 24,
+  /** The stomp before the warp. The body has not moved yet. */
+  warpWindupTicks: [48, 36, 28] as readonly number[],
+  /** Ticks the decoy stays up after the body has moved. */
+  warpTicks: 20,
+  /** Long enough to land, then put three shots into the core, after a jump that opened the window. */
+  exposedTicks: [220, 220, 220] as readonly number[],
+  /** Chest band a standing plasma (muzzle 30, 6 px tall) and a nova both cross. */
+  weakPoint: { y: 18, h: 24 },
+  weakPointMultiplier: 2,
+  afterimageAlpha: 0.45,
+  hurtTicks: 8,
+  deathTicks: 180,
+} as const;
+
+/**
+ * Level 4 boss, Manananggal-7. One health bar, three phases. Phase 1 is the
+ * whole body on the roof. Phase 2 plants the lower half on the balcony the
+ * climb already passed (`perchDx`/`perchDy` from the spawn feet) and the flyer
+ * does not stay dead. Phase 3 is the flyer alone. A hit cannot skip a phase:
+ * damage stops on the current threshold until the shift.
+ *
+ * The perch offsets are Level 4's second balcony relative to a roof spawn at
+ * (1280, 1408): (1000, 832). The anchor is the shaft the flyer returns to.
+ */
+export const MANANANGGAL = {
+  width: 64,
+  height: 112,
+  flyerHeight: 72,
+  baseWidth: 48,
+  baseHeight: 64,
+  hp: 24,
+  /** Hp at which phases 2 and 3 begin. The bar cannot fall through one of these until that phase's shift. */
+  phaseHp: [16, 8] as readonly number[],
+  engageRange: 420,
+  /** Feet within this of the roof. The rung 64 px below the roof does not wake it. */
+  storeyBand: 40,
+  /** Still on the perch before the first tell, and between sweeps. */
+  idleTicks: 24,
+  windupTicks: 48,
+  /**
+   * Last ticks of the sweep tell. Pose `commit` (the shoot clip) so render and
+   * audio can mark the jump. A jump on the first wind-up frame lands in the
+   * sweep; a jump as this beat starts clears the 44 px body.
+   */
+  commitTicks: 12,
+  /** Same speed family as the ASWANG rush, so a jump 0.2 s before contact clears it. */
+  sweepSpeed: 420,
+  /** Low enough that a full jump's feet clear it. Standing in the path does not. */
+  sweepHeight: 44,
+  sweepMaxTicks: 80,
+  exposedTicks: 140,
+  /** In the standing plasma line (muzzle at 30, shot 6 px tall). */
+  core: { y: 24, h: 16, w: 40 },
+  coreMultiplier: 2,
+  phaseShiftTicks: 72,
+  /** Planted half, feet, relative to the spawn feet. Far enough right that a shot from the balcony's left edge is jumpable. */
+  perchDx: -280,
+  perchDy: -576,
+  /**
+   * Shaft hover the flyer returns to, feet, relative to the spawn feet.
+   * Left of the balcony and the hanging column, so the climb back up is open air.
+   */
+  anchorDx: -560,
+  anchorDy: -408,
+  /** First hover after the split: long enough to drop back to the perch before the dive. */
+  openingHoverTicks: 640,
+  hoverTicks: 30,
+  diveWindupTicks: 56,
+  diveSpeed: 420,
+  diveHeight: 36,
+  /**
+   * Safety cap, not the dive's length. The dive ends once it has passed the
+   * locked target by `divePast`. 420 px/s for 320 ticks is 1120 px, so from the
+   * shaft (body x 688) the right edge clears the roof lip at 1600 with margin.
+   */
+  diveTicks: 320,
+  /** How far past the locked player x the dive travels before it ends. */
+  divePast: 56,
+  returnSpeed: 360,
+  returnMaxTicks: 100,
+  baseTellTicks: 48,
+  baseShotSpeed: 240,
+  baseMuzzleY: 28,
+  punishTicks: 170,
+  /** Conduit on the planted half, also in the standing plasma line. */
+  conduit: { y: 22, h: 16, w: 48 },
+  hurtTicks: 8,
+  deathTicks: 160,
+  /** Wing shadow swept across the first shaft while the fight has not started. */
+  shadowX0: 640,
+  shadowX1: 1040,
+  shadowY: 220,
+  shadowW: 96,
+  shadowH: 28,
+  shadowPeriod: 200,
+  /** Dropped-cable mark on the perch, shown before the half is planted. */
+  perchMarkH: 6,
+} as const;
+
+/**
+ * Pasig tide (Level 5). One `world.tick` clock for every tide volume.
+ * Locked in #67 by Andre, Nov 21: rise 240, hold 60, fall 240, lowTop 560,
+ * highTop 600. Bakunawa attack clocks stay open for #64.
+ */
+export const TIDE = {
+  /** Ticks the surface climbs from `lowTop` to `highTop`. Locked in #67 by Andre, Nov 21. */
+  riseTicks: 240,
+  /** Ticks the surface holds at `highTop`. Locked in #67 by Andre, Nov 21. */
+  holdTicks: 60,
+  /** Ticks the surface falls from `highTop` to `lowTop`. Locked in #67 by Andre, Nov 21. */
+  fallTicks: 240,
+  /** Water surface y at the low point of the period. Locked in #67 by Andre, Nov 21. */
+  lowTop: 560,
+  /** Water surface y at the high point (the painted tide mark). Locked in #67 by Andre, Nov 21. */
+  highTop: 600,
+} as const;
+
+/** One full rise-hold-fall cycle, in ticks. */
+export const TIDE_PERIOD_TICKS = TIDE.riseTicks + TIDE.holdTicks + TIDE.fallTicks;
+
+/**
  * Camera, in sim pixels and ticks. The view size is the design viewport at the
  * gameplay plane (16:9 at 32 px per stage unit with the Phase 0 camera); the
  * renderer may show slightly more or less at other aspect ratios.

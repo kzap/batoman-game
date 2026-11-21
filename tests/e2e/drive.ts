@@ -25,6 +25,7 @@ export async function advance(page: Page, ticks: number): Promise<void> {
 export type SimUntil =
   | { readonly x: number }
   | { readonly y: number }
+  | { readonly maxY: number }
   | { readonly engaged: true }
   | { readonly phase: number }
   | { readonly exposed: true }
@@ -46,6 +47,7 @@ export async function stepUntil(page: Page, until: SimUntil, timeout = 30_000, s
         if ('engaged' in until) return h.boss?.engaged === true;
         if ('phase' in until) return (h.boss?.phase ?? 0) >= until.phase;
         if ('exposed' in until) return h.weakPoint !== null;
+        if ('maxY' in until) return h.player.y <= until.maxY;
         if ('x' in until) return h.player.x > until.x;
         return h.player.y >= until.y;
       };

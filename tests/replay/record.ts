@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLAYER } from '@game/tuning';
 import type { WorldSnapshot } from '@game/world';
-import { clearRoute, collectHpUp, lyingPathRoute } from './bots';
+import { clearRoute, collectHpUp, lyingPathRoute, tikbalangPhaseRoute } from './bots';
 import { FIXTURE_DIR, loadLevel, record, toFixture, type Policy } from './harness';
 
 /**
@@ -23,13 +23,24 @@ interface Run {
 }
 
 const runs: Run[] = [
-  ...['level-1', 'level-3', 'level-4', 'level-6'].map((level) => ({
+  ...['level-1', 'level-3', 'level-4', 'level-6', 'level-5'].map((level) => ({
     name: `${level}-clear`,
     level,
     seed: 1,
     policy: () => clearRoute(level),
-    maxTicks: 6000,
+    maxTicks: level === 'level-4' ? 12000 : level === 'level-6' ? 9000 : 6000,
   })),
+  {
+    name: 'level-6-tikbalang-phases',
+    level: 'level-6',
+    seed: 1,
+    policy: tikbalangPhaseRoute,
+    maxTicks: 12000,
+    done: (snap) =>
+      (snap.boss?.hp ?? 1) <= 0
+      && !snap.enemies.some((e) => e.type === 'tikbalang' && e.hp > 0 && e.pose !== 'death')
+      && !snap.projectiles.some((p) => p.kind === 'enemy'),
+  },
   {
     name: 'level-6-lying-path',
     level: 'level-6',
@@ -62,4 +73,5 @@ for (const r of runs) {
   if (r.name.endsWith('-clear') && written.expect.status !== 'complete') process.exitCode = 1;
   if (r.name === 'level-1-hp-up' && rec.final.player.maxHp === PLAYER.maxHp) process.exitCode = 1;
   if (r.name === 'level-6-lying-path' && (written.expect.hp !== 0 || written.expect.x < 1200 || written.expect.x > 1400)) process.exitCode = 1;
+  if (r.name === 'level-6-tikbalang-phases' && (written.expect.hp <= 0 || (rec.final.boss !== null && rec.final.boss.hp > 0))) process.exitCode = 1;
 }

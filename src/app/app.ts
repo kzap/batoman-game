@@ -12,6 +12,7 @@ import { presentedCamera, type WeakPointCue } from '@render/motion';
 import type { PostOptions } from '@render/post';
 import { Stage } from '@render/stage';
 import { toUnits } from '@render/units';
+import { fitPortraitDisplay } from '@content/cutscene';
 import type { LevelJson } from '@content/level';
 import type { Bindings } from './bindings';
 import { DebugOverlay } from './debug';
@@ -181,6 +182,8 @@ export class App {
   /** Called with every new World so the shell can subscribe (audio, score, screen changes). */
   onWorld: ((world: World) => void) | null = null;
   private editorCamera: EditorCamera | null = null;
+  /** Presentation-only centre (sim px) while a level-intro cutscene pans; null clears it. */
+  private cutsceneCamera: { x: number; y: number } | null = null;
   private readonly debug: DebugOverlay;
   private readonly hud: Hud;
   private replay: Generator<InputFrame> | null = null;
@@ -314,6 +317,7 @@ export class App {
     const wasEdit = this.mode === 'edit';
     this.mode = mode;
     this.hooks.mode = mode;
+    if (mode === 'play') this.cutsceneCamera = null;
     if (mode === 'edit') this.keyboard.detach();
     else {
       this.keyboard.attach();
@@ -327,6 +331,94 @@ export class App {
 
   setEditorCamera(cam: EditorCamera): void {
     this.editorCamera = cam;
+  }
+
+  /**
+   * Override the presented camera without stepping the sim. Used by level-intro
+   * cutscene pans; pass `null` to return to the snapshot camera (player follow).
+   */
+  setCutsceneCamera(cam: { x: number; y: number } | null): void {
+    this.cutsceneCamera = cam;
+    if (cam) this.hooks.camera = { x: cam.x, y: cam.y };
+  }
+
+  /**
+   * Resolve a cutscene portrait against loaded atlases or the level's backdrops.
+   * Returns null when the sheet/crop is missing so the overlay can fall back to
+   * typography-only. Atlas crops are relative to the frame; backdrop crops are
+   * absolute image pixels. Display size is fitted to {@link fitPortraitDisplay}.
+   */
+  resolvePortrait(portrait: {
+    atlas?: string;
+    backdrop?: string;
+    frame?: string;
+    animation?: string;
+    tint?: number;
+    crop?: { x: number; y: number; w: number; h: number };
+  }): {
+    imageUrl: string;
+    /** Source crop in image pixels. */
+    frame: { x: number; y: number; w: number; h: number };
+    /** Full image size, for CSS `background-size` when scaling the box. */
+    imageSize: { w: number; h: number };
+    /** CSS box size (fitted into the portrait slot). */
+    display: { w: number; h: number };
+    tint: number | null;
+  } | null {
+    if (portrait.backdrop) return this.resolveBackdropPortrait(portrait.backdrop, portrait.crop, portrait.tint);
+    if (!portrait.atlas) return null;
+    const sheet = portrait.atlas === 'batoman' ? this.assets.batoman : this.assets.enemies.get(portrait.atlas);
+    if (!sheet) return null;
+    let frameName = portrait.frame;
+    if (!frameName && portrait.animation) {
+      const clip = sheet.json.animations[portrait.animation];
+      frameName = clip?.frames[0];
+    }
+    if (!frameName) return null;
+    const frame = sheet.json.frames[frameName];
+    if (!frame) return null;
+    const crop = portrait.crop;
+    const rect = crop
+      ? { x: frame.x + crop.x, y: frame.y + crop.y, w: crop.w, h: crop.h }
+      : { x: frame.x, y: frame.y, w: frame.w, h: frame.h };
+    if (rect.w <= 0 || rect.h <= 0) return null;
+    const imageUrl = `${import.meta.env.BASE_URL}assets/atlases/${sheet.json.image}`;
+    return {
+      imageUrl,
+      frame: rect,
+      imageSize: { w: sheet.json.width, h: sheet.json.height },
+      display: fitPortraitDisplay(rect.w, rect.h),
+      tint: portrait.tint ?? null,
+    };
+  }
+
+  private resolveBackdropPortrait(
+    stem: string,
+    crop: { x: number; y: number; w: number; h: number } | undefined,
+    tint: number | undefined,
+  ): {
+    imageUrl: string;
+    frame: { x: number; y: number; w: number; h: number };
+    imageSize: { w: number; h: number };
+    display: { w: number; h: number };
+    tint: number | null;
+  } | null {
+    if (!crop || crop.w <= 0 || crop.h <= 0) return null;
+    const art = this.level.art;
+    const levelArt = this.assets.levelArt;
+    if (!art || !levelArt) return null;
+    const slot = Object.entries(art.backdrops).find(([, file]) => file === stem)?.[0];
+    if (!slot || !levelArt.backdrops.has(slot)) return null;
+    const meta = levelArt.backdrops.get(slot)!.meta;
+    if (crop.x + crop.w > meta.width || crop.y + crop.h > meta.height) return null;
+    const imageUrl = `${import.meta.env.BASE_URL}assets/backdrops/${this.level.id}/${stem}.webp`;
+    return {
+      imageUrl,
+      frame: { x: crop.x, y: crop.y, w: crop.w, h: crop.h },
+      imageSize: { w: meta.width, h: meta.height },
+      display: fitPortraitDisplay(crop.w, crop.h),
+      tint: tint ?? null,
+    };
   }
 
   /**
@@ -470,6 +562,11 @@ export class App {
       this.levelView.placeMidFloor(this.editorCamera.y);
       const shake = this.current.camera;
       this.hooks.shake = { simX: shake.shakeX, simY: shake.shakeY, x: 0, y: 0 };
+    } else if (this.cutsceneCamera) {
+      const cam = this.cutsceneCamera;
+      this.hooks.camera = { x: cam.x, y: cam.y };
+      this.hooks.shake = { simX: 0, simY: 0, x: 0, y: 0 };
+      this.stage.setCamera(toUnits(cam.x), toUnits(cam.y));
     } else {
       const cam = lerp(this.previous.camera, this.current.camera, alpha);
       const shake = this.current.camera;
