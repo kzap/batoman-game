@@ -102,7 +102,9 @@ jobs:
   e2e:
     name: Playwright e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # Sigbin + Manananggal atlases push the gate suite to ~11m of tests alone;
+    # 12m cancelled a green run during artifact upload after "34 passed".
+    timeout-minutes: 18
     needs: check
     steps:
       - uses: actions/checkout@v4
