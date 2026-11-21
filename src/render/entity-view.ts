@@ -18,7 +18,7 @@ import {
 import type { AtlasJson } from '@content/atlas';
 import type { EnemyType, Rect } from '@content/level';
 import type { EnemyPose } from '@game/enemies';
-import { PROJECTILE } from '@game/tuning';
+import { PROJECTILE, SIGBIN } from '@game/tuning';
 import type { BossSnapshot, EnemySnapshot, PlayerSnapshot, ProjectileKind, ProjectileSnapshot, SolidSnapshot, WorldSnapshot } from '@game/world';
 import { ClipAnimator, clipFrameIndex, enemyClips, PlayerAnimator, playerClips, type Clip } from './animator';
 import { ENEMY_LOOK, type GameAssets, type LoadedAtlas } from './assets';
@@ -161,7 +161,7 @@ export class EntityView {
     this.core.add(this.coreFill, this.coreRing);
     this.core.visible = false;
     this.playerOutline = this.outline(this.outlineMaterial);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < SIGBIN.footprintCap; i++) {
       const material = new MeshBasicMaterial({ color: PALETTE.warmAmber, transparent: true, opacity: 0, depthWrite: false });
       const mesh = new Mesh(this.unitBox, material);
       mesh.visible = false;

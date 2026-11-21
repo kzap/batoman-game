@@ -129,9 +129,14 @@ export class Sigbin extends BossUnit {
   }
 
   override get hittable(): boolean {
-    // The lunge is solid (contact hurts). The cloak, the telegraph and the shift are not.
-    // Shots during the lunge still deal 0: damageFor requires the core to be open.
+    // Shots can land during the lunge and the recovery. The lunge still deals 0:
+    // damageFor requires the core to be open. Cloak, telegraph and shift are not shot-hittable.
     return this.alive && (this.fsm.state === 'lunge' || this.fsm.state === 'recover');
+  }
+
+  /** The lunge is the only contact attack. Recovery is the punish window, not a second hit. */
+  override get harmsOnContact(): boolean {
+    return this.alive && this.fsm.state === 'lunge';
   }
 
   override get alpha(): number {

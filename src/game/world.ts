@@ -259,8 +259,9 @@ export class World {
         this.bossPhaseSeen = e.phase;
         this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
       }
-      // Touching a live, visible enemy hurts; knockback away from its centre.
-      if (e.hittable && !this.player.dead && overlaps(this.player.body, e.body)) {
+      // Touching an enemy that attacks on contact hurts; knockback away from its centre.
+      // `hittable` is "a shot can land". The Sigbin is hittable while recovering and does not touch-damage then.
+      if (e.harmsOnContact && !this.player.dead && overlaps(this.player.body, e.body)) {
         this.damage(ENEMY.contactDamage, this.player.body.centerX < e.body.centerX ? -1 : 1);
       }
     }

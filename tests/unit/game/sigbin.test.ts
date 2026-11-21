@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { bossBarVisible } from '@app/hud';
 import { parseLevel } from '@content/level';
 import { NO_INPUT, type InputFrame } from '@core/sim/input';
 import { Sigbin } from '@game/enemies';
@@ -180,19 +181,35 @@ describe('Sigbin', () => {
     expect(s.pose).toBe('rush');
     expect(s.alpha).toBe(1);
     expect(s.hittable).toBe(true);
-    // The strike is solid but not punishable.
+    // The strike is solid but not punishable by shots. Contact during the lunge is the attack.
     expect(s.hit(1, 1, true)).toBe(0);
     expect(s.health.hp).toBe(SIGBIN.hp);
+    expect(s.harmsOnContact).toBe(true);
+    w.health.invuln = 0;
+    const beforeTouch = w.health.hp;
+    w.player.body.place(s.body.centerX - PLAYER.width / 2, s.body.y);
+    w.step();
+    expect(w.health.hp).toBe(beforeTouch - 1);
+    // That step was the first tick of the lunge, so one fewer remains before recovery.
     const toRecover = until(w, () => s.state === 'recover');
-    expect(toRecover).toBe(SIGBIN.lungeTicks + 1);
+    expect(toRecover).toBe(SIGBIN.lungeTicks);
     const travelled = Math.abs(s.body.centerX - x0);
     expect(travelled).toBeGreaterThan(SIGBIN.lungeSpeed * (SIGBIN.lungeTicks - 1) * (1 / 120) - 2);
     expect(travelled).toBeLessThan(SIGBIN.lungeSpeed * SIGBIN.lungeTicks * (1 / 120) + 2);
     expect(s.exposed).toBe(true);
     expect(s.pose).toBe('stunned');
-    expect(w.snapshot().boss!.exposed).toBe(true);
+    expect(s.hittable).toBe(true);
+    expect(s.harmsOnContact).toBe(false);
     // The core starts on the spine, above a standing shot.
     expect(s.weakPointRect().y).toBe(s.body.y + SIGBIN.weakPointRaised.y);
+    // Recovery is the punish window. Overlapping the body does not hurt.
+    w.health.invuln = 0;
+    w.health.hp = PLAYER.maxHp;
+    w.player.body.place(s.body.centerX - PLAYER.width / 2, s.body.y);
+    run(w, 8);
+    expect(s.state).toBe('recover');
+    expect(w.health.hp).toBe(PLAYER.maxHp);
+    expect(w.snapshot().boss!.exposed).toBe(true);
   });
 
   it('takes damage only on the settled weak point, and a standing shot misses while the core is still on the spine', () => {
@@ -280,8 +297,18 @@ describe('Sigbin', () => {
     expect(s.exposed).toBe(false);
     expect(defeated).toBe(true);
     expect(w.exitOpen).toBe(true);
-    expect(w.snapshot().boss).not.toBeNull();
-    expect(w.snapshot().boss!.hp).toBe(0);
+    // The bar stays through the death clip, empty, and drops when the boss leaves the snapshot.
+    let shown = 0;
+    while (w.snapshot().boss) {
+      expect(w.snapshot().boss!.hp).toBe(0);
+      expect(w.snapshot().boss!.engaged).toBe(true);
+      expect(bossBarVisible(w.snapshot().boss)).toBe(true);
+      shown++;
+      w.step();
+    }
+    expect(shown).toBeGreaterThan(SIGBIN.deathTicks - 40);
+    expect(shown).toBeLessThanOrEqual(SIGBIN.deathTicks);
+    expect(bossBarVisible(null)).toBe(false);
     w.player.body.place(1900, 64);
     w.step();
     expect(w.status).toBe('complete');
