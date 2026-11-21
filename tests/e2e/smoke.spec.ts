@@ -23,16 +23,19 @@ test.describe('smoke', () => {
     });
     page.on('pageerror', (err) => consoleErrors.push(err.message));
 
-    await page.goto('/');
+    await page.goto('/?cutscene=0');
     await page.waitForFunction(() => window.__batoman?.ready === true);
     await waitForFrames(page, 30);
 
     // The title shows over the frozen first level; Enter starts the run and the sim.
+    // `?cutscene=0` skips the Level 1 dialog so this smoke path stays intro → play.
     const title = await readHooks(page);
     expect(title!.screen).toBe('title');
     expect(title!.lockstep).toBe(false);
     expect(title!.simTicks).toBe(0);
     await expect(page.locator('#overlay')).toContainText('BATOMAN');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__batoman?.screen === 'intro');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__batoman?.screen === 'playing');
     await page.waitForFunction(() => (window.__batoman?.simTicks ?? 0) > 30);
