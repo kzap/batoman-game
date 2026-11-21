@@ -5,6 +5,7 @@ import type { App } from '../app';
 import type { GameAudio } from '../audio';
 import type { Overlay } from './overlay';
 import { CONTROL_ROWS, toggleBinding } from '../bindings';
+import { selectableLevels } from './progression';
 import { loadSave, recordClear, resetBindings, resolveReduceMotion, setBindings, setOption, writeSave, type KeyValueStore, type SaveData } from './save';
 import { reduce, TITLE, type Effect, type Screen, type ShellEvent } from './screens';
 import { clearPoints, killPoints } from './score';
@@ -196,7 +197,8 @@ export class Shell {
       return;
     }
     const before = this.screen;
-    const { screen, effects } = reduce(before, event, { levels: this.levelIds, unlocked: this.save.unlocked });
+    const unlocked = selectableLevels(this.save.unlocked, this.levelIds);
+    const { screen, effects } = reduce(before, event, { levels: this.levelIds, unlocked });
     this.menuSound(before, screen, event);
     this.setScreen(screen, effects);
   }
@@ -225,6 +227,7 @@ export class Shell {
     this.overlay.render(this.screen, {
       levels: LEVELS,
       save: this.save,
+      selectable: selectableLevels(this.save.unlocked, this.levelIds),
       score: this.run.score,
       result: this.run.result,
       reduceMotion: this.effectiveReduceMotion(),

@@ -14,7 +14,7 @@ const ready = (page: Page) => page.waitForFunction(() => window.__batoman?.ready
 const screen = (page: Page, kind: string, timeout = 10_000) => page.waitForFunction((k) => window.__batoman?.screen === k, kind, { timeout });
 
 test.describe('shell', () => {
-  test('title menu: level select shows only the first level unlocked, credits open and close', async ({ page }) => {
+  test('title menu: level select can start any level, credits open and close', async ({ page }) => {
     await page.goto('/');
     await ready(page);
     await expect(page.locator('.shell-card[data-screen="title"]')).toBeVisible();
@@ -23,17 +23,20 @@ test.describe('shell', () => {
     await screen(page, 'levelSelect');
     const items = page.locator('.shell-menu li');
     await expect(items).toHaveCount(4);
-    await expect(items.nth(0)).not.toHaveClass(/shell-locked/);
-    await expect(items.nth(1)).toHaveClass(/shell-locked/);
-    await expect(items.nth(2)).toHaveClass(/shell-locked/);
-    await expect(items.nth(3)).toHaveClass(/shell-locked/);
+    for (let i = 0; i < 4; i++) await expect(items.nth(i)).not.toHaveClass(/shell-locked/);
     await page.screenshot({ path: resolve(SHOTS, 'shell-level-select.png') });
-    // A locked level does not start.
+    // The playtest flag does not write the unlocked list. Nothing has been saved yet.
+    expect(await page.evaluate(() => localStorage.getItem('batoman.v2.save'))).toBeNull();
+    // The second level starts even though the save has never unlocked it.
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    expect((await hooks(page)).screen).toBe('levelSelect');
-    await page.keyboard.press('Escape');
-    await screen(page, 'title'); // back lands on "Level select"; one down is "Credits"
+    await screen(page, 'intro');
+    await expect(page.locator('#overlay')).toContainText('Quiapo Underground Chapel');
+    expect(await page.evaluate(() => localStorage.getItem('batoman.v2.save'))).toBeNull();
+    // Back to the title without racing the intro card's timer while the level loads.
+    await page.goto('/');
+    await ready(page);
+    await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await screen(page, 'credits');
