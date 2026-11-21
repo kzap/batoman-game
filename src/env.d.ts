@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   /** Set to `1` only by `npm run build:e2e`. Absent from `npm run build` and Pages. */
   readonly VITE_E2E_LOCKSTEP?: string;
+  /** `false` or `0` locks level select to the save. Unset stays on for the playtest build. */
+  readonly VITE_UNLOCK_ALL_LEVELS?: string;
 }
 
 /** Injected by vite.config.ts `define` from package.json version. */

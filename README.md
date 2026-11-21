@@ -46,6 +46,9 @@ Gate e2e loads gameplay with `?lockstep=1` (e2e build only) and checks sim ticks
 CI runs the perf check as a blocking job. The run fails unless fps is greater than 1 and ticks/s is greater than 4.
 The job uploads `perf-results.json` and writes a job summary.
 
+Level select starts every level unless the build sets `VITE_UNLOCK_ALL_LEVELS=false` (or `0`).
+`?unlockAll=0` or `1` overrides that for one page load. The save's unlock list is unchanged either way.
+
 ---
 
 ## Project structure
