@@ -657,7 +657,7 @@ boss winds up within 150 px, hold fire for a nova while it is stunned, stop when
 so `ROUTES[id]` is a factory and `clearRoute(id)` builds a fresh policy per recording.
 `npm run replay:trace -- <level-id>` prints where each step finished, every hurt and death, and the
 outcome, for authoring. Fixtures: `level-1-clear` 5567 ticks (through the boss kill), `level-3-clear` 2642,
-`level-4-clear` 2802, `level-6-clear` 3954, all without damage, plus `level-1-hp-up` (a jump in place at the
+`level-4-clear` 2802, `level-6-clear` 4059, all without damage, plus `level-1-hp-up` (a jump in place at the
 spawn until the heart is taken; pins hp 4 and maxHp 4) and `level-6-lying-path` (walks onto the
 painted bridge and dies in the pit, hp 0, x still in the gap). `input-remap` (section 4.5) is a separate
 105-tick pinned run that checks key bindings collapse to the same packed bits; `replay:record` leaves it
