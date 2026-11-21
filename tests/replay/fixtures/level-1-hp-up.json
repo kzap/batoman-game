@@ -1,0 +1,1 @@
+{"level":"level-1","seed":1,"inputs":[[16,4]],"expect":{"status":"playing","ticks":4,"lives":3,"hp":4,"maxHp":4,"x":88}}

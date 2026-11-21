@@ -19,6 +19,8 @@ export interface ResultsView {
 export interface OverlayModel {
   readonly levels: readonly ManifestEntry[];
   readonly save: SaveData;
+  /** Level ids the player may start. The save list while `VITE_UNLOCK_ALL_LEVELS` is off. */
+  readonly selectable: readonly string[];
   readonly score: number;
   /** Result of the level just finished (complete screen). */
   readonly result: { readonly ticks: number; readonly hp: number } | null;
@@ -124,7 +126,7 @@ export class Overlay {
             (i) => {
               const id = m.levels[i]!.id;
               const best = m.save.best[id];
-              const locked = !m.save.unlocked.includes(id);
+              const locked = !m.selectable.includes(id);
               return { locked, note: locked ? 'locked' : best ? `best ${ticksToClock(best.ticks)}  ${formatScore(best.score)}` : '' };
             },
           ),

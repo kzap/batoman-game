@@ -51,6 +51,8 @@ flowchart LR
 
 - [ ] `npm run ci` passes locally
 - [ ] Every commit has a DCO `Signed-off-by:` trailer (`git commit -s`)
+<!-- Posted feedback from a teammate other than the author. Lanes: Quinn (gameplay and QA), Ari (infra and tooling), Sining (art and audio), Tala (docs and plan). -->
+- [ ] Reviewed by: @<teammate>
 - [ ] No raw art added to `public/`; new heavy files went to `art-source/`
 - [ ] Docs updated where behaviour changed
 - [ ] Visible changes have screenshots or a clip, embedded so GitHub renders them

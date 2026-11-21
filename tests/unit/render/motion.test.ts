@@ -5,6 +5,7 @@ import {
   chargeGlowScale,
   enemyHurtTint,
   invulnOpacity,
+  pickupBob,
   presentedCamera,
   presentedGrainOpacity,
   presentedShake,
@@ -78,6 +79,12 @@ describe('reduce-motion presentation', () => {
     expect(invulnOpacity(true, PRESENTATION.invuln.halfPeriodTicks, false)).toBe(1);
     expect(invulnOpacity(true, 0, true)).toBe(PRESENTATION.invuln.steadyOpacity);
     expect(invulnOpacity(true, 6, true)).toBe(PRESENTATION.invuln.steadyOpacity);
+
+    const quarter = PRESENTATION.pickup.bobPeriodTicks / 4;
+    expect(pickupBob(quarter, false)).toBeCloseTo(PRESENTATION.pickup.bobAmplitude);
+    expect(pickupBob(0, false)).toBeCloseTo(0);
+    expect(pickupBob(quarter, true)).toBe(0);
+    expect(pickupBob(0, true)).toBe(0);
 
     const base = 0x88ffaa;
     const flash = 0xff2d78;

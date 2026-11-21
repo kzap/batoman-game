@@ -67,7 +67,7 @@ export class DebugOverlay {
     this.el.textContent = [
       `fps ${this.fps.toFixed(0)}  ticks/s ${this.ticksPerSecond.toFixed(0)}  frame ${stats.frameMs.toFixed(1)} ms  dropped ${stats.droppedFrames}`,
       `tick ${snap.tick}  entities ${stats.entities}  status ${snap.status}  lives ${snap.lives}`,
-      `player ${p.x.toFixed(1)}, ${p.y.toFixed(1)}  ${p.w}x${p.h}  ${p.pose}  facing ${p.facing > 0 ? 'R' : 'L'}  hp ${p.hp}${p.invulnerable ? '  inv' : ''}`,
+      `player ${p.x.toFixed(1)}, ${p.y.toFixed(1)}  ${p.w}x${p.h}  ${p.pose}  facing ${p.facing > 0 ? 'R' : 'L'}  hp ${p.hp}/${p.maxHp}${p.invulnerable ? '  inv' : ''}`,
       `camera ${c.x.toFixed(1)}, ${c.y.toFixed(1)}  shake ${c.shakeX.toFixed(1)}, ${c.shakeY.toFixed(1)}`,
     ].join('\n');
   }
