@@ -505,7 +505,9 @@ the fill problem. Backdrops are also written as ETC1S KTX2 (`tools/pack/ktx2.ts`
 not a software implementation (SwiftShader, llvmpipe). Software GL advertises those extensions and then
 decompresses them on the CPU, which is slower than the WebP path, so CI stays on WebP. ETC2 and ASTC are
 not selected: on desktop Linux they are often emulated. The transcoder is the three.js Basis wasm, loaded
-only when a KTX2 is requested.
+only when a KTX2 is requested. `KTX2Loader` also imports a Zstandard decoder for raw KTX2; the production
+build replaces that module with `src/render/ktx2-zstd-stub.ts`, because these files are BasisLZ and the
+decoder is a wasm blob the code budget would otherwise count. A Zstd backdrop would throw from the stub.
 
 ### 7.4 Outputs and payload
 
@@ -557,8 +559,9 @@ duplicate checkpoint ids; `tools/validate` runs it on every level listed in `src
 `src/content/manifest.json` lists the levels in play order, each with `id`, `file`, a display `name` and
 its `music` track, plus `titleMusic` for the shell. `src/content/levels.ts` reads it at runtime:
 `levelIdFromQuery(search)` resolves `?level=` (default: the first manifest entry), `manifestEntry(id)`
-returns the entry, and `loadLevelById(id)` imports the level JSON through `import.meta.glob`, so each level
-is its own chunk (Level 1 with its decor is 4 KB). Level files are
+returns the entry, and `loadLevelById(id)` fetches the level JSON. Vite emits each file with
+`import.meta.glob` (`?url&no-inline`) as a static asset rather than a JS module, so the level data stays
+out of the code budget, including levels under the 4 KB inline limit. Level files are
 written in the layout of `src/content/format.ts` (`formatLevel`): two-space indent, primitive-only
 objects and point arrays on one line, so rects and decor entries diff line by line.
 

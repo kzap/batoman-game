@@ -25,6 +25,11 @@ describe('ktx2 backdrop encode', () => {
     const encoded = await encodeBackdropKtx2(data, 8, 8);
     expect(Buffer.from(encoded.subarray(0, 12)).toString('hex')).toBe('ab4b5458203230bb0d0a1a0a');
     expect(encoded.byteLength).toBeGreaterThan(12);
+    // vkFormat 0 (undefined) and supercompression 1 (BasisLZ). The runtime
+    // drops three's Zstd decoder on this contract; scheme 2 would need it back.
+    const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength);
+    expect(view.getUint32(12, true)).toBe(0);
+    expect(view.getUint32(44, true)).toBe(1);
     await expect(encodeBackdropKtx2(data, 6, 8)).rejects.toThrow(/multiple of 4/);
   });
 });

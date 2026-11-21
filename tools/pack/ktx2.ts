@@ -11,6 +11,8 @@ import { KTX2Encoder } from '@babylonjs/ktx2encoder';
  *
  * Quality 192 / effort 1 is the pack default: high enough that a keyed
  * skyline does not band, fast enough that `npm run assets` stays a build step.
+ * The output is BasisLZ (supercompression scheme 1). The production build
+ * omits three's Zstd decoder on that fact; see `ktx2-zstd-stub.ts`.
  */
 const ETC1S_QUALITY = 192;
 const ETC1S_EFFORT = 1;
