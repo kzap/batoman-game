@@ -19,7 +19,8 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
   const level = loadLevel(id);
 
   it('is completable by the scripted route, taking no damage', () => {
-    const rec = record(level, 1, clearRoute(id), 6000);
+    const cap = id === 'level-4' ? 12000 : 6000;
+    const rec = record(level, 1, clearRoute(id), cap);
     expect(rec.final.status).toBe('complete');
     expect(rec.final.lives).toBe(3);
     expect(rec.final.player.hp).toBe(3);
@@ -36,7 +37,7 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
   });
 
   it('is deterministic: two runs of the same inputs match snapshot for snapshot', () => {
-    const rec = record(level, 7, clearRoute(id), 6000);
+    const rec = record(level, 7, clearRoute(id), id === 'level-4' ? 12000 : 6000);
     const a = new World(level, 7);
     const b = new World(level, 7);
     for (const f of rec.frames) {
@@ -47,7 +48,7 @@ describe.each(['level-1', 'level-3', 'level-4', 'level-6'])('%s under replay', (
   });
 
   it('records a fixture that round-trips through the RLE encoding', () => {
-    const rec = record(level, 1, clearRoute(id), 6000);
+    const rec = record(level, 1, clearRoute(id), id === 'level-4' ? 12000 : 6000);
     const fx = toFixture(id, 1, rec);
     expect(fx.inputs.reduce((n, [, c]) => n + c, 0)).toBe(rec.frames.length);
     expect(replay(fx).tick).toBe(rec.final.tick);

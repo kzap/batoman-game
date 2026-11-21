@@ -72,10 +72,16 @@ export interface BossSnapshot {
   readonly weakPoint: Rect;
   /** The punish window is open. ASWANG doubles core hits; the Sigbin takes damage only then. */
   readonly exposed: boolean;
-  /** HUD name ("ASWANG PROTOTYPE", "SIGBIN UNIT"). */
+  /** HUD name ("ASWANG PROTOTYPE", "SIGBIN UNIT", "MANANANGGAL-7"). */
   readonly label: string;
   /** Footprints and other non-body tells. Empty for a boss that leaves none. */
   readonly tells: readonly BossTell[];
+  /** Planted half. Absent or null while the boss is still one body. */
+  readonly planted?: Rect | null;
+  /** Wing-shadow hint. Absent or null once the fight has started, and for bosses that have none. */
+  readonly shadow?: Rect | null;
+  /** Mark on a perch the player will have to return to. Absent or null when the boss has none. */
+  readonly perch?: Rect | null;
 }
 
 export interface SolidSnapshot extends Rect {
@@ -181,10 +187,10 @@ export class World {
     return this.enemies.find((e): e is BossUnit => e instanceof BossUnit) ?? null;
   }
 
-  /** The exit works only once any boss is dead. */
+  /** The exit works only once the boss says the fight is over. */
   get exitOpen(): boolean {
     const boss = this.boss;
-    return boss === null || !boss.alive;
+    return boss === null || boss.releasesExit;
   }
 
   private cameraTarget(): CameraTarget {
@@ -270,10 +276,15 @@ export class World {
         this.bossPhaseSeen = e.phase;
         this.events.emit('bossPhase', { phase: e.phase, x: e.body.centerX, y: e.body.y + e.body.h / 2 });
       }
-      // Touching an enemy that attacks on contact hurts; knockback away from its centre.
-      // `hittable` is "a shot can land". The Sigbin is hittable while recovering and does not touch-damage then.
-      if (e.harmsOnContact && !this.player.dead && overlaps(this.player.body, e.body)) {
-        this.damage(ENEMY.contactDamage, this.player.body.centerX < e.body.centerX ? -1 : 1);
+      // Contact is the boxes `harmsOnContact` selects. One body for everyone except a
+      // split boss. The Sigbin is hittable while recovering and does not touch-damage then.
+      if (!this.player.dead) {
+        for (const box of e.contactBoxes()) {
+          if (!overlaps(this.player.body, box)) continue;
+          const mid = box.x + box.w / 2;
+          this.damage(ENEMY.contactDamage, this.player.body.centerX < mid ? -1 : 1);
+          break;
+        }
       }
     }
     // Finished dying, or fell out of the level (a pushed drone, a mis-tuned patrol): drop it.
@@ -303,24 +314,28 @@ export class World {
   /** A player shot against every hittable enemy it overlaps; plasma stops at the first, nova carries on. */
   private hitEnemies(p: Projectile, box: AABB): void {
     for (const e of this.enemies) {
-      if (!e.hittable || !overlaps(box, e.body) || p.hitIds.includes(e.id)) continue;
-      const weakPoint = e instanceof BossUnit && overlaps(box, e.weakPointRect());
+      if (!e.hittable || p.hitIds.includes(e.id)) continue;
       const dir: 1 | -1 = p.vx < 0 ? -1 : 1;
-      const dealt = e.hit(p.damage, dir, weakPoint);
-      if (dealt === 0) continue;
-      this.events.emit('enemyHit', { id: e.id, type: e.type, x: p.x, y: p.y, dir, damage: dealt, weakPoint });
-      if (!e.alive) {
-        const centre = { x: e.body.centerX, y: e.body.y + e.body.h / 2 };
-        this.events.emit('enemyDeath', { id: e.id, type: e.type, ...centre });
-        if (e instanceof BossUnit) {
-          this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
-          this.events.emit('bossDefeated', centre);
+      for (const part of e.hurtboxes()) {
+        if (!overlaps(box, part.box)) continue;
+        const weakPoint = part.core !== null && overlaps(box, part.core);
+        const dealt = e.hit(p.damage, dir, weakPoint, part.id);
+        if (dealt === 0) continue;
+        this.events.emit('enemyHit', { id: e.id, type: e.type, x: p.x, y: p.y, dir, damage: dealt, weakPoint });
+        if (!e.alive) {
+          const centre = { x: e.body.centerX, y: e.body.y + e.body.h / 2 };
+          this.events.emit('enemyDeath', { id: e.id, type: e.type, ...centre });
+          if (e instanceof BossUnit) {
+            this.camera.shake(CAMERA.deathShake.amplitude, CAMERA.deathShake.ticks);
+            this.events.emit('bossDefeated', centre);
+          }
         }
-      }
-      p.hitIds.push(e.id);
-      if (!p.pierce) {
-        this.projectiles.release(p);
-        return;
+        p.hitIds.push(e.id);
+        if (!p.pierce) {
+          this.projectiles.release(p);
+          return;
+        }
+        break;
       }
     }
   }
@@ -443,6 +458,9 @@ export class World {
       weakPoint: boss.weakPointRect(),
       exposed: boss.exposed,
       tells: boss.tells(),
+      planted: boss.plantedRect(),
+      shadow: boss.shadowRect(),
+      perch: boss.perchRect(),
     };
   }
 

@@ -10,6 +10,7 @@
   "solids": [
     { "x": 0, "y": 0, "w": 1600, "h": 64 },
     { "x": 1152, "y": 64, "w": 448, "h": 1344 },
+    { "x": 1584, "y": 1408, "w": 16, "h": 128 },
     { "x": 864, "y": 768, "w": 288, "h": 64 },
     { "x": 992, "y": 896, "w": 64, "h": 256 }
   ],
@@ -49,7 +50,8 @@
     { "type": "drone", "x": 960, "y": 150, "patrolDistance": 60 },
     { "type": "stealth", "x": 1100, "y": 832 },
     { "type": "drone", "x": 900, "y": 1290, "patrolDistance": 40 },
-    { "type": "patroller", "x": 1540, "y": 1408, "patrolDistance": 20 }
+    { "type": "patroller", "x": 1540, "y": 1408, "patrolDistance": 20 },
+    { "type": "manananggal", "x": 1280, "y": 1408 }
   ],
   "art": {
     "props": "level-4-props",

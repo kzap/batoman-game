@@ -100,7 +100,7 @@ Each boss is an NSA weapon wearing a folklore name. The prototype has not been g
 |---|---|---|---|
 | **ASWANG prototype** | The class itself, before a species | 1 — Tondo docks (`level-1`) | Canon. Shipped. |
 | **Sigbin Unit** | Sigbin, the backward shadow-creature | 2 — Quiapo chapel (`level-3`) | Canon. Not placed. About half the screen height ([issue #21](https://github.com/kzap/batoman-game/issues/21)). |
-| **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Confirmed by Andre. Sheet shows the tower. Not built. |
+| **Manananggal-7** | Manananggal, the self-segmenting flyer | 3 — NSA tower (`level-4`) | Confirmed by Andre. The fight is in. The sheet is not packed. |
 | **Tikbalang-X** | Tikbalang, the trickster that loses travelers | 4 — Rooftop garden (`level-6`) | Canon. The mechanical horse on the shipped sheet ([issue #21](https://github.com/kzap/batoman-game/issues/21)). Spawn only; the world never creates the actor. |
 | **Bakunawa-Prime** | Bakunawa, the serpent that swallows the moon | 5 — Destroyed block (no file yet) | Canon. Final boss. |
 
